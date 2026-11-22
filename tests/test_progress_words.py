@@ -733,7 +733,9 @@ def _line(
 
     async def read():
         state = await job_state(store, child, runs_here=False)
-        return progress_line(child, state, await run_origin(store, child))(events)
+        return progress_line(
+            child, state, await run_origin(store, child, continuing=state.continuing)
+        )(events)
 
     return asyncio.run(read())
 
@@ -795,7 +797,11 @@ def test_a_paused_job_this_process_continues_shows_the_line_of_its_continue():
     async def read():
         envelope = await store.owned(paused.id, "alice")
         state = await job_state(store, envelope, runs_here=True)
-        return progress_line(envelope, state, await run_origin(store, envelope))
+        return progress_line(
+            envelope,
+            state,
+            await run_origin(store, envelope, continuing=state.continuing),
+        )
 
     assert asyncio.run(read())(paused.events) == {
         "stage": 2,
@@ -812,7 +818,11 @@ def test_a_job_that_is_not_running_has_no_progress_line():
     async def read():
         envelope = await store.owned(paused.id, "alice")
         state = await job_state(store, envelope, runs_here=False)
-        return progress_line(envelope, state, await run_origin(store, envelope))
+        return progress_line(
+            envelope,
+            state,
+            await run_origin(store, envelope, continuing=state.continuing),
+        )
 
     with pytest.raises(ValueError, match="not running"):
         asyncio.run(read())

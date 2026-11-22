@@ -1387,7 +1387,7 @@ def test_the_store_rows_follow_the_unsaved_store_choices(browser, tmp_path):
         page.select_option('tr[data-key="store.object_store"] select', "gcs")
         page.wait_for_selector('tr[data-key="store.object_bucket"]')
         page.locator('tr[data-key="store.database_url"] input').fill(
-            "postgresql+asyncpg://analysis@db.example.com/analysis"
+            "postgresql+asyncpg://katra@db.example.com/katra"
         )
         page.locator("#settings-search").click()
         page.wait_for_selector('tr[data-key="store.database_credentials"]')

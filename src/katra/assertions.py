@@ -140,6 +140,7 @@ __all__ = [
     "CatalogStatus",
     "Conflict",
     "Contradiction",
+    "FacetAnswer",
     "Origin",
     "OwnerQuestion",
     "Predicate",
@@ -503,8 +504,11 @@ MAX_QUALIFIERS = 6
 #: on "no".
 ProtectiveAnswer = Literal["yes", "no"]
 
-#: The answers an owner gives a part of a question kind, beside ``unknown``.
-FACET_ANSWERS: tuple[str, ...] = ("yes", "no", "not applicable")
+#: An answer an owner gives a part of a question kind, beside ``unknown``.
+FacetAnswer = Literal["yes", "no", "not applicable"]
+
+#: Each :data:`FacetAnswer`, in the order a page offers them.
+FACET_ANSWERS: tuple[FacetAnswer, ...] = get_args(FacetAnswer)
 
 
 @dataclass(frozen=True)

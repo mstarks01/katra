@@ -141,7 +141,7 @@ DELIBERATE: dict[tuple[str, str], str] = {
     " control step, for the reason audit.yaml gives.",
     (
         "docs/HTTP-API.md",
-        "/etc/analysis/logging.json",
+        "/etc/katra/logging.json",
     ): "an example log configuration that an operator writes on the host of the"
     " service. The section prints its content, and the repository holds no"
     " deployment files.",

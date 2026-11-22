@@ -137,9 +137,15 @@ def continues(record: JobRecord, *, runs_here: bool) -> bool:
     return record.waits_to_continue() and runs_here
 
 
-async def run_origin(store: JobStore, record: JobRecord) -> RunOrigin:
+async def run_origin(
+    store: JobStore, record: JobRecord, *, continuing: bool
+) -> RunOrigin:
     """What the run of ``record`` does first, and the job it resumes. The
     envelope leaves the resumption out, so this reads it by name.
+
+    ``continuing`` is the ``continuing`` fact of the Job State of ``record``.
+    Where it holds, the run that follows resumes ``record`` itself, so it
+    starts from ``record`` and not from the job that ``record`` resumes.
 
     Raises :class:`LookupError` where the job resumes a job the store lacks,
     and :class:`UnreadableSchema` where it resumes a job that
@@ -155,14 +161,16 @@ async def run_origin(store: JobStore, record: JobRecord) -> RunOrigin:
         if not readable(stored):
             raise UnreadableSchema(stored.schema_version)
         parent = stored
-    return RunOrigin(run_start_of(parent), resumption, parent)
+    resumed = record if continuing else parent
+    return RunOrigin(run_start_of(resumed), resumption, parent)
 
 
 def run_start_of(parent: JobRecord | None) -> RunStart:
     """What a run does first, from the job it resumes: ``None`` for a run
     that resumes no job. A parent that waits to continue for its Controls
     alone (``continues_at_pause``) gives ``controls``. Each other parent gave
-    answers. ``tests/test_progress_words.py`` holds the answer to
+    answers. :func:`run_origin` is its one caller.
+    ``tests/test_progress_words.py`` holds the answer to
     :func:`~katra.pipeline.entry_of`."""
     if parent is None:
         return "description"

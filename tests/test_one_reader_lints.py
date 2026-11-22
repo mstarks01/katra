@@ -2444,6 +2444,14 @@ def test_a_job_s_source_texts_are_mapped_once():
     assert _sites(_maps_label_to_text) == [("src/katra/execution.py", "source_texts")]
 
 
+def test_only_the_run_origin_reads_what_a_run_does_first():
+    """Only ``run_origin`` calls ``run_start_of``, so a page reads what a run
+    does first from the one read and never picks the job it starts from."""
+    assert _sites(lambda node: _calls(node, "run_start_of")) == [
+        ("src/katra/job_state.py", "run_origin")
+    ]
+
+
 def test_the_silent_causes_are_spelled_once():
     """Only ``losses.SILENT`` spells the causes that name nothing at the place;
     every other site reads that constant."""

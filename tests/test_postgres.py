@@ -35,7 +35,7 @@ from katra.sql_store import (
 from katra.store_settings import StoreConfigError
 from tests.sql_stores import admin, lane_env, lane_url, new_database, upgrade
 
-URL = "postgresql+asyncpg://analysis@db.internal:5432/jobs"
+URL = "postgresql+asyncpg://katra@db.internal:5432/jobs"
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ class TestTheSettings:
                 "takes no query",
             ),
             (
-                {"KATRA_DATABASE_URL": "postgresql+asyncpg://analysis@/jobs"},
+                {"KATRA_DATABASE_URL": "postgresql+asyncpg://katra@/jobs"},
                 "needs a user and a network host",
             ),
             (
@@ -119,7 +119,7 @@ class TestTheSettings:
                 "needs a user and a network host",
             ),
             (
-                {"KATRA_DATABASE_URL": "postgresql+asyncpg://analysis@db.internal"},
+                {"KATRA_DATABASE_URL": "postgresql+asyncpg://katra@db.internal"},
                 "names no database",
             ),
             (
@@ -152,8 +152,8 @@ class TestTheSettings:
     @pytest.mark.parametrize(
         ("url", "port"),
         [
-            ("postgresql+asyncpg://analysis@db.internal:6432/jobs", 6432),
-            ("postgresql+asyncpg://analysis@db.internal/jobs", 5432),
+            ("postgresql+asyncpg://katra@db.internal:6432/jobs", 6432),
+            ("postgresql+asyncpg://katra@db.internal/jobs", 5432),
         ],
     )
     def test_the_port_of_the_url_or_the_default_reaches_the_driver(
@@ -165,7 +165,7 @@ class TestTheSettings:
     def test_the_libpq_variables_do_not_change_the_connection(self, env, monkeypatch):
         """asyncpg fills each argument that the store does not pass from the
         ``PG*`` variables, so the store passes each one that names a server."""
-        env["KATRA_DATABASE_URL"] = "postgresql+asyncpg://analysis@db.internal/jobs"
+        env["KATRA_DATABASE_URL"] = "postgresql+asyncpg://katra@db.internal/jobs"
         clean = connect_args(env)
         libpq = {"PGPORT": "6543", "PGDATABASE": "other", "PGHOST": "elsewhere"}
         for name, value in libpq.items():
@@ -255,7 +255,7 @@ class TestTheIamCredentials:
         token = tmp_path / "token"
         token.write_text("a-workload-token")
         monkeypatch.setenv("AWS_WEB_IDENTITY_TOKEN_FILE", str(token))
-        monkeypatch.setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/analysis")
+        monkeypatch.setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/katra")
         signed = asyncio.run(connect_args(iam_env)["password"]())
         assert signed.startswith("db.internal:5432/?Action=connect")
 
@@ -274,7 +274,7 @@ class TestTheIamCredentials:
         assert rds.requests[0] == {
             "DBHostname": "db.internal",
             "Port": 5432,
-            "DBUsername": "analysis",
+            "DBUsername": "katra",
             "Region": "eu-west-1",
         }
 
@@ -284,7 +284,7 @@ class TestTheIamCredentials:
         rds = StubRds()
         stub_boto3(monkeypatch, rds)
         monkeypatch.setenv("PGPORT", "6543")
-        iam_env["KATRA_DATABASE_URL"] = "postgresql+asyncpg://analysis@db.internal/jobs"
+        iam_env["KATRA_DATABASE_URL"] = "postgresql+asyncpg://katra@db.internal/jobs"
         args = connect_args(iam_env)
         asyncio.run(args["password"]())
         assert rds.requests[0]["Port"] == args["port"] == 5432

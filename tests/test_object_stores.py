@@ -360,7 +360,7 @@ class TestTheIamMode:
         token = tmp_path / "token"
         token.write_text("a-workload-token")
         monkeypatch.setenv("AWS_WEB_IDENTITY_TOKEN_FILE", str(token))
-        monkeypatch.setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/analysis")
+        monkeypatch.setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/katra")
         start(iam(env))
 
     def test_a_static_pair_in_the_environment_stops_the_startup(self, env):

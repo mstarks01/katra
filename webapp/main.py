@@ -2238,7 +2238,9 @@ def create_app(
         if state.page_status == "running":
             # A job that runs is a job of this process, so each node of its
             # events is a node of a graph of its selection.
-            origin = await run_origin(workspace.store, record)
+            origin = await run_origin(
+                workspace.store, record, continuing=state.continuing
+            )
             payload["progress"] = progress_line(record, state, origin)(record.events)
         payload["selection"] = [
             {"name": selection.name, "options": dict(selection.options)}
@@ -2517,13 +2519,7 @@ def create_app(
                 run_id,
                 # A job that ended before this request can be a record of an
                 # earlier build, with node names that no graph holds.
-                None
-                if ended(record)
-                else progress_line(
-                    record,
-                    await workspace.state(record),
-                    await run_origin(workspace.store, record),
-                ),
+                None if ended(record) else await _running_line(workspace, record),
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
@@ -2751,6 +2747,16 @@ def _frame(event: EndFrame, data: dict[str, object]) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+async def _running_line(
+    workspace: Workspace, record: JobRecord
+) -> Callable[[Sequence[JobEvent]], dict[str, object]]:
+    """The progress line reader of ``record``, a job whose page status is
+    ``running``."""
+    state = await workspace.state(record)
+    origin = await run_origin(workspace.store, record, continuing=state.continuing)
+    return progress_line(record, state, origin)
+
+
 async def _stream(
     workspace: Workspace,
     answers: JobAnswers,
@@ -2793,11 +2799,7 @@ async def _stream(
         # the Resumed Job, or shows the pause with the refusal. A job that no
         # task of this process continues stays paused.
         if workspace.continues(record):
-            line = progress_line(
-                record,
-                await workspace.state(record),
-                await run_origin(workspace.store, record),
-            )
+            line = await _running_line(workspace, record)
             yield _frame("continuing", line(record.events))
             await workspace.settled(run_id)
         child = await workspace.store.resumed_by(run_id, record.owner_id)
