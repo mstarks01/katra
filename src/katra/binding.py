@@ -122,6 +122,7 @@ from katra.sampling import (
     make_resolve_sampling,
 )
 from katra.vendors import (
+    RefusalShape,
     Vendor,
     claude_generation,
     openai_reasoning_model,
@@ -437,16 +438,23 @@ def build_tier_adapters(
     translating = cache_write_reporting_llm_class(
         charge_reporting_llm_class(refusal_reporting_llm_class(LiteLlm))
     )
-    # The refusal layer is under every tier's client, whatever the vendor. It
-    # reads Anthropic's ``stop_details`` shape, and any other body gives
-    # "refusal category not read" on the error.
-    refusal_client = refusal_capturing_client_class(LiteLLMClient)
-    charge_client = charge_capturing_client_class(refusal_client)
+    # The refusal layer is under a tier's client only where its vendor row
+    # states a body shape that the layer reads. A refusal on any other tier
+    # gives "refusal category not read" on the error.
+    plain_clients: dict[RefusalShape, type] = {
+        "stop-details": refusal_capturing_client_class(LiteLLMClient),
+        "none": LiteLLMClient,
+    }
+    charge_clients = {
+        shape: charge_capturing_client_class(client)
+        for shape, client in plain_clients.items()
+    }
     # The cache layer goes on top of whichever client a tier gets, and only
     # where the vendor row says the tier's model takes the breakpoint.
     marking = {
         client: cache_marking_client_class(client)
-        for client in (charge_client, refusal_client)
+        for clients in (plain_clients, charge_clients)
+        for client in clients.values()
     }
 
     adapters: dict[TierName, ExecutedLlm] = {}
@@ -484,7 +492,8 @@ def build_tier_adapters(
         rungs = rungs_for(vendor, selection.model, tier_sampling, source)
         require_sdk(selection.vendor)
         charged = vendor.reports_charge or not vendor.routes_to_one_provider
-        client_cls = charge_client if charged else refusal_client
+        clients = charge_clients if charged else plain_clients
+        client_cls = clients[vendor.refusal_shape]
         if vendor.caches_prompt_prefix(selection.model):
             client_cls = marking[client_cls]
 

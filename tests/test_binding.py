@@ -211,3 +211,43 @@ class TestAThinkingLevelOnAModelThatTakesNone:
 
     def test_a_model_that_takes_one_builds(self):
         assert self._binding("gpt-5.6-terra")
+
+
+def test_the_refusal_layer_sits_only_under_a_row_whose_body_states_a_category():
+    """A tier gets the refusal layer where its vendor row states the
+    ``stop-details`` shape, and no other tier gets it."""
+    from katra.vendors import VENDORS
+    from tests.factories import translator_of
+
+    tiers = load_model_tiers(
+        PROJECT_ROOT / "config" / "model_tiers.toml",
+        env={
+            "KATRA_MODEL_BASE_VENDOR": "anthropic",
+            "KATRA_MODEL_BASE_MODEL": "claude-opus-5",
+            "KATRA_MODEL_STRONG_VENDOR": "openai",
+            "KATRA_MODEL_STRONG_MODEL": "gpt-5.6-terra",
+            "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
+            "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
+        },
+    )
+    adapters = build_tier_adapters(
+        tiers,
+        load_sampling(PROJECT_ROOT / "config" / "sampling.toml", env={}),
+        load_resilience(PROJECT_ROOT / "config" / "resilience.toml"),
+        env=secret_env("KATRA_OPENAI_API_KEY_FILE", "sk-test-not-a-real-key")
+        | secret_env("KATRA_ANTHROPIC_API_KEY_FILE", "sk-test-not-a-real-key"),
+    )
+
+    layered = {
+        tier: any(
+            cls.__name__ == "RefusalCapturingClient"
+            for cls in type(translator_of(adapter).llm_client).__mro__
+        )
+        for tier, adapter in adapters.items()
+    }
+    expected = {
+        tier: VENDORS[tiers.tiers[tier].vendor].refusal_shape == "stop-details"
+        for tier in adapters
+    }
+    assert layered == expected
+    assert set(layered.values()) == {True, False}

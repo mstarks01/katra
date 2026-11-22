@@ -436,7 +436,8 @@ instead of a report. It holds the fault's `repr` under `error`, and under
 critic's rulings and the marks. Where a provider refused at its content
 filter, `refusal_category` holds the category the provider stated, such as
 `cyber`, or `null` where the service read none, and `error` names it or
-says `refusal category not read`. Only Anthropic's `stop_details` is read.
+says `refusal category not read`. The service reads a category only on a
+tier whose Vendor row states the `stop-details` shape.
 The job's source text is not in it. A critic that fails its gate after its
 re-ask is a failure of that case only, so the sweep records it and runs the
 next case. `score` and `replay` do not read this file.

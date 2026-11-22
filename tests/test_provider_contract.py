@@ -43,6 +43,7 @@ meets a vendor it does not know.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -76,7 +77,7 @@ from katra.retry import (
 )
 from katra.sampling import load_sampling
 from katra.system_model import SystemModel
-from katra.vendors import VendorName, vendor_for
+from katra.vendors import VENDORS, VendorName, vendor_for
 from tests.factories import (
     PROJECT_ROOT,
     inject_transport,
@@ -473,10 +474,16 @@ class TestTheRefusalCategoryReachesTheError:
         assert exc.refusal_category is None
         assert "refusal category not read" in str(exc)
 
-    def test_the_category_crosses_the_charge_client_layer(self):
-        """A gateway tier's client puts the charge layer on the refusal layer.
-        The body here is a test shape, not a measured OpenRouter answer: it
-        proves that the charge layer keeps the category."""
+    def test_the_category_crosses_the_charge_client_layer(self, monkeypatch):
+        """A charged tier on a ``stop-details`` row puts the charge layer on
+        the refusal layer. No shipped row is both, so the test states one. The
+        body is a test shape, not a measured OpenRouter answer: it proves that
+        the charge layer keeps the category."""
+        monkeypatch.setitem(
+            VENDORS,
+            "openrouter",
+            dataclasses.replace(VENDORS["openrouter"], refusal_shape="stop-details"),
+        )
         body = completion_body("openrouter")
         body["choices"][0]["finish_reason"] = "content_filter"
         body["stop_details"] = {"type": "refusal", "category": "cyber"}
@@ -485,6 +492,19 @@ class TestTheRefusalCategoryReachesTheError:
 
         assert isinstance(exc, RefusedCompletionError)
         assert exc.refusal_category == "cyber"
+
+    def test_a_row_that_states_no_shape_reads_no_category(self):
+        """The shipped OpenRouter row states ``none``, so a category in the
+        body is not read."""
+        body = completion_body("openrouter")
+        body["choices"][0]["finish_reason"] = "content_filter"
+        body["stop_details"] = {"type": "refusal", "category": "cyber"}
+
+        exc = raised_by("openrouter", _Provider(lambda: httpx.Response(200, json=body)))
+
+        assert isinstance(exc, RefusedCompletionError)
+        assert exc.refusal_category is None
+        assert "refusal category not read" in str(exc)
 
 
 class TestWhatTheRetryDriverReadsOffAnException:

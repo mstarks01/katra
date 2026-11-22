@@ -77,6 +77,11 @@ VENDOR_NAMES: tuple[VendorName, ...] = (
 #: faithfully and what it reads is the request (#806).
 ServedTrust = Literal["provider_reported", "requested_echo"]
 
+#: Where a vendor's raw response body states the category of a refusal.
+#: ``stop-details``: a top-level ``stop_details`` object, in Anthropic's shape.
+#: ``none``: the body states no category that this service reads.
+RefusalShape = Literal["stop-details", "none"]
+
 #: What a node's output schema becomes before it reaches this vendor.
 #:
 #: ``as_built`` sends the schema pydantic builds. ``bounds_described`` moves the
@@ -961,6 +966,11 @@ class Vendor:
     #: A vendor whose models cache another way answers ``None`` until that way
     #: has a sender of its own.
     prompt_cache: _PromptCacheRule | None
+    #: Where this vendor's response body states a refusal category
+    #: (:mod:`katra.refusal_categories`). The binding puts the refusal layer
+    #: only under a ``stop-details`` row. A refusal on any other row reads as
+    #: "not read".
+    refusal_shape: RefusalShape
     #: What a node's output schema becomes before it reaches this vendor, by
     #: model family, the first match winning. The last entry matches every
     #: model. The same rule applies on every rung, so the model reads one
@@ -1343,6 +1353,9 @@ VENDORS: dict[VendorName, Vendor] = {
         routes_to_one_provider=True,
         upstream_pin=None,
         prompt_cache=None,
+        # A Claude model on Vertex answers in Anthropic's message shape, but no
+        # measurement shows that its body holds ``stop_details``.
+        refusal_shape="none",
         schema_rules=(_CLAUDE_BOUNDS, _every_model("as_built")),
         # Vertex admits no raw-API-key path under any adapter
         # (``BerriAI/litellm#21036``), so ``vertex + api_key`` is
@@ -1386,6 +1399,8 @@ VENDORS: dict[VendorName, Vendor] = {
         routes_to_one_provider=True,
         upstream_pin=None,
         prompt_cache=None,
+        # The body holds ``stop_details`` beside ``stop_reason="refusal"``.
+        refusal_shape="stop-details",
         # The pinned litellm applies the same rewrite on this path itself, so
         # the wire does not change. Applying it here keeps the rule ours.
         schema_rules=(_every_model("bounds_described"),),
@@ -1404,6 +1419,8 @@ VENDORS: dict[VendorName, Vendor] = {
         routes_to_one_provider=True,
         upstream_pin=None,
         prompt_cache=_GPT_PROMPT_CACHE,
+        # An OpenAI-shaped body has no category field.
+        refusal_shape="none",
         schema_rules=(_CLAUDE_BOUNDS, _every_model("as_built")),
         credential_sources={CredentialMode.API_KEY: _api_key_source("openai")},
         form_rules=(_CLAUDE_RULE, _CATCH_ALL),
@@ -1424,6 +1441,8 @@ VENDORS: dict[VendorName, Vendor] = {
         routes_to_one_provider=True,
         upstream_pin=None,
         prompt_cache=None,
+        # No measurement shows that a Bedrock body holds ``stop_details``.
+        refusal_shape="none",
         # Claude's constrained decoding refuses length and range bounds, and
         # litellm sends them unchanged on the Converse path. AWS documents a
         # 400 for ``minimum``, ``maximum``, ``multipleOf``, ``minLength`` and
@@ -1502,6 +1521,9 @@ VENDORS: dict[VendorName, Vendor] = {
         routes_to_one_provider=True,
         upstream_pin=None,
         prompt_cache=None,
+        # A Gemini body names a harm category in ``safetyRatings``, which the
+        # service does not read.
+        refusal_shape="none",
         schema_rules=(_CLAUDE_BOUNDS, _every_model("as_built")),
         # The Developer API takes a key and nothing else. It is a different
         # provider from ``vertex`` rather than a second mode on it:
@@ -1591,6 +1613,8 @@ VENDORS: dict[VendorName, Vendor] = {
             field="provider", only="only", fallbacks="allow_fallbacks"
         ),
         prompt_cache=_GPT_PROMPT_CACHE,
+        # The route answers in OpenAI's shape, which has no category field.
+        refusal_shape="none",
         # OpenRouter passes a ``json_schema`` response format through to
         # Anthropic with its structured-outputs beta header, and documents no
         # rewrite of the keywords Claude refuses (its structured-outputs and
