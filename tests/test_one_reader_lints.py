@@ -2192,9 +2192,11 @@ def _compares_an_origin(node: ast.AST) -> bool:
 
 def _compares_a_value_with_absent(node: ast.AST) -> bool:
     """A comparison of a row's ``value`` with ``ABSENT`` or ``"absent"``, also
-    as a member of a tuple or a set."""
+    as a member of a tuple or a set, or a test for ``ABSENT`` among values."""
     if not isinstance(node, ast.Compare):
         return False
+    if _loads(node.left, "ABSENT") and isinstance(node.ops[0], ast.In | ast.NotIn):
+        return True
     parts = [node.left, *node.comparators]
     members = [
         member
@@ -3035,10 +3037,6 @@ ONE_READERS: dict[str, _OneReader] = {
         _compares_a_value_with_absent,
         ("src/katra/assertions.py", "states_missing"),
         {
-            ("src/katra/assertions.py", "_compatible"): (
-                "it asks whether two values can hold at once, and decides no"
-                " missing control"
-            ),
             ("src/katra/evidence.py", "_open_question_gloss"): (
                 "it spells the value a lane reads, and decides no missing control"
             ),

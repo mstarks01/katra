@@ -1971,7 +1971,8 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
     What counts as a disagreement is the predicate's ``multiplicity``. Where one
     value may hold, two stated values disagree. Where several may hold — a
     connection authenticated by mutual TLS *and* a token — they do not, and only
-    :data:`ABSENT` beside a positive value is a contradiction.
+    a row that states its control missing (:func:`states_missing`) beside a
+    positive value is a contradiction.
 
     Only :func:`admissible` rows take part. A row a reviewer set aside supports
     nothing, so it cannot dispute a row that stands either: counted here, it
@@ -1980,20 +1981,20 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
     Sorted by subject, then predicate, then scope, so two runs over one catalog
     report the same order.
     """
-    groups: dict[tuple[str, str, str], dict[str, None]] = {}
+    groups: dict[tuple[str, str, str], dict[str, Assertion]] = {}
     for entry in catalog.entries:
         if not admissible(entry) or entry.value == UNKNOWN:
             continue
         key = (entry.subject, entry.predicate, _scope_key(entry.scope))
-        groups.setdefault(key, {})[entry.value] = None
+        groups.setdefault(key, {}).setdefault(entry.value, entry)
 
     found = []
-    for (subject, predicate, scope), values in sorted(groups.items()):
-        stated = tuple(sorted(values))
+    for (subject, predicate, scope), rows in sorted(groups.items()):
+        stated = tuple(sorted(rows))
         if len(stated) < 2:
             continue
         one_only = table_entry(REGISTRY, predicate).multiplicity == "one"
-        if one_only or ABSENT in stated:
+        if one_only or any(map(states_missing, rows.values())):
             found.append(Conflict(subject, predicate, scope, stated))
     return tuple(found)
 
@@ -3873,15 +3874,16 @@ def _projected(
 def _compatible(rows: Sequence[Assertion]) -> bool:
     """Whether several unscoped values under one attribute can all hold at once.
 
-    They can when every predicate behind them admits several values and none of
-    them is :data:`ABSENT`: a connection authenticated by an API token and
-    presenting that token states one control twice, and mutual TLS beside a
-    bearer token states two. A stated absence beside any positive value is a
-    contradiction, and so is a second value of a predicate that holds one.
+    They can when every predicate behind them admits several values and no row
+    states its control missing (:func:`states_missing`): a connection
+    authenticated by an API token and presenting that token states one control
+    twice, and mutual TLS beside a bearer token states two. A stated absence
+    beside any positive value is a contradiction, and so is a second value of a
+    predicate that holds one.
     """
     return all(
         table_entry(REGISTRY, entry.predicate).multiplicity == "many"
-        and entry.value != ABSENT
+        and not states_missing(entry)
         for entry in rows
     )
 
