@@ -229,17 +229,17 @@ def key_info() -> dict[str, str]:
     )
     return {
         "type": "service_account",
-        "project_id": "analysis",
+        "project_id": "katra",
         "private_key_id": "0" * 40,
         "private_key": pem,
-        "client_email": "analysis@analysis.iam.gserviceaccount.com",
+        "client_email": "katra@katra.iam.gserviceaccount.com",
         "client_id": "1" * 21,
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token",
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "client_x509_cert_url": (
             "https://www.googleapis.com/robot/v1/metadata/x509/"
-            "analysis%40analysis.iam.gserviceaccount.com"
+            "katra%40katra.iam.gserviceaccount.com"
         ),
         "universe_domain": "googleapis.com",
     }

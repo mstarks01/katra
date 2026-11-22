@@ -547,8 +547,8 @@ def _roster_delta(base_raw: str | None, live: Path) -> list[str]:
     What it can do is put the edit where the person making the call will see it.
     :func:`_check_no_self_raise` looks at one line, the author's, which is the
     contract ``contribution.yml`` states; an audit twice observed that the other
-    lines go past unremarked, and twice concluded the merge is the control.
-    This is the note that observation asked for both times: the control works
+    lines go past unremarked, and twice concluded the merge is the safeguard.
+    This is the note that observation asked for both times: the merge decides
     better when it is shown the diff.
     """
     if base_raw is None:

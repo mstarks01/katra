@@ -357,10 +357,10 @@ EXAMPLES: dict[str, str] = {
     "resilience.max_tokens_per_window": "20000000",
     "resilience.global_max_tokens_per_window": "100000000",
     "store.retention_days": "30",
-    "store.database_url": "postgresql+asyncpg://analysis@db.example.com/analysis",
+    "store.database_url": "postgresql+asyncpg://katra@db.example.com/katra",
     "store.database_region": "us-east-1",
-    "store.object_root": "/var/lib/analysis/objects",
-    "store.object_bucket": "analysis-jobs",
+    "store.object_root": "/var/lib/katra/objects",
+    "store.object_bucket": "katra-jobs",
     "store.object_region": "us-east-1",
     "store.object_endpoint": "https://s3.example.com",
 }

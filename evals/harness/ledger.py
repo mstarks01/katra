@@ -56,8 +56,9 @@ lands. A reviewer who dislikes a finding's writing and a reviewer who says it is
 not a threat are reporting two different facts, and averaging them would let
 taste move a recall number. :data:`SUBSTANCE_REASONS` counts against the
 analysis. :data:`STYLE_REASONS` never does, and lands in
-:mod:`evals.harness.writing` instead. That split is the whole control for
-personal preference, and it is mechanical rather than a request in a guide.
+:mod:`evals.harness.writing` instead. That split is the whole safeguard
+against personal preference, and it is mechanical rather than a request in a
+guide.
 
 On security: these files are the supply chain of every quality number the tool
 publishes. ``voter`` is therefore required, is never anonymous, and is recorded

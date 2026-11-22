@@ -796,7 +796,7 @@ one reason from a closed set, and the reason decides which number moves:
 | substance (`not-a-threat`, `unsupported-by-the-model`, …) | yes | no |
 | style (`too-vague`, `poorly-written`, …) | **no** | **yes** |
 
-That split is the control for personal preference, and it is mechanical. A
+That split is the safeguard against personal preference, and it is mechanical. A
 reviewer who dislikes a finding's wording cannot move recall with that opinion,
 because the reason they picked routes it to the writing score instead.
 

@@ -3,8 +3,8 @@
 A style down-vote moves no analysis number, by construction.
 :data:`~evals.harness.ledger.STYLE_REASONS` leaves the finding in the reference
 pool, and ``Vote.counts_against_analysis`` is false for every one of them. That
-split is the whole control for a reviewer's taste, and it stops "I dislike this
-sentence" reading as "the tool found a threat that is not there".
+split is the whole safeguard against a reviewer's taste, and it stops "I
+dislike this sentence" reading as "the tool found a threat that is not there".
 
 The split only works if the objection lands somewhere. This module is where it
 lands. This instrument reads the reason the ledger keeps, so a reviewer's

@@ -985,7 +985,7 @@ deployment installs none of them.
 The database is PostgreSQL, or SQLite on one host.
 
 For SQLite, give `KATRA_DATABASE_URL` an absolute path, which takes four
-slashes: `sqlite+aiosqlite:////var/lib/analysis/jobs.db`. A relative path
+slashes: `sqlite+aiosqlite:////var/lib/katra/jobs.db`. A relative path
 stops the startup. The database file holds the answers, the drafts and the
 checkpoint of each job, so it has the rule of the object root. The
 [migration step](#the-migration-step) makes a new file with mode `0600`. The
@@ -995,14 +995,14 @@ has the same rule as the object root, because SQLite opens the file by its
 path for each connection and keeps its journal beside it. The startup and the
 migration step stop when that directory has another owner than the service
 user, or a group or others can open it. Make it with `install -d -m 0700
-/var/lib/analysis`. A SQLite database takes no other database setting, and
+/var/lib/katra`. A SQLite database takes no other database setting, and
 each one stops the startup.
 
 #### PostgreSQL
 
 For PostgreSQL, give `KATRA_DATABASE_URL` a user, a network host and a
 database, for example
-`postgresql+asyncpg://analysis@db.internal:5432/analysis`. The URL must not
+`postgresql+asyncpg://katra@db.internal:5432/katra`. The URL must not
 hold a password or a query. A URL without a user, a network host or a
 database stops the startup. A Unix socket has no TLS, and the driver fills a
 missing part from the `PG*` variables of the process. Where the URL has no
@@ -1046,7 +1046,7 @@ The `filesystem` object store keeps each object as a file under
 `KATRA_OBJECT_ROOT`. The startup stops when the root does not exist, is not
 a directory, has another owner than the service user, or a group or others
 can open it. Make the root as the service user with `install -d -m 0700
-/var/lib/analysis/objects`.
+/var/lib/katra/objects`.
 
 The key of an object is `<owner-id>/<job-id>/sources.json` or
 `<owner-id>/<job-id>/report.json`. A key holds only IDs that the service
@@ -1273,7 +1273,7 @@ applies to SQLite too. Only the first-run app migrates a SQLite database
 itself ([ADR 0110](adr/0110-the-first-run-app-migrates-a-sqlite-job-store.md)):
 
 ```bash
-KATRA_DATABASE_URL=sqlite+aiosqlite:////var/lib/analysis/jobs.db \
+KATRA_DATABASE_URL=sqlite+aiosqlite:////var/lib/katra/jobs.db \
   python -m katra.migrations
 ```
 
@@ -1285,18 +1285,18 @@ migration, let the service user use each table that the migration role
 makes:
 
 ```sql
-GRANT USAGE ON SCHEMA public TO analysis;
-ALTER DEFAULT PRIVILEGES FOR ROLE analysis_migrate IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO analysis;
+GRANT USAGE ON SCHEMA public TO katra;
+ALTER DEFAULT PRIVILEGES FOR ROLE katra_migrate IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO katra;
 ```
 
 Then run the step with the migration role in the URL, and its own
 credentials:
 
 ```bash
-KATRA_DATABASE_URL=postgresql+asyncpg://analysis_migrate@db.internal:5432/analysis \
+KATRA_DATABASE_URL=postgresql+asyncpg://katra_migrate@db.internal:5432/katra \
 KATRA_DATABASE_CREDENTIALS=password \
-KATRA_DATABASE_PASSWORD_FILE=/run/secrets/analysis-migrate-password \
+KATRA_DATABASE_PASSWORD_FILE=/run/secrets/katra-migrate-password \
   python -m katra.migrations
 ```
 
@@ -1467,7 +1467,7 @@ of the service. These lines include the line of each
 [orphan sweep](#orphan-objects).
 
 Give `uvicorn` a log configuration that keeps the `INFO` lines of
-`katra`, for example this `/etc/analysis/logging.json`:
+`katra`, for example this `/etc/katra/logging.json`:
 
 ```json
 {
@@ -1484,5 +1484,5 @@ Give `uvicorn` a log configuration that keeps the `INFO` lines of
 ```
 
 ```bash
-uvicorn --factory katra:create_app --log-config /etc/analysis/logging.json
+uvicorn --factory katra:create_app --log-config /etc/katra/logging.json
 ```

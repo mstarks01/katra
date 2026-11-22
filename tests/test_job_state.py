@@ -189,7 +189,7 @@ def test_a_fresh_run_starts_from_its_description():
     envelope = _envelope(store, job.id)
     assert isinstance(envelope, JobRecord)
 
-    assert asyncio.run(run_origin(store, envelope)) == RunOrigin(
+    assert asyncio.run(run_origin(store, envelope, continuing=False)) == RunOrigin(
         "description", None, None
     )
 
@@ -203,11 +203,27 @@ def test_a_resumed_job_starts_from_what_its_parent_waited_for(continues, start):
     envelope = _envelope(store, _resumed(store, parent).id)
     assert isinstance(envelope, JobRecord)
 
-    origin = asyncio.run(run_origin(store, envelope))
+    origin = asyncio.run(run_origin(store, envelope, continuing=False))
 
     assert origin.start == start
     assert origin.resumption is not None
     assert origin.parent is not None and origin.parent.id == parent.id
+
+
+@pytest.mark.parametrize(
+    ("continues", "start"), [(False, "answers"), (True, "controls")]
+)
+def test_a_job_this_process_continues_starts_from_what_it_waits_for(continues, start):
+    """The run that continues a paused job resumes that job, so its start
+    reads the paused job and not a parent."""
+    store = InMemoryJobStore()
+    paused = _paused(store, ask_questions=not continues, continues_at_pause=continues)
+    envelope = _envelope(store, paused.id)
+    assert isinstance(envelope, JobRecord)
+
+    origin = asyncio.run(run_origin(store, envelope, continuing=True))
+
+    assert origin == RunOrigin(start, None, None)
 
 
 @pytest.mark.parametrize("unreadable", [False, True])
@@ -225,10 +241,10 @@ def test_a_job_whose_parent_the_store_cannot_give_raises(unreadable):
 
     if unreadable:
         with pytest.raises(UnreadableSchema, match="schema version 0;"):
-            asyncio.run(run_origin(store, envelope))
+            asyncio.run(run_origin(store, envelope, continuing=False))
     else:
         with pytest.raises(LookupError):
-            asyncio.run(run_origin(store, envelope))
+            asyncio.run(run_origin(store, envelope, continuing=False))
 
 
 # --- The page status --------------------------------------------------------
@@ -472,4 +488,4 @@ def test_a_job_whose_parent_is_of_another_schema_version_raises():
     store.replace = True
 
     with pytest.raises(UnreadableSchema, match="schema version 0.1;"):
-        asyncio.run(run_origin(store, envelope))
+        asyncio.run(run_origin(store, envelope, continuing=False))

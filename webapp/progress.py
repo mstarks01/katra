@@ -23,7 +23,7 @@ from katra.graph import (
     entry_steps,
     step_by_graph_node,
 )
-from katra.job_state import JobState, RunOrigin, RunStart, run_start_of
+from katra.job_state import JobState, RunOrigin, RunStart
 from katra.jobs import JobEvent, JobRecord, completed_nodes, is_follow_up
 
 #: Which progress line a run gets: ``to-questions`` where the run stops to ask
@@ -192,7 +192,7 @@ def progress_line(
         parent_nodes = completed_nodes(parent.events)
         if set(parent_nodes) <= steps.keys():
             lowest = complete(parent_nodes)
-    start = run_start_of(record) if state.continuing else origin.start
+    start = origin.start
 
     def line(events: Sequence[JobEvent]) -> dict[str, object]:
         nodes = completed_nodes(events)

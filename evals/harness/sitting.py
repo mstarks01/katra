@@ -122,7 +122,7 @@ def own_list_is_written(items: Iterable[str]) -> bool:
 #: reader read it and cannot decide.
 #:
 #: It is last because it is the answer a reader reaches for when the other
-#: three do not fit, and a control lists it where they look for it.
+#: three do not fit, and a page lists it where they look for it.
 Mark = Literal["agree", "reject", "duplicate", "unsure"]
 
 #: The same set, for a surface that offers them and a check that reads them.

@@ -267,8 +267,8 @@ class TestTheRosterDeltaIsShownToTheReviewer:
     contract `contribution.yml` states this job proves.
 
     Two audits observed that every other roster line goes past unremarked, and
-    both concluded the merge is the control rather than the check. This is the
-    note both of them asked for: a control that is a person reading a diff works
+    both concluded the merge is the safeguard rather than the check. This is the
+    note both of them asked for: a safeguard that is a person reading a diff works
     better when it is shown the diff. It never fails a submission -- what a
     roster edit is entitled to do is a judgement about people, and the check
     cannot make it.

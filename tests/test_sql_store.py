@@ -199,7 +199,7 @@ class TestTheStartupRefusals:
                 "unknown value for",
             ),
             (
-                {"KATRA_DATABASE_URL": "postgresql+asyncpg://analysis@db.internal"},
+                {"KATRA_DATABASE_URL": "postgresql+asyncpg://katra@db.internal"},
                 "PostgreSQL names no database",
             ),
             (

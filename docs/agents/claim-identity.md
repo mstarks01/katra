@@ -252,7 +252,7 @@ edit.
 There is no model judge. The rule decides every match, and a human vote is the
 only ground truth on whether an unmatched finding is real.
 
-**The reason code is the control for personal preference.** A reviewer who
+**The reason code is the safeguard against personal preference.** A reviewer who
 dislikes a finding's writing and a reviewer who says it is not a threat report
 two different facts, and averaging them lets taste move a recall number. So:
 

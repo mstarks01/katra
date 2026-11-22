@@ -458,7 +458,7 @@ def test_a_substance_down_vote_is_the_gating_status(case):
 
 
 def test_a_style_down_vote_pools_and_never_gates(case):
-    # The reason split is the control for taste: a badly written finding is
+    # The reason split is the safeguard against taste: a badly written finding is
     # still a real finding, so it joins the pool and moves no analysis number.
     produced = [produced_threat(1, "spoofing", "A real but poorly written claim.")]
     votes = Ledger([vote_on(case, produced[0], "down", reason="poorly-written")])

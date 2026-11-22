@@ -149,7 +149,7 @@ in this conversation.
   model cannot stand in for the deployment model in a claim of equal quality.
 
 There is no dollar ceiling in the code, by decision: a contributor may spend
-any amount. The control is informed consent, so your job is to state the
+any amount. The safeguard is informed consent, so your job is to state the
 labelled amount — `recorded`, `estimated` or `unpriced` — and stop when the
 answer is no.
 
