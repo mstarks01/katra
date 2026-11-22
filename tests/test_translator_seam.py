@@ -271,7 +271,8 @@ def test_every_adapter_kwarg_comes_from_a_closed_set():
     assert (
         "charged = vendor.reports_charge or not vendor.routes_to_one_provider" in source
     )
-    assert "client_cls = charge_client if charged else refusal_client" in source
+    assert "clients = charge_clients if charged else plain_clients" in source
+    assert "client_cls = clients[vendor.refusal_shape]" in source
     assert "if vendor.caches_prompt_prefix(selection.model):" in source
     assert "client_cls = marking[client_cls]" in source
     assert body.count("**") == 6, (

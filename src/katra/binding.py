@@ -385,6 +385,14 @@ def _translator(
     )
 
 
+#: Whether a tier's client carries the refusal layer, by the body shape that
+#: its Vendor row states (:attr:`~katra.vendors.Vendor.refusal_shape`).
+_CARRIES_REFUSAL_LAYER: dict[RefusalShape, bool] = {
+    "stop-details": True,
+    "none": False,
+}
+
+
 def build_tier_adapters(
     tiers: ModelTierConfig,
     sampling: SamplingConfig,
@@ -441,9 +449,10 @@ def build_tier_adapters(
     # The refusal layer is under a tier's client only where its vendor row
     # states a body shape that the layer reads. A refusal on any other tier
     # gives "refusal category not read" on the error.
+    refusal_client = refusal_capturing_client_class(LiteLLMClient)
     plain_clients: dict[RefusalShape, type] = {
-        "stop-details": refusal_capturing_client_class(LiteLLMClient),
-        "none": LiteLLMClient,
+        shape: refusal_client if layered else LiteLLMClient
+        for shape, layered in _CARRIES_REFUSAL_LAYER.items()
     }
     charge_clients = {
         shape: charge_capturing_client_class(client)
