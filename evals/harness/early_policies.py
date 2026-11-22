@@ -291,7 +291,9 @@ def needs_of(report: Report) -> Needs:
         for claim in block.all_claims()
     }
     waiting: dict[str, set[UnknownKey]] = defaultdict(set)
-    for question in fact_questions(report.analyses, report.system_model, None):
+    for question in fact_questions(
+        report.analyses, report.system_model, report.assertion_catalog
+    ):
         for finding in question.findings:
             waiting[finding].add(question.key)
     units = {}

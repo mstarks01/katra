@@ -77,7 +77,7 @@ report = test_open_facts.report
 
 
 def ask(report):
-    catalog = None if report.assertions is None else report.assertions.catalog
+    catalog = report.assertion_catalog
     return fact_questions(report.analyses, report.system_model, catalog)
 
 
@@ -90,7 +90,7 @@ class TestTheRanking:
         states is not an open fact.
         """
         model = report.system_model
-        catalog = None if report.assertions is None else report.assertions.catalog
+        catalog = report.assertion_catalog
 
         def open_refs(refs):
             return [
@@ -935,7 +935,7 @@ class TestAnAnswerBindsToAnOpenFact:
     def test_the_report_does_not_ask_what_it_refuses(self, report):
         """Every attribute question the report lists takes an answer."""
         model = report.system_model
-        catalog = None if report.assertions is None else report.assertions.catalog
+        catalog = report.assertion_catalog
         for question in ask(report):
             if question.kind == "attribute":
                 assert open_attribute(model, question.key[0], question.key[1], catalog)
@@ -993,7 +993,7 @@ def test_a_fact_answered_i_do_not_know_leaves_the_list_and_the_count(report):
         pytest.skip("this report asks nothing")
     first = questions[0]
     earlier = [FactAnswer(key=first.key, value="unknown")]
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
 
     again = fact_questions(report.analyses, report.system_model, catalog, earlier)
 
@@ -1008,7 +1008,7 @@ def test_a_dismissed_ground_answered_i_do_not_know_leaves_the_finding_waiting(pa
     says, so "I don't know" for a ground the critic dismissed leaves it
     conditional."""
     report = Report.model_validate_json(path.read_text(encoding="utf-8"))
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     dismissed = [
         (f"{block.framework}/{claim.id}", ref.key)
         for block in report.analyses
@@ -1092,7 +1092,7 @@ def test_the_card_and_the_follow_up_name_the_same_facts(path):
     """One reader of what a finding waits on: each conditional finding's card
     lists exactly the asked facts whose question names the finding."""
     report = Report.model_validate_json(path.read_text(encoding="utf-8"))
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     questions = fact_questions(report.analyses, report.system_model, catalog)
     cards = conditions(report.analyses, report.system_model, [], [], (), None)
     asked = {question.key for question in questions}
@@ -1142,7 +1142,7 @@ class TestAFacetAnswerCoversOnlyWhenEveryFacetIsKnown:
         return report, finding, other.key, capacity.key
 
     def again(self, report, capacity, facets):
-        catalog = report.assertions.catalog if report.assertions else None
+        catalog = report.assertion_catalog
         earlier = [FactAnswer.model_validate({"key": capacity, "facets": facets})]
         return {
             question.key: question
@@ -1248,7 +1248,7 @@ class TestTheControlForm:
 def test_a_report_question_says_what_became_of_it_at_the_pause(report):
     """The report tells a skip from a blank, and a question never shown from
     both (#1542 F4): only a skip is the submitter's act."""
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     listed = ask(report)
     if len(listed) < 3:
         pytest.skip("this report asks too little")

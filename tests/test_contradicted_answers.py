@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 
-from evals.harness import filler, follow_up_policies
+from evals.harness import early_policies, filler, follow_up_policies
 from evals.harness.question_prior import replay_findings, report_findings
 from katra.assertions import (
     ABSENT,
@@ -473,3 +473,9 @@ class TestTheEvalReaders:
             if reading.effort == "whole" and reading.budget is None
         }
         assert whole == {choices_of(ATTRIBUTE_KEY)}
+
+    def test_the_early_policies_ask_two_rows_as_one_fact(self):
+        needs = early_policies.needs_of(self.report(MECHANISM, CREDENTIAL))
+
+        waited = {keys for _, keys in needs.findings.values()}
+        assert waited == {frozenset({ATTRIBUTE_KEY})}
