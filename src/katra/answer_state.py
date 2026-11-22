@@ -514,7 +514,7 @@ class QuestionSet:
         return question.to_json() | {
             "choices": [
                 {"id": choice, "name": _element_name(index, choice)}
-                for choice in question.choices
+                for choice in question.form.choices
             ],
             "excerpt": "" if element is None else element.source_excerpt,
         }
@@ -1109,8 +1109,8 @@ def _waiting(
 def _choices_left(question: EarlyQuestion, answer: FactAnswer | None) -> int:
     """The choices a person still makes to answer it: one a facet without an
     answer, else one."""
-    if question.facets and answer is not None and answer.facets:
-        return sum(1 for facet in question.facets if facet.id not in answer.facets)
+    if question.form.facets and answer is not None and answer.facets:
+        return sum(1 for facet in question.form.facets if facet.id not in answer.facets)
     return question.decisions
 
 

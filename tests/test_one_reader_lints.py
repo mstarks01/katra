@@ -1267,9 +1267,6 @@ STORED_ANSWER_READERS: dict[Site, str] = {
         "reads the answers the driver seeded in the graph state, which admission wrote"
     ),
     ("evals/harness/withheld.py", "load_answer_file"): "reads a corpus answer file",
-    ("evals/harness/withheld.py", "answers_within_saves"): (
-        "builds the answers a replayed save gives"
-    ),
     ("evals/harness/early_rounds.py", "answer"): (
         "builds the answer an offline answerer gives"
     ),

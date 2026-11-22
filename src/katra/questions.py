@@ -25,14 +25,7 @@ from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from typing import Literal
 
-from katra.answer_forms import (
-    AnswerForm,
-    answer_choices,
-    answer_form,
-    answer_limit,
-    answer_suggestions,
-    facets_json,
-)
+from katra.answer_forms import AnswerForm, answer_form
 from katra.assertions import AssertionCatalog
 from katra.bands import UNRANKED, Band
 from katra.claims import FrameworkAnalysis, UnknownKey, UnknownRef
@@ -58,7 +51,6 @@ from katra.open_facts import (
     prepared_model,
     routed,
 )
-from katra.question_kinds import Facet
 from katra.system_model import SystemModel
 
 __all__ = [
@@ -99,18 +91,8 @@ class FactQuestion:
     #: For how many findings every fact is answered once it and every question
     #: before it is answered. Coverage, not a verdict.
     covered_so_far: int
-    #: The answers it takes, or empty where the answer is free text.
-    choices: tuple[str, ...]
-    #: How a page takes the answer; see
-    #: :data:`~katra.answer_forms.AnswerForm`.
+    #: How a page takes the answer.
     form: AnswerForm
-    #: Common mechanisms a ``control`` answer may start from.
-    suggestions: tuple[str, ...]
-    #: The parts a ``facets`` answer is given in.
-    facets: tuple[Facet, ...]
-    #: The longest answer it admits
-    #: (:func:`~katra.answer_forms.answer_limit`).
-    max_length: int
     #: The group a page shows it in, the group's heading, and the element's
     #: name as its row in that group (:func:`~katra.open_facts.group_of`),
     #: as the early list shows them. A question about no element is its own row.
@@ -150,12 +132,8 @@ class FactQuestion:
             "label": self.label,
             "cited_by": self.cited_by,
             "covered_so_far": self.covered_so_far,
-            "choices": list(self.choices),
-            "form": self.form,
-            "suggestions": list(self.suggestions),
-            "facets": facets_json(self.facets),
+            **self.form.to_json(),
             "asks": list(self.asks),
-            "max_length": self.max_length,
             "group": self.group,
             "group_heading": self.group_heading,
             "element": self.element,
@@ -436,11 +414,7 @@ def fact_questions(
                 covered_so_far=sum(
                     1 for facts in waiting.values() if facts <= answered
                 ),
-                choices=answer_choices(key, model, catalog),
                 form=answer_form(key, model, catalog),
-                suggestions=answer_suggestions(key),
-                facets=answer_facets(key),
-                max_length=answer_limit(key, model),
                 group=group,
                 group_heading=heading,
                 element=names.get(ref.element_id, label) if ref.element_id else label,

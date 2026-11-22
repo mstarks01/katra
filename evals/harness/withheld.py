@@ -40,12 +40,18 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
-from evals.harness.modes import EvalRunError
+from evals.harness.early_rounds import dont_know
+from evals.harness.modes import (
+    EvalRunError,
+    case_framework_options,
+    select_frameworks,
+)
 from evals.harness.reference import GoldenCase
 from katra.answer_sets import AnswerSet
+from katra.answer_state import question_set
 from katra.claims import FrameworkName
 from katra.execution import source_texts
-from katra.fact_answers import FactAnswer
+from katra.fact_answers import FactAnswer, merged_facts
 from katra.fact_writes import check_fact_answers
 from katra.parsing import signer, strings
 from katra.sources import Source
@@ -199,11 +205,6 @@ def answers_within_saves(
     does (:func:`~evals.harness.modes.select_frameworks`), so the pause asks
     for the frameworks the run builds.
     """
-    from evals.harness.modes import case_framework_options, select_frameworks
-    from katra.answer_state import question_set
-    from katra.assertions import UNKNOWN
-    from katra.fact_answers import merged_facts
-
     signed = {answer.key: answer for answer in answer_file.answers}
     model = withheld_case(case, answer_file).model
     selected = select_frameworks(case, only)
@@ -233,17 +234,7 @@ def answers_within_saves(
         given = merged_facts(
             given,
             [
-                signed.get(question.key)
-                or FactAnswer.model_validate(
-                    {
-                        "key": question.key,
-                        "facets": dict.fromkeys(
-                            (facet.id for facet in question.facets), UNKNOWN
-                        ),
-                    }
-                    if question.facets
-                    else {"key": question.key, "value": UNKNOWN}
-                )
+                signed.get(question.key) or dont_know(question)
                 for question in asked.early
             ],
         )

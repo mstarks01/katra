@@ -14,7 +14,6 @@ from katra.answer_forms import (
     CONTROL_SUGGESTIONS,
     answer_choices,
     answer_form,
-    answer_suggestions,
 )
 from katra.assertions import (
     REGISTRY,
@@ -153,14 +152,18 @@ class TestAnAttributeReadsItsAnswerTables:
     def test_a_control_attribute_offers_its_suggestions(self, attribute):
         key = UnknownRef(element_id=ELEMENT, attribute=attribute).key
 
-        assert answer_suggestions(key) == CONTROL_SUGGESTIONS[attribute]
-        assert answer_form(key, SystemModel(), None) == "control"
+        form = answer_form(key, SystemModel(), None)
+
+        assert form.suggestions == CONTROL_SUGGESTIONS[attribute]
+        assert form.kind == "control"
 
     def test_another_attribute_offers_none(self):
         key = UnknownRef(element_id=ELEMENT, attribute="protocol").key
 
-        assert answer_suggestions(key) == ()
-        assert answer_form(key, SystemModel(), None) == "text"
+        form = answer_form(key, SystemModel(), None)
+
+        assert form.suggestions == ()
+        assert form.kind == "text"
 
     def test_the_trust_zone_offers_the_model_s_boundaries(self):
         model = gate_model()

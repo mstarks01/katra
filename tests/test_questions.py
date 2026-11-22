@@ -18,7 +18,6 @@ from katra.answer_forms import (
     CONTROL_SUGGESTIONS,
     answer_choices,
     answer_form,
-    answer_suggestions,
 )
 from katra.answer_sets import NO_ANSWERS, AnswerSet, SentAnswers
 from katra.answer_state import question_set
@@ -1220,7 +1219,7 @@ class TestTheControlForm:
         assert control_state(value) == "stated"
 
     @pytest.mark.parametrize(
-        ("key", "form"),
+        ("key", "kind"),
         [
             ((flow_id(), "authentication", "", "", "", ""), "control"),
             (("process:web-app", "exposure", "", "", "", ""), "choice"),
@@ -1229,9 +1228,21 @@ class TestTheControlForm:
             (("", "", "", "who rotates the keys?", "", ""), "text"),
         ],
     )
-    def test_each_fact_takes_its_form(self, key, form):
-        assert answer_form(key, valid_model(), None) == form
-        assert bool(answer_suggestions(key)) == (form == "control")
+    def test_each_fact_takes_its_form(self, key, kind):
+        taken = answer_form(key, valid_model(), None)
+
+        assert taken.kind == kind
+        assert bool(taken.choices) == (kind == "choice")
+        assert bool(taken.suggestions) == (kind == "control")
+
+    def test_the_form_sends_the_keys_a_question_row_sends(self):
+        """A page reads the five keys off each question row and each
+        correction row, so the record keeps their names."""
+        key = ("process:web-app", "", "", "", "capacity-limits", "")
+        sent = answer_form(key, valid_model(), None).to_json()
+
+        assert set(sent) == {"form", "choices", "suggestions", "facets", "max_length"}
+        assert sent["form"] == "facets"
 
 
 def test_a_report_question_says_what_became_of_it_at_the_pause(report):

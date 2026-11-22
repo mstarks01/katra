@@ -144,13 +144,7 @@ from katra.answer_bodies import (
     read_answers,
     read_corrections,
 )
-from katra.answer_forms import (
-    answer_choices,
-    answer_form,
-    answer_limit,
-    answer_suggestions,
-    facets_json,
-)
+from katra.answer_forms import answer_form
 from katra.answer_shares import SharedAnswer
 from katra.answer_state import (
     ANSWER_LIMITS,
@@ -195,7 +189,6 @@ from katra.errors import refusal_text
 from katra.fact_answers import (
     FactAnswer,
     SkipKey,
-    answer_facets,
     asked_facets,
     attribute_place,
     fact_label,
@@ -1278,12 +1271,8 @@ def _answer_rows(
         {
             "key": list(answer.key),
             "label": fact_label(answer.key, model, catalog),
-            "form": answer_form(answer.key, model, catalog),
-            "choices": list(answer_choices(answer.key, model, catalog)),
-            "facets": facets_json(answer_facets(answer.key)),
+            **answer_form(answer.key, model, catalog).to_json(),
             "asks": list(asked_facets(answer.key)),
-            "suggestions": list(answer_suggestions(answer.key)),
-            "max_length": answer_limit(answer.key, model),
             "answer": answer.model_dump(mode="json"),
         }
         for answer in answers

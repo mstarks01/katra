@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from katra.answer_forms import YES_NO, answer_choices
+from katra.answer_forms import YES_NO, answer_choices, answer_form
 from katra.answer_sets import NO_ANSWERS, AnswerSet, SentAnswers
 from katra.answer_state import EARLY_RULES, passes_floor
 from katra.candidates import generate_candidates
@@ -294,12 +294,24 @@ def test_every_early_question_takes_an_answer_the_answer_rules_accept():
     """The early list and the answers route are two readers of one model."""
     model = valid_model()
     for question in early_questions(model, {"stride": {}}, None):
-        if question.facets:
-            answer = FactAnswer(key=question.key, facets={question.facets[0].id: "yes"})
+        form = question.form
+        if form.facets:
+            answer = FactAnswer(key=question.key, facets={form.facets[0].id: "yes"})
         else:
-            value = question.choices[0] if question.choices else "stated by them"
+            value = form.choices[0] if form.choices else "stated by them"
             answer = FactAnswer(key=question.key, value=value)
         check_fact_answers([answer], model, None)
+
+
+def test_every_early_question_takes_the_form_of_its_fact():
+    """A capability question takes its form from the one builder too."""
+    model = valid_model()
+    questions = early_questions(model, {"stride": {}, "asvs": {"level": 2}}, None)
+    assert any(q.kind == "capability" for q in questions), "a positive check"
+    for question in questions:
+        form = answer_form(question.key, model, None)
+        assert question.form == form
+        assert question.to_json().items() >= form.to_json().items()
 
 
 def test_the_shipped_prior_puts_an_unknown_attribute_near_the_top():
@@ -558,7 +570,7 @@ class TestTheFrameworkGates:
             for process in model.processes
         ]
         [gate] = asked.early
-        assert gate.choices == ("web", "non-web")
+        assert gate.form.choices == ("web", "non-web")
         assert gate.reasons == ("Whether the asvs analysis runs depends on this fact.",)
 
     def test_the_questions_that_decide_a_framework_come_before_the_others(self):

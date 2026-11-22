@@ -649,12 +649,12 @@ class TestTheAdaptiveList:
                 break
             given = []
             for question in asked.early:
-                if not question.facets:
+                if not question.form.facets:
                     given.append(FactAnswer(key=question.key, value="unknown"))
                     continue
                 before = next((a for a in answered if a.key == question.key), None)
                 said = before.facets if before else {}
-                facet = next(f.id for f in question.facets if f.id not in said)
+                facet = next(f.id for f in question.form.facets if f.id not in said)
                 given.append(FactAnswer(key=question.key, facets={facet: "unknown"}))
             answered = merged_facts(answered, given)
         assert not asked.early
@@ -900,7 +900,7 @@ class TestTakingAnAnswerBack:
         return question
 
     def known(self, question):
-        value = question.choices[0] if question.choices else "TLS 1.3"
+        value = question.form.choices[0] if question.form.choices else "TLS 1.3"
         return FactAnswer(key=question.key, value=value)
 
     def test_the_pause_takes_an_answer_back_and_the_fact_is_open_again(self):

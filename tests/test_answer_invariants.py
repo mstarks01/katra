@@ -300,8 +300,8 @@ def test_every_early_question_is_admitted(reason):
     for question in early_questions(held.system_model, {"stride": {}}, catalog, PRIOR):
         attribute = question.key[1]
         value = (
-            question.choices[0]
-            if question.choices
+            question.form.choices[0]
+            if question.form.choices
             else ANSWERS.get(attribute, ("stated by the submitter",))[0]
         )
         answer = FactAnswer(key=question.key, value=value)
