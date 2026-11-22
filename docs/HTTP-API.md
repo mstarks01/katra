@@ -569,9 +569,9 @@ assertion answer replaces the open fact at its place with a stated one. An answe
 question kind writes a stated fact for each part it answers, about that
 element, unless the sources state that part. An assertion answer, or a part,
 removes each catalog fact at its place (the same subject, fact and scope) that
-is open, set aside (`unsupported` or `unresolved`) or disagrees with your
-answer, and a
-`superseded-by-answer` issue names each removed fact that holds a value. A fact
+is open, set aside (`unsupported` or `unresolved`), states the same value as
+your answer, or disagrees with your answer. A `superseded-by-answer` issue
+names each removed fact that holds a value. A fact
 that can hold beside your answer, such as a second mechanism of one connection,
 stays. A subject answer reaches the analysis as your words in the
 answers source. Your answer settles the fact, even where the sources said
@@ -656,8 +656,8 @@ in the batch that sends them.
 `/v1/jobs/{id}/corrections`: a new value for an answer the report's run read,
 or `unknown` where it was a guess. They are kept beside the report, and a
 final job's questions list them as `corrections`, with `corrected_findings`:
-each finding that quotes a corrected answer's line, grounds on its attribute,
-or waits on it. The analysis does not run again. A correction carries the
+each finding that quotes a corrected answer's line, grounds on its attribute
+or on a fact the answer wrote, or waits on it. The analysis does not run again. A correction carries the
 `revision` its questions were read with, and the reply names the next one
 ([ADR 0090](adr/0090-a-correction-names-the-revision-it-read.md)).
 

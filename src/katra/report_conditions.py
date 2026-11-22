@@ -10,17 +10,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from katra.assertions import AssertionCatalog
+from katra.assertions import AssertionCatalog, answered, assertion_id
 from katra.claims import FrameworkAnalysis, UnknownKey
 from katra.fact_answers import (
     FactAnswer,
     FactStatus,
     SkipKey,
+    answered_row,
     attribute_place,
     fact_kind,
     fact_line,
     fact_status,
+    key_ref,
     needs_of,
+    part_answers,
 )
 from katra.grounding import normalize, verify_normalized
 from katra.open_facts import (
@@ -100,9 +103,10 @@ def corrected_findings(
     ``earlier`` is the answers the report's run read. A finding rests on a
     corrected fact where it quotes the fact's line of the answers Source,
     grounds on the same element's attribute, or names the fact as one it waits
-    on. A quote matches a line under the grounding ladder, which admitted it
-    (:func:`~katra.grounding.verify_normalized`). A fact is named
-    as it is asked (:func:`~katra.open_facts.fact_routes`), against
+    on, or grounds on a row the fact's earlier answer wrote
+    (:func:`_answer_rows`). A quote matches a line under the grounding ladder,
+    which admitted it (:func:`~katra.grounding.verify_normalized`). A fact is
+    named as it is asked (:func:`~katra.open_facts.fact_routes`), against
     ``model`` and ``catalog``.
     """
     routes = fact_routes(catalog, model)
@@ -113,6 +117,7 @@ def corrected_findings(
         if fact.key in before
     ]
     keys = {fact.key for fact in corrections}
+    rows = _answer_rows(catalog, [before[key] for key in keys if key in before])
     attributes = {attribute_place(key) for key in keys if fact_kind(key) == "attribute"}
 
     def rests_on(claim: Any) -> bool:
@@ -124,6 +129,8 @@ def corrected_findings(
             return True
         for ground in claim.grounds:
             if (ground.element_id, ground.attribute) in attributes:
+                return True
+            if ground.kind == "assertion" and ground.assertion in rows:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
                 verify_normalized(ground.text, line) for line in lines
@@ -137,3 +144,34 @@ def corrected_findings(
         for claim in block.all_claims()
         if rests_on(claim)
     )
+
+
+def _answer_rows(
+    catalog: AssertionCatalog | None, answers: Sequence[FactAnswer]
+) -> frozenset[str]:
+    """The identity of each row in ``catalog`` that one of ``answers`` wrote.
+
+    An assertion answer wrote the answer row at its place
+    (:func:`~katra.fact_answers.answered_row`). A question-kind answer wrote
+    an unscoped answer row for each part it names
+    (:func:`~katra.fact_answers.part_answers`) about its element.
+    """
+    if catalog is None:
+        return frozenset()
+    found: set[str] = set()
+    parts: set[tuple[str, str]] = set()
+    for fact in answers:
+        ref = key_ref(fact.key)
+        if fact.kind == "assertion":
+            row = answered_row(catalog, ref.assertion)
+            if row is not None and answered(row):
+                found.add(assertion_id(row))
+        parts.update((ref.element_id, name) for name, _ in part_answers(fact))
+    found.update(
+        assertion_id(entry)
+        for entry in catalog.entries
+        if answered(entry)
+        and not entry.scope
+        and (entry.subject, entry.predicate) in parts
+    )
+    return frozenset(found)

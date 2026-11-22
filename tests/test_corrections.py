@@ -7,6 +7,7 @@ import asyncio
 import pytest
 
 from katra.answer_sets import AnswerSet
+from katra.assertions import ABSENT, assertion_id
 from katra.claims import Ground, UnknownRef
 from katra.fact_answers import FactAnswer, fact_line
 from katra.grounding import verify_quote
@@ -16,12 +17,21 @@ from katra.sources import ANSWERS_LABEL, Source
 from tests.factories import (
     DESCRIPTION_TEXT,
     asking_threat,
+    sample_analysis,
     sample_report,
     sample_selection,
     sample_threat,
     valid_model,
 )
 from tests.test_api import auth, make_client
+from tests.test_contradicted_answers import (
+    PLACE_KEY,
+    TestAnAnswerToADisputedPlace,
+    disputed,
+)
+from tests.test_part_rows import PROCESS, kind_answer
+from tests.test_part_rows import row as part_row
+from tests.test_part_rows import written as part_rows_written
 
 ASKED = UnknownRef(
     element_id=valid_model().data_flows[1].id, attribute="encryption_in_transit"
@@ -225,3 +235,38 @@ class TestWhichFindingsACorrectionReaches:
     def test_a_quote_from_another_source_is_not_reached(self):
         quote = Ground(kind="quote", text=fact_line(ANSWER), source_label="description")
         assert self.reached(sample_threat(grounds=[quote])) == ()
+
+
+class TestACorrectionReachesTheRowItsAnswerWrote:
+    """A finding that grounds on the stated row an answer wrote rests on that
+    answer, so a correction of it reaches the finding (#2307 A3)."""
+
+    @staticmethod
+    def reached(catalog, row, before, after):
+        ground = Ground(kind="assertion", assertion=assertion_id(row))
+        analyses = [sample_analysis([sample_threat(grounds=[ground])])]
+        return corrected_findings(analyses, [before], [after], valid_model(), catalog)
+
+    def test_an_assertion_answer_s_row(self):
+        before = FactAnswer(key=PLACE_KEY, value="required")
+        catalog, _ = TestAnAnswerToADisputedPlace.written(disputed(), "required")
+        (row,) = catalog.entries
+
+        after = before.model_copy(update={"value": ABSENT})
+        assert self.reached(catalog, row, before, after) == ("stride/S-01",)
+
+    def test_a_question_kind_answer_s_part_row(self):
+        before = kind_answer(PROCESS, "capacity-limits", rate="yes", size="no")
+        catalog = part_rows_written(valid_model(), [before])
+        rate = part_row(catalog, PROCESS, "capacity-limits-rate")
+
+        after = kind_answer(PROCESS, "capacity-limits", rate="no", size="no")
+        assert self.reached(catalog, rate, before, after) == ("stride/S-01",)
+
+    def test_a_row_another_answer_wrote_is_not_reached(self):
+        catalog, _ = TestAnAnswerToADisputedPlace.written(disputed(), "required")
+        (row,) = catalog.entries
+
+        before = kind_answer(PROCESS, "capacity-limits", rate="yes")
+        after = kind_answer(PROCESS, "capacity-limits", rate="no")
+        assert self.reached(catalog, row, before, after) == ()
