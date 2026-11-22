@@ -211,7 +211,7 @@ def rebuilt_lane_inputs(
         FrameworkNodes(framework),
         report.system_model,
         options,
-        report.assertions.catalog if report.assertions else None,
+        report.assertion_catalog,
         MarkdownLoader(REPO_ROOT / "frameworks" / framework),
     )
 

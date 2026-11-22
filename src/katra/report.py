@@ -40,6 +40,7 @@ from pydantic import (
 from katra.assertions import (
     PROJECTION_VERSION,
     REJECTING,
+    AssertionCatalog,
     AssertionRecord,
     CatalogCoverage,
     catalog_coverage,
@@ -939,10 +940,16 @@ class Report(BaseModel):
             ground_issues(
                 claims,
                 self.system_model,
-                None if self.assertions is None else self.assertions.catalog,
+                self.assertion_catalog,
             )
             + self._contradiction_issues()
         )
+
+    @property
+    def assertion_catalog(self) -> AssertionCatalog | None:
+        """The catalog the job's assertion pass built, or ``None`` where the
+        job ran no pass."""
+        return None if self.assertions is None else self.assertions.catalog
 
     @property
     def assertion_coverage(self) -> CatalogCoverage | None:

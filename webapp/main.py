@@ -1163,7 +1163,7 @@ def render_report(
             fixes_by_framework(
                 report.analyses,
                 report.system_model,
-                report.assertions.catalog if report.assertions else None,
+                report.assertion_catalog,
             )
         ),
         fact_questions=script_json(asked["fact_questions"]),
@@ -1220,7 +1220,7 @@ def render_report(
         names=script_json(
             reference_labels(
                 report.system_model,
-                report.assertions.catalog if report.assertions else None,
+                report.assertion_catalog,
             )
         ),
     )
@@ -1252,7 +1252,7 @@ def _provenance_payload(
                 answered,
                 shown,
                 skipped,
-                report.assertions.catalog if report.assertions else None,
+                report.assertion_catalog,
             ).items()
         },
     }
@@ -1266,7 +1266,7 @@ def _answer_rows(
     Read by the same helpers that build a question.
     """
     model = report.system_model
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     return [
         {
             "key": list(answer.key),
@@ -1307,7 +1307,7 @@ def _corrections_payload(
                 answered,
                 corrections,
                 report.system_model,
-                None if report.assertions is None else report.assertions.catalog,
+                report.assertion_catalog,
             )
         ),
         "shares": [share.model_dump(mode="json") for share in shares],

@@ -21,7 +21,7 @@ import argparse
 import json
 import sys
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 from evals.harness.artifact import EvalArtifact, ProvenanceError, load_artifact
@@ -42,6 +42,7 @@ from katra.early_questions import (
     load_prior,
 )
 from katra.frameworks import PACKAGES
+from katra.open_facts import fact_routes, routed
 from katra.report import Report
 from katra.system_model import SystemModel
 
@@ -49,22 +50,34 @@ from katra.system_model import SystemModel
 Sample = tuple[str, SystemModel, list[list[UnknownRef]]]
 
 
+def _routes(report: Report) -> Mapping[str, UnknownRef]:
+    """The fact each open row of ``report``'s catalog is asked as."""
+    return fact_routes(report.assertion_catalog, report.system_model)
+
+
 def report_findings(report: Report, framework: FrameworkName) -> list[list[UnknownRef]]:
-    """Each finding's open facts, as the report's verdicts name them."""
+    """Each finding's open facts, as the report's verdicts name them.
+
+    A reference to a row the graph contradicts or another row disputes is the
+    fact it is asked as (:func:`~katra.open_facts.fact_routes`).
+    """
+    routes = _routes(report)
     return [
-        list(claim.verdict.related_unknowns)
+        routed(claim.waits_on(), routes)
         for block in report.analyses
         if block.framework == framework
         for claim in block.all_claims()
-        if claim.verdict.related_unknowns
+        if claim.waits_on()
     ]
 
 
-def replay_findings(path: Path) -> list[list[UnknownRef]]:
-    """Each ruling's open facts, as a critic replay wrote them."""
+def replay_findings(path: Path, report: Report) -> list[list[UnknownRef]]:
+    """Each ruling's open facts, as a critic replay of ``report``'s drafts
+    wrote them, each routed as :func:`report_findings` routes it."""
     claims = json.loads(path.read_text(encoding="utf-8"))["claims"]
+    routes = _routes(report)
     return [
-        [UnknownRef.model_validate(ref) for ref in refs]
+        routed([UnknownRef.model_validate(ref) for ref in refs], routes)
         for claim in claims
         if (refs := claim["verdict"].get("related_unknowns"))
     ]
@@ -106,7 +119,7 @@ def samples_of(
         for replay in replays:
             ruled = replay / f"{case}.rulings.json"
             if ruled.is_file():
-                out.append((case, report.system_model, replay_findings(ruled)))
+                out.append((case, report.system_model, replay_findings(ruled, report)))
     return out
 
 

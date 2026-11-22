@@ -3307,6 +3307,14 @@ ONE_READERS: dict[str, _OneReader] = {
         lambda node: _calls(node, "waits_on"),
         ("src/katra/report_conditions.py", "conditions"),
         {
+            ("evals/harness/filler.py", "rows"): (
+                "it counts the attributes an archived finding waits on, and"
+                " writes no condition"
+            ),
+            ("evals/harness/question_prior.py", "report_findings"): (
+                "it counts the facts an archived finding waits on for the"
+                " early-question prior, and writes no condition"
+            ),
             ("src/katra/report_conditions.py", "rests_on"): (
                 "it asks whether a claim rests on a corrected fact, and writes"
                 " no condition"
@@ -3624,19 +3632,31 @@ UNROUTED_FACT_READERS: dict[tuple[str, str], str] = {
 }
 
 
+#: Each site that routes open facts it reads from no claim, and where they
+#: come from.
+ROUTED_RECORDED_FACTS: dict[tuple[str, str], str] = {
+    ("evals/harness/question_prior.py", "replay_findings"): (
+        "routes the open facts a critic replay wrote to a JSON file"
+    ),
+}
+
+
 def test_each_reader_of_waiting_facts_reads_them_as_asked():
     """A reader of the facts a finding waits on reads them through
     ``open_facts.routed``, so a contradicted or disputed row is the fact an
     answer settles at every seam (the maintainer's ruling of 2026-11-18 on
-    #2270). ``UNROUTED_FACT_READERS`` gives each other reader its reason."""
+    #2270). ``UNROUTED_FACT_READERS`` gives each other reader its reason, and
+    ``ROUTED_RECORDED_FACTS`` each router that reads no claim."""
     readers = {
         *_sites(lambda node: _calls(node, "waits_on")),
         *_sites(lambda node: _calls(node, "unknown_grounds")),
     }
-    assert sorted(readers - set(UNROUTED_FACT_READERS)) == _sites(
-        lambda node: _calls(node, "routed")
-    )
+    assert sorted(
+        (readers - set(UNROUTED_FACT_READERS)) | set(ROUTED_RECORDED_FACTS)
+    ) == _sites(lambda node: _calls(node, "routed"))
     assert _sites(lambda node: _calls(node, "fact_routes")) == [
+        ("evals/harness/filler.py", "rows"),
+        ("evals/harness/question_prior.py", "_routes"),
         ("src/katra/questions.py", "follow_up_needs"),
         ("src/katra/report_conditions.py", "conditions"),
         ("src/katra/report_conditions.py", "corrected_findings"),
