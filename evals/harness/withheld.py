@@ -41,12 +41,17 @@ from pathlib import Path
 from typing import Any, cast
 
 from evals.harness.early_rounds import dont_know
-from evals.harness.modes import EvalRunError
+from evals.harness.modes import (
+    EvalRunError,
+    case_framework_options,
+    select_frameworks,
+)
 from evals.harness.reference import GoldenCase
 from katra.answer_sets import AnswerSet
+from katra.answer_state import question_set
 from katra.claims import FrameworkName
 from katra.execution import source_texts
-from katra.fact_answers import FactAnswer
+from katra.fact_answers import FactAnswer, merged_facts
 from katra.fact_writes import check_fact_answers
 from katra.parsing import signer, strings
 from katra.sources import Source
@@ -200,10 +205,6 @@ def answers_within_saves(
     does (:func:`~evals.harness.modes.select_frameworks`), so the pause asks
     for the frameworks the run builds.
     """
-    from evals.harness.modes import case_framework_options, select_frameworks
-    from katra.answer_state import question_set
-    from katra.fact_answers import merged_facts
-
     signed = {answer.key: answer for answer in answer_file.answers}
     model = withheld_case(case, answer_file).model
     selected = select_frameworks(case, only)

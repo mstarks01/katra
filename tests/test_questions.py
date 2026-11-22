@@ -1232,6 +1232,7 @@ class TestTheControlForm:
         taken = answer_form(key, valid_model(), None)
 
         assert taken.kind == kind
+        assert bool(taken.choices) == (kind == "choice")
         assert bool(taken.suggestions) == (kind == "control")
 
     def test_the_form_sends_the_keys_a_question_row_sends(self):
