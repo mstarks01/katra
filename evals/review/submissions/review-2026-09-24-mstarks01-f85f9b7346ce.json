@@ -33,7 +33,7 @@
         "v6:1c0e8500a0b975c8": "unsure"
       },
       "missing": [],
-      "notes": "Assembled by Claude Code on 2026-09-24 from the maintainer's reply in a session. It carries the 21 marks of the 2026-09-22 sitting that still bind, re-keyed to each finding's current key, and marks the one finding whose key moved when its place was widened (PR #1183). The maintainer's reason for 'unsure', verbatim: the claim requires registry write access and a replaceable tag; a commit-SHA tag alone establishes neither immutability nor replaceability.",
+      "notes": "Assembled on 2026-09-24 from the maintainer's reply in a session. It carries the 21 marks of the 2026-09-22 sitting that still bind, re-keyed to each finding's current key, and marks the one finding whose key moved when its place was widened (PR #1183). The maintainer's reason for 'unsure', verbatim: the claim requires registry write access and a replaceable tag; a commit-SHA tag alone establishes neither immutability nor replaceability.",
       "opened_digests": {
         "source.md": "1bfb96ef3374b697ef78e76661daa3d2b227792a3b20d2d1ee1d526cde02652c",
         "model.json": "25e0fe698e23ea38d98c8cd7e80dcef804cea2e27a8e4c09b4c5f65fc1785291",
