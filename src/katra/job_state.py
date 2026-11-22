@@ -168,7 +168,7 @@ async def run_origin(
 def run_start_of(resumed: JobRecord | None) -> RunStart:
     """What a run does first, from the job it resumes: ``None`` for a run
     that resumes no job. A job that waits to continue for its Controls alone
-    (``continues_at_pause``) gives ``controls``. Each other job gave answers.
+    (``continues_at_pause``) gives ``controls``. Each other job gives answers.
     :func:`run_origin` is its one caller outside the tests.
     ``tests/test_progress_words.py`` holds the answer to
     :func:`~katra.pipeline.entry_of`."""
