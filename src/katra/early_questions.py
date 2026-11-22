@@ -82,15 +82,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, get_args
 
-from katra.answer_forms import (
-    YES_NO,
-    AnswerForm,
-    answer_choices,
-    answer_form,
-    answer_limit,
-    answer_suggestions,
-    facets_json,
-)
+from katra.answer_forms import AnswerForm, answer_form
 from katra.assertions import AssertionCatalog, PredicateName
 from katra.candidates import Candidate, generate_candidates
 from katra.capabilities import CAPABILITIES, lineage
@@ -101,7 +93,6 @@ from katra.claims import (
 )
 from katra.fact_answers import (
     FactKind,
-    answer_facets,
     asked_facets,
     fact_kind,
     key_ref,
@@ -116,7 +107,7 @@ from katra.open_facts import (
     prepared_model,
 )
 from katra.parsing import non_negative, table_entry
-from katra.question_kinds import QUESTION_KINDS, Facet, parse_question_kind
+from katra.question_kinds import QUESTION_KINDS, parse_question_kind
 from katra.system_model import Element, SystemModel
 
 __all__ = [
@@ -265,16 +256,8 @@ class EarlyQuestion:
     reasons: tuple[str, ...]
     #: The selected frameworks an answer serves, by name, in name order.
     frameworks: tuple[FrameworkName, ...]
-    #: The answers it takes, or empty where the answer is free text.
-    choices: tuple[str, ...]
-    #: How a page takes the answer; see :data:`~katra.answer_forms.AnswerForm`.
+    #: How a page takes the answer.
     form: AnswerForm
-    #: Common mechanisms a ``control`` answer may start from.
-    suggestions: tuple[str, ...]
-    #: The parts a ``facets`` answer is given in.
-    facets: tuple[Facet, ...]
-    #: The longest answer it admits (:func:`~katra.answer_forms.answer_limit`).
-    max_length: int
     #: The group a page shows it in, the group's heading, and the element's
     #: name as its row in that group (:func:`~katra.open_facts.group_of`).
     group: str
@@ -312,7 +295,7 @@ class EarlyQuestion:
     @property
     def decisions(self) -> int:
         """The choices a person makes to answer it: one a facet, else one."""
-        return len(self.facets) or 1
+        return len(self.form.facets) or 1
 
     @property
     def standing(self) -> tuple[int, float]:
@@ -334,12 +317,8 @@ class EarlyQuestion:
             "label": self.label,
             "reasons": list(self.reasons),
             "frameworks": list(self.frameworks),
-            "choices": list(self.choices),
-            "form": self.form,
-            "suggestions": list(self.suggestions),
-            "facets": facets_json(self.facets),
+            **self.form.to_json(),
             "asks": list(asked_facets(self.key)),
-            "max_length": self.max_length,
             "decisions": self.decisions,
             "group": self.group,
             "group_heading": self.group_heading,
@@ -564,11 +543,7 @@ def _question(
         label=label_of(ref, names, model),
         reasons=reasons,
         frameworks=frameworks,
-        choices=answer_choices(key, model, catalog),
         form=answer_form(key, model, catalog),
-        suggestions=answer_suggestions(key),
-        facets=answer_facets(key),
-        max_length=answer_limit(key, model),
         group=group,
         group_heading=heading,
         element=names.get(ref.element_id, ref.element_id),
@@ -681,11 +656,7 @@ def capability_questions(
             kind="capability",
             label=table_entry(CAPABILITIES, key).question,
             reasons=(f"An answer settles whether up to {counts[key]} units apply.",),
-            choices=YES_NO,
-            form="choice",
-            suggestions=(),
-            facets=(),
-            max_length=answer_limit(ref.key, model),
+            form=answer_form(ref.key, model, None),
             group=group,
             group_heading=heading,
             element=table_entry(CAPABILITIES, key).question,

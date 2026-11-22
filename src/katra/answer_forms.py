@@ -1,4 +1,4 @@
-"""How a page takes an answer to one open fact: its choices, its form and its limit.
+"""How a page takes an answer to one open fact: its kind, choices and limit.
 
 The early list, the report's list and the first-run app's correction rows all
 build a question's form here, so a page offers what the admission check
@@ -7,7 +7,8 @@ accepts.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, get_args, get_origin
 
@@ -40,12 +41,11 @@ __all__ = [
     "YES_NO",
     "AnswerForm",
     "ChoiceAttribute",
+    "FormKind",
     "answer_choices",
     "answer_form",
     "answer_limit",
-    "answer_suggestions",
     "attribute_choices",
-    "facets_json",
     "max_length_of",
 ]
 
@@ -172,26 +172,64 @@ CONTROL_SUGGESTIONS: Mapping[ControlAttribute, tuple[str, ...]] = MappingProxyTy
 
 #: How a page takes an answer: one of ``choices``; a control, where the
 #: submitter says there is none, does not know, or names the mechanism in
-#: text; or free text.
-AnswerForm = Literal["choice", "control", "facets", "text"]
+#: text; parts given one by one; or free text.
+FormKind = Literal["choice", "control", "facets", "text"]
+
+
+@dataclass(frozen=True)
+class AnswerForm:
+    """How a page takes an answer to one open fact.
+
+    A Fact Question, an Early Question and a correction row each carry the
+    form of their fact, so a page offers what the admission check accepts.
+    """
+
+    kind: FormKind
+    #: The answers it takes, or empty where the answer is free text.
+    choices: tuple[str, ...]
+    #: Common mechanisms a ``control`` answer may start from.
+    suggestions: tuple[str, ...]
+    #: The parts a ``facets`` answer is given in.
+    facets: tuple[Facet, ...]
+    #: The longest answer it admits (:func:`answer_limit`).
+    max_length: int
+
+    def to_json(self) -> dict[str, object]:
+        """The form as a page reads it, with the kind under ``form``."""
+        return {
+            "form": self.kind,
+            "choices": list(self.choices),
+            "suggestions": list(self.suggestions),
+            "facets": [
+                {"id": facet.id, "question": facet.question} for facet in self.facets
+            ],
+            "max_length": self.max_length,
+        }
 
 
 def answer_form(
     key: UnknownKey, model: SystemModel, catalog: AssertionCatalog | None
 ) -> AnswerForm:
     """How a page takes an answer to this fact."""
-    if answer_facets(key):
-        return "facets"
-    if answer_choices(key, model, catalog):
-        return "choice"
-    control = fact_kind(key) == "attribute" and _suggested_attribute(key) is not None
-    return "control" if control else "text"
-
-
-def answer_suggestions(key: UnknownKey) -> tuple[str, ...]:
-    """Common mechanisms for a control answered in free text, or empty."""
+    choices = answer_choices(key, model, catalog)
+    facets = answer_facets(key)
     attribute = _suggested_attribute(key) if fact_kind(key) == "attribute" else None
-    return () if attribute is None else CONTROL_SUGGESTIONS[attribute]
+    kind: FormKind
+    if facets:
+        kind = "facets"
+    elif choices:
+        kind = "choice"
+    elif attribute is not None:
+        kind = "control"
+    else:
+        kind = "text"
+    return AnswerForm(
+        kind=kind,
+        choices=choices,
+        suggestions=() if attribute is None else CONTROL_SUGGESTIONS[attribute],
+        facets=facets,
+        max_length=answer_limit(key, model),
+    )
 
 
 def _suggested_attribute(key: UnknownKey) -> ControlAttribute | None:
@@ -233,8 +271,3 @@ def max_length_of(model_class: type[BaseModel], field: str) -> int | None:
         (bound.max_length for bound in metadata if hasattr(bound, "max_length")),
         None,
     )
-
-
-def facets_json(facets: Sequence[Facet]) -> list[dict[str, str]]:
-    """The facets as a page reads them."""
-    return [{"id": facet.id, "question": facet.question} for facet in facets]

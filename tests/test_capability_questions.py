@@ -85,8 +85,8 @@ class TestWhatIsAsked:
 
     def test_every_question_is_a_yes_or_no_choice_in_one_group(self):
         questions = capability_questions(valid_model(), ASVS_L1)
-        assert {question.form for question in questions} == {"choice"}
-        assert {question.choices for question in questions} == {("yes", "no")}
+        assert {question.form.kind for question in questions} == {"choice"}
+        assert {question.form.choices for question in questions} == {("yes", "no")}
         assert {question.group for question in questions} == {"capabilities"}
         for question in questions:
             assert question.label == CAPABILITIES[question.key[5]].question

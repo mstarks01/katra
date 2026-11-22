@@ -238,10 +238,10 @@ def answers_within_saves(
                     {
                         "key": question.key,
                         "facets": dict.fromkeys(
-                            (facet.id for facet in question.facets), UNKNOWN
+                            (facet.id for facet in question.form.facets), UNKNOWN
                         ),
                     }
-                    if question.facets
+                    if question.form.facets
                     else {"key": question.key, "value": UNKNOWN}
                 )
                 for question in asked.early

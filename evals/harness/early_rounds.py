@@ -74,8 +74,8 @@ Answerer = Callable[[EarlyQuestion, SystemModel], FactAnswer | None]
 
 def dont_know(question: EarlyQuestion) -> FactAnswer:
     """ "I don't know" to every part of ``question``, which writes nothing."""
-    if question.facets:
-        facets = {facet.id: UNKNOWN for facet in question.facets}
+    if question.form.facets:
+        facets = {facet.id: UNKNOWN for facet in question.form.facets}
         return FactAnswer.model_validate({"key": question.key, "facets": facets})
     return FactAnswer(key=question.key, value=UNKNOWN)
 
@@ -86,7 +86,7 @@ def _blessed(question: EarlyQuestion, blessed: SystemModel) -> FactAnswer:
     element = blessed.get(element_id)
     value = getattr(element, attribute, None) if attribute else None
     stated = isinstance(value, str) and control_state(value) != "unverified"
-    fits = not question.choices or value in question.choices
+    fits = not question.form.choices or value in question.form.choices
     if question.kind == "attribute" and isinstance(value, str) and stated and fits:
         return FactAnswer(key=question.key, value=value)
     return dont_know(question)
@@ -108,10 +108,10 @@ def _every_control(stated: bool) -> Answerer:
             return FactAnswer(key=question.key, value="yes")
         if question.kind != "attribute":
             return dont_know(question)
-        if question.choices:
-            value = question.choices[0 if stated else -1]
-        elif question.form == "control":
-            value = question.suggestions[0] if stated else "none"
+        if question.form.choices:
+            value = question.form.choices[0 if stated else -1]
+        elif question.form.kind == "control":
+            value = question.form.suggestions[0] if stated else "none"
         else:
             return dont_know(question)
         return FactAnswer(key=question.key, value=value)
@@ -131,9 +131,9 @@ def _in_part(rest: str | None) -> Answerer:
     def answer(question: EarlyQuestion, blessed: SystemModel) -> FactAnswer:
         if question.kind == "capability":
             return FactAnswer(key=question.key, value="yes")
-        if not question.facets:
+        if not question.form.facets:
             return _blessed(question, blessed)
-        first, *others = question.facets
+        first, *others = question.form.facets
         facets = {first.id: "yes"}
         if rest is not None:
             facets |= {facet.id: rest for facet in others}
