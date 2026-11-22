@@ -1717,8 +1717,9 @@ def test_the_block_says_whether_the_quote_check_ran(sources, checked, unverified
         ({"quotes_checked": False, "drafts": []}, False),
         # No fan-in ran: a framework its precondition refused.
         ({}, False),
-        # A failure dump that holds drafts and no key: the fan-in ran.
-        ({"drafts": []}, True),
+        # A failure dump that holds drafts and no key: no value says a check
+        # ran, so the read fails closed.
+        ({"drafts": []}, False),
     ],
 )
 def test_the_parked_quote_check_reads_every_shape(parked, expected):
@@ -3976,3 +3977,14 @@ def test_a_mark_on_a_returned_claim_leaves_the_block_with_it(domain_loader):
     assert block.unverified_grounds == []
     [entry] = [entry for entry in block.scope if entry.unit == "V11.2.1"]
     assert (entry.state, entry.needs) == ("needs-other-evidence", "config")
+
+
+@pytest.mark.parametrize(
+    ("quotes_checked", "expected"), [(True, True), (False, False), (None, False)]
+)
+def test_a_block_with_no_quote_check_value_reads_as_unchecked(quotes_checked, expected):
+    """A block written before schema 3.5 holds ``None``. No value says that a
+    check read its quotes, so the read fails closed."""
+    from katra.claims import quote_check_ran
+
+    assert quote_check_ran(quotes_checked) is expected

@@ -30,10 +30,10 @@ malformed value is ``None``, which the error states as
 :data:`CATEGORY_NOT_READ`. The provider's ``explanation`` is prose and is
 never read.
 
-**Only Anthropic's shape is read.** A body without a top-level
-``stop_details`` gives ``None``. An OpenAI-shaped body has no category field.
-A Gemini body names a harm category in ``safetyRatings``, and this module does
-not read it, so a Gemini refusal also reads as not read.
+**Only Anthropic's shape is read.** Each Vendor row states its shape in
+:attr:`~katra.vendors.Vendor.refusal_shape`, and the binding puts this layer
+only under a ``stop-details`` row. A body without a top-level
+``stop_details`` gives ``None``.
 """
 
 from __future__ import annotations

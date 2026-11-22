@@ -469,8 +469,7 @@ check against, so it is evidence of a *failed* check, never of a check having
 run. The block's `quotes_checked` says whether the check ran. Where it is
 `false`, no quote in the block was checked, and a quote with no mark is
 unchecked, not verified. It is `null` only on a block written before 3.5. Read
-such a block as checked: a block holds a quote only where the fan-in ran, and a
-report names at least one source, so the fan-in had a map to check against.
+such a block as unchecked, because no value says that a check ran.
 
 ## `unresolved_evidence` — references the catalog does not hold
 
