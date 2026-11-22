@@ -165,16 +165,16 @@ async def run_origin(
     return RunOrigin(run_start_of(resumed), resumption, parent)
 
 
-def run_start_of(parent: JobRecord | None) -> RunStart:
+def run_start_of(resumed: JobRecord | None) -> RunStart:
     """What a run does first, from the job it resumes: ``None`` for a run
-    that resumes no job. A parent that waits to continue for its Controls
-    alone (``continues_at_pause``) gives ``controls``. Each other parent gave
-    answers. :func:`run_origin` is its one caller.
+    that resumes no job. A job that waits to continue for its Controls alone
+    (``continues_at_pause``) gives ``controls``. Each other job gave answers.
+    :func:`run_origin` is its one caller outside the tests.
     ``tests/test_progress_words.py`` holds the answer to
     :func:`~katra.pipeline.entry_of`."""
-    if parent is None:
+    if resumed is None:
         return "description"
-    return "controls" if parent.continues_at_pause else "answers"
+    return "controls" if resumed.continues_at_pause else "answers"
 
 
 def _page_status(record: JobRecord) -> PageStatus:

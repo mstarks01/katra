@@ -360,7 +360,7 @@ EXAMPLES: dict[str, str] = {
     "store.database_url": "postgresql+asyncpg://katra@db.example.com/katra",
     "store.database_region": "us-east-1",
     "store.object_root": "/var/lib/katra/objects",
-    "store.object_bucket": "analysis-jobs",
+    "store.object_bucket": "katra-jobs",
     "store.object_region": "us-east-1",
     "store.object_endpoint": "https://s3.example.com",
 }

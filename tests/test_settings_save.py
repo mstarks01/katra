@@ -599,7 +599,7 @@ class TestAStoreChange:
             {
                 "store.job_store": "sql",
                 "store.object_store": "gcs",
-                "store.object_bucket": "analysis-jobs",
+                "store.object_bucket": "katra-jobs",
                 "store.object_credentials": credentials,
             },
         )
@@ -621,7 +621,7 @@ class TestAStoreChange:
                 "store.job_store": "sql",
                 "store.database_url": f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}",
                 "store.object_store": "gcs",
-                "store.object_bucket": "analysis-jobs",
+                "store.object_bucket": "katra-jobs",
                 "store.object_credentials": "api_key",
                 "store.object_service_account_key_file": json.dumps(key_info),
             },

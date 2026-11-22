@@ -43,7 +43,7 @@ from tests.test_object_stores import changed, every_call
 #: The settings of a ``gcs`` store that builds with no server.
 SETTINGS = {
     "KATRA_OBJECT_STORE": "gcs",
-    "KATRA_OBJECT_BUCKET": "analysis-jobs",
+    "KATRA_OBJECT_BUCKET": "katra-jobs",
     "KATRA_OBJECT_CREDENTIALS": "iam",
 }
 
@@ -128,7 +128,7 @@ class TestTheSettings:
         monkeypatch.setattr(gcs_objects, "make_client", kept)
         build_object_store(env)
         [client] = made
-        assert client._connection.build_api_url("/b/analysis-jobs").startswith(
+        assert client._connection.build_api_url("/b/katra-jobs").startswith(
             "https://storage.googleapis.com/"
         )
 
@@ -390,7 +390,7 @@ class TestTheApiKeyMode:
 #: A ``buckets.get`` resource with every value that the row needs.
 PASSING_BUCKET = {
     "kind": "storage#bucket",
-    "name": "analysis-jobs",
+    "name": "katra-jobs",
     "versioning": {"enabled": False},
     "softDeletePolicy": {"retentionDurationSeconds": "0"},
     "defaultEventBasedHold": False,
@@ -420,7 +420,7 @@ class TestTheStartupCheck:
     @pytest.mark.parametrize(
         ("error", "message"),
         [
-            (NotFound("hunter2"), "the bucket 'analysis-jobs' does not exist"),
+            (NotFound("hunter2"), "the bucket 'katra-jobs' does not exist"),
             (
                 Forbidden("hunter2"),
                 (
@@ -452,7 +452,7 @@ class TestTheStartupCheck:
                 {"softDeletePolicy": {"retentionDurationSeconds": "604800"}},
                 (
                     "softDeletePolicy.retentionDurationSeconds must be 0 (gcloud"
-                    " storage buckets update gs://analysis-jobs --clear-soft-delete)"
+                    " storage buckets update gs://katra-jobs --clear-soft-delete)"
                 ),
             ),
             (
@@ -504,7 +504,7 @@ class TestTheStartupCheck:
         assert str(refused.value).endswith(f": {message}")
 
     def test_each_refused_state_is_named(self, env, monkeypatch):
-        answer(monkeypatch, {"name": "analysis-jobs", "versioning": {"enabled": True}})
+        answer(monkeypatch, {"name": "katra-jobs", "versioning": {"enabled": True}})
         objects = build_object_store(env)
         with pytest.raises(StoreConfigError) as refused:
             asyncio.run(objects.check())

@@ -102,7 +102,7 @@ class TestTheSettings:
                 ("with password credentials takes no KATRA_DATABASE_REGION; unset it$"),
             ),
             (
-                {"KATRA_DATABASE_URL": "postgresql+asyncpg://analysis:hunter2@db/x"},
+                {"KATRA_DATABASE_URL": "postgresql+asyncpg://katra:hunter2@db/x"},
                 "holds a password",
             ),
             ({"KATRA_DATABASE_URL": URL + "?ssl=disable"}, "takes no query"),

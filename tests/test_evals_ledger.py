@@ -56,7 +56,7 @@ def test_every_reason_has_a_gloss_and_one_home():
 
 
 def test_a_style_downvote_keeps_the_finding_and_spares_the_score():
-    """The whole control for personal preference, as two booleans."""
+    """The whole safeguard against personal preference, as two booleans."""
     style = cast(
         components(),
         "01",
