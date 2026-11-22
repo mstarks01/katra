@@ -2260,17 +2260,12 @@ def parked_quotes_checked(
     dump. ``merge`` writes the key beside the drafts, so its shapes are:
 
     * ``True`` or ``False``: the fan-in's own value.
-    * Absent, with no drafts: no fan-in ran (a framework its precondition
-      refused), so no check ran.
-    * Absent, with drafts: a failure dump that holds drafts and no
-      ``quotes_checked`` key. Its fan-in had the case's non-empty map of
-      source texts, so its check ran, for the reason
-      :func:`~katra.claims.quote_check_ran` states.
+    * Absent: no fan-in ran (a framework its precondition refused), or a
+      failure dump holds drafts and no key. No value says that a check ran,
+      so it reads as unchecked, as :func:`~katra.claims.quote_check_ran`
+      reads ``None``.
     """
-    parked = state.get(nodes.key("quotes_checked"))
-    if parked is None and state.get(nodes.key("drafts")) is None:
-        return False
-    return quote_check_ran(parked)
+    return quote_check_ran(state.get(nodes.key("quotes_checked")))
 
 
 def _drafts_of(drafts: list | None, package: FrameworkPackage) -> list[Claim]:

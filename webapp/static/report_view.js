@@ -276,9 +276,9 @@
     // as needing other evidence, and the claim is gone from the block. Each
     // entry keeps the review's reason for each row it refused.
     const returned = (block.returned_claims || []);
-    // Whether the fan-in checked this block's quotes. Only `false` says it did
-    // not: a block from before schema 3.5 holds null, and its check ran.
-    const unchecked = block.quotes_checked === false;
+    // Whether the fan-in checked this block's quotes. Only `true` says it did:
+    // a block from before schema 3.5 holds null, and it reads as unchecked.
+    const unchecked = block.quotes_checked !== true;
     return { unverified, repaired, references, mentions, composed, unmitigated, unknown, groundless, unreconciled, returned, unchecked };
   }
 
