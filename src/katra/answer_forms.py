@@ -1,4 +1,4 @@
-"""How a page takes an answer to one open fact: its kind, choices and limit.
+"""How a page takes an answer to one open fact: its Answer Form.
 
 The early list, the report's list and the first-run app's correction rows all
 build a question's form here, so a page offers what the admission check
@@ -185,7 +185,7 @@ class AnswerForm:
     """
 
     kind: FormKind
-    #: The answers it takes, or empty where the answer is free text.
+    #: The answers it takes, or empty where the kind is not ``choice``.
     choices: tuple[str, ...]
     #: Common mechanisms a ``control`` answer may start from.
     suggestions: tuple[str, ...]

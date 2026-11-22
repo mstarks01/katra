@@ -1219,7 +1219,7 @@ class TestTheControlForm:
         assert control_state(value) == "stated"
 
     @pytest.mark.parametrize(
-        ("key", "form"),
+        ("key", "kind"),
         [
             ((flow_id(), "authentication", "", "", "", ""), "control"),
             (("process:web-app", "exposure", "", "", "", ""), "choice"),
@@ -1228,11 +1228,11 @@ class TestTheControlForm:
             (("", "", "", "who rotates the keys?", "", ""), "text"),
         ],
     )
-    def test_each_fact_takes_its_form(self, key, form):
+    def test_each_fact_takes_its_form(self, key, kind):
         taken = answer_form(key, valid_model(), None)
 
-        assert taken.kind == form
-        assert bool(taken.suggestions) == (form == "control")
+        assert taken.kind == kind
+        assert bool(taken.suggestions) == (kind == "control")
 
     def test_the_form_sends_the_keys_a_question_row_sends(self):
         """A page reads the five keys off each question row and each

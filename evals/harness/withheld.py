@@ -40,6 +40,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
+from evals.harness.early_rounds import dont_know
 from evals.harness.modes import EvalRunError
 from evals.harness.reference import GoldenCase
 from katra.answer_sets import AnswerSet
@@ -201,7 +202,6 @@ def answers_within_saves(
     """
     from evals.harness.modes import case_framework_options, select_frameworks
     from katra.answer_state import question_set
-    from katra.assertions import UNKNOWN
     from katra.fact_answers import merged_facts
 
     signed = {answer.key: answer for answer in answer_file.answers}
@@ -233,17 +233,7 @@ def answers_within_saves(
         given = merged_facts(
             given,
             [
-                signed.get(question.key)
-                or FactAnswer.model_validate(
-                    {
-                        "key": question.key,
-                        "facets": dict.fromkeys(
-                            (facet.id for facet in question.form.facets), UNKNOWN
-                        ),
-                    }
-                    if question.form.facets
-                    else {"key": question.key, "value": UNKNOWN}
-                )
+                signed.get(question.key) or dont_know(question)
                 for question in asked.early
             ],
         )
