@@ -1061,8 +1061,9 @@ class ApplicabilityYield:
         ``control``, or no cause on a report read back. A ``lane``,
         ``duplicate`` or ``reasoning`` rejection counts in the denominator and
         never in the numerator. An ASVS claim ID is its requirement, so each
-        requirement counted is one draft. ``destroyed_rate`` is the share of its rejections that the case
-        expected a ruling on, and has no value where it rejected nothing.
+        requirement counted is one draft. ``destroyed_rate`` is the share of
+        its rejections that the case expected a ruling on, and has no value
+        where it rejected nothing.
         """
         return _applicability_rates(
             self.with_verdict, len(self.rejected), len(self.destroyed)
