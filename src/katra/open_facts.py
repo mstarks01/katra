@@ -402,8 +402,9 @@ def fact_routes(
     unscoped row that reaches the same attribute, an unknown row among them,
     asks that one fact too, and so does every unscoped row at an attribute
     the rows hold open
-    (:func:`~katra.assertions.held_open_attributes`), which takes
-    an answer as an attribute (:func:`open_attribute`). Where a row reaches no
+    (:func:`~katra.assertions.held_open_attributes`), or at an attribute the
+    model leaves open where an unscoped unknown row reaches it. Each such
+    attribute takes an answer as an attribute (:func:`open_attribute`). Where a row reaches no
     field, or states a narrower scope than the attribute, the question is its
     place's
     (:func:`~katra.assertions.place_identity`), which names the
@@ -422,6 +423,16 @@ def fact_routes(
             fields.add((row.subject, attribute))
         else:
             routes[assertion_id(row)] = UnknownRef(assertion=place_identity(row))
+    # An unknown row at a field the model leaves open asks that field's one
+    # fact, as a finding on the field does (#2307 A1).
+    fields.update(
+        (entry.subject, attribute)
+        for entry in catalog.entries
+        if entry.value == UNKNOWN
+        and not entry.scope
+        and (attribute := projected_attribute(entry.predicate, entry.subject))
+        and open_attribute(prepared, entry.subject, attribute, catalog)
+    )
     for entry in catalog.entries:
         attribute = projected_attribute(entry.predicate, entry.subject)
         if not entry.scope and (entry.subject, attribute) in fields:
