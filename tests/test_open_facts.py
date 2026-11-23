@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from katra.assertions import Subject
 from katra.claims import UnknownRef
 from katra.evidence import evidence_catalog
 from katra.open_facts import (
@@ -24,6 +25,7 @@ from katra.open_facts import (
 from katra.report import Report
 from katra.system_model import CORE_ASSET_TAGS
 from tests.factories import valid_model
+from tests.test_evidence import assertions, row
 
 REPORTS = sorted(
     Path(__file__)
@@ -161,24 +163,58 @@ def test_every_other_backtick_span_in_the_archive_has_a_label():
 def test_every_unstated_attribute_is_in_one_gap(report):
     unstated = {
         (ground.element_id, ground.attribute)
-        for ground in evidence_catalog(report.system_model).values()
+        for ground in evidence_catalog(
+            report.system_model, report.assertion_catalog
+        ).values()
         if ground.kind == "unknown-attribute"
     }
     listed = [
         (element_id, gap.attribute)
-        for gap in gaps(report.system_model)
+        for gap in gaps(report.system_model, report.assertion_catalog)
         for element_id in gap.element_ids
     ]
     assert sorted(listed) == sorted(unstated)
-    counts = [len(gap.element_ids) for gap in gaps(report.system_model)]
+    counts = [
+        len(gap.element_ids)
+        for gap in gaps(report.system_model, report.assertion_catalog)
+    ]
     assert counts == sorted(counts, reverse=True)
 
 
 def test_a_gap_names_each_element_by_its_open_fact_key():
-    (gap, *_) = gaps(valid_model())
+    (gap, *_) = gaps(valid_model(), None)
     (element, *_) = gap.to_json()["elements"]
     ref = UnknownRef(element_id=element["id"], attribute=gap.attribute)
     assert element["key"] == list(ref.key)
+
+
+def test_a_field_that_hides_its_qualification_is_a_gap():
+    """A reviewer set aside the row that qualifies the store's field, so the
+    catalog offers the field as an unknown and the page lists it."""
+    store = "store:orders-db"
+    rejected = row(
+        subject=store,
+        predicate="storage-encryption",
+        value="AES-256",
+        assessment="unsupported",
+        explanation="the notes name AES-256",
+    )
+    catalog = assertions(
+        rejected,
+        subjects=(Subject(id=store, type="component", label="orders database"),),
+    )
+    model = valid_model()
+    model.get(store).encryption_at_rest = "none"
+
+    def listed(held):
+        return {
+            (element_id, gap.attribute)
+            for gap in gaps(model, held)
+            for element_id in gap.element_ids
+        }
+
+    assert (store, "encryption_at_rest") in listed(catalog)
+    assert (store, "encryption_at_rest") not in listed(None)
 
 
 def _grant_catalog():

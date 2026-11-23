@@ -1216,7 +1216,12 @@ def render_report(
         lanes=script_json(
             {name: package.id_rule.lane_field for name, package in PACKAGES.items()}
         ),
-        gaps=script_json([gap.to_json() for gap in gaps(report.system_model)]),
+        gaps=script_json(
+            [
+                gap.to_json()
+                for gap in gaps(report.system_model, report.assertion_catalog)
+            ]
+        ),
         names=script_json(
             reference_labels(
                 report.system_model,

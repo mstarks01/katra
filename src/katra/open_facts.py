@@ -334,16 +334,18 @@ class Gap:
         }
 
 
-def gaps(model: SystemModel) -> tuple[Gap, ...]:
-    """Every attribute the model leaves unstated, on the most elements first.
+def gaps(model: SystemModel, catalog: AssertionCatalog | None) -> tuple[Gap, ...]:
+    """Every attribute the model leaves open, on the most elements first.
 
     Read from the ``unknown-attribute`` entries of
     :func:`~katra.evidence.evidence_catalog`, the one reader of
-    which attributes a model leaves open. Each element carries the key of its
-    open fact, so a page can link it to the question that asks it.
+    which attributes a model leaves open. ``catalog`` is the job's assertion
+    catalog, so a field that hides its qualification is a gap too. Each
+    element carries the key of its open fact, so a page can link it to the
+    question that asks it.
     """
     unstated: dict[str, list[str]] = defaultdict(list)
-    for ground in evidence_catalog(model).values():
+    for ground in evidence_catalog(model, catalog).values():
         if ground.kind == "unknown-attribute":
             unstated[ground.attribute].append(ground.element_id)
     order = sorted(
