@@ -84,6 +84,7 @@ import bisect
 import re
 import time
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Literal, NamedTuple
@@ -392,6 +393,39 @@ def placements(quote: str, haystack: str, *, limit: int = 2) -> int:
         seen += 1
         cursor = matched[0][0] + 1
     return seen
+
+
+def lands_on(quote: str, haystack: str, spans: Sequence[tuple[int, int]]) -> bool:
+    """Whether some placement of ``quote`` in ``haystack`` puts a fragment
+    over one of ``spans``.
+
+    ``haystack`` is normalized, and ``spans`` are half-open offsets into it.
+    An empty span holds no words, so no quote lands on it.
+    :func:`match_normalized` gives the first placement only, and the words of
+    a span can also sit before it. So a fragment lands on a span where it sits
+    over the span, after the place where the fragments before it can end at
+    the earliest, and before the place where the fragments after it can start
+    at the latest. :func:`match_normalized` gives the earliest ends; a search
+    from the back gives the latest starts. Each fragment then takes one search
+    for each span, so the work grows with the fragments times the line, not
+    with the places a fragment can sit.
+    """
+    placed = match_normalized(quote, haystack)
+    if placed is None:
+        return False
+    parts = [normalize(piece) for piece in fragments(quote)]
+    after = [0, *(end for _, end in placed)]
+    before = [len(haystack)] * (len(parts) + 1)
+    for at in range(len(parts) - 1, -1, -1):
+        before[at] = haystack.rfind(parts[at], 0, before[at + 1])
+    for at, part in enumerate(parts):
+        for begin, stop in spans:
+            if begin >= stop:
+                continue
+            found = haystack.find(part, max(after[at], begin - len(part) + 1))
+            if 0 <= found < stop and found + len(part) <= before[at + 1]:
+                return True
+    return False
 
 
 #: A word of a source, for the offset table :func:`index_source` builds. Nothing

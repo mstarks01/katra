@@ -16,8 +16,8 @@ from katra.assertions import (
     assertion_id,
 )
 from katra.claims import Ground, UnknownRef
-from katra.fact_answers import FactAnswer, control_line, fact_line
-from katra.grounding import verify_quote
+from katra.fact_answers import FactAnswer, control_line, fact_line, stated_spans
+from katra.grounding import normalize, verify_quote
 from katra.jobs import Checkpoint, JobRecord, Resumption
 from katra.links import apply_answers
 from katra.report_conditions import corrected_findings
@@ -258,6 +258,32 @@ class TestWhichFindingsACorrectionReaches:
             "stride/S-01",
         )
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            '".',
+            "The encryption_in_transit of",
+            'From the Control "Edge TLS".',
+            '. From the Control "Edge TLS".',
+        ],
+    )
+    def test_a_quote_of_words_beside_the_answer_is_not_reached(self, text):
+        """Every line holds its template and every Control line its name, so
+        a quote reaches a line only where it reaches the answer's words."""
+        quote = Ground(kind="quote", text=text, source_label=ANSWERS_LABEL)
+        controls = [("Edge TLS", ANSWER)]
+        assert self.reached(sample_threat(grounds=[quote]), controls) == ()
+
+    def test_a_value_the_control_s_name_holds(self):
+        """The value's own place counts, wherever else the words sit."""
+        line = control_line("TLS 1.3 everywhere", ANSWER)
+        text = "TLS 1.3" + line.split("TLS 1.3", 1)[1]
+        quote = Ground(kind="quote", text=text, source_label=ANSWERS_LABEL)
+        controls = [("TLS 1.3 everywhere", ANSWER)]
+        assert self.reached(sample_threat(grounds=[quote]), controls) == (
+            "stride/S-01",
+        )
+
     def test_a_control_s_line_of_another_fact_is_not_reached(self):
         place = UnknownRef(element_id=ASKED.element_id, attribute="authentication")
         other = FactAnswer(key=place.key, value="mTLS")
@@ -342,3 +368,27 @@ class TestACorrectionReachesTheRowItsAnswerWrote:
         changed = fact.model_copy(update={"value": UNKNOWN, "facets": None})
         controls = [("Audit log", fact)]
         assert self.reached([fact], [changed], controls) == ("stride/S-01",)
+
+
+class TestWhereALineStatesTheAnswer:
+    """``stated_spans`` places the answer's value and detail in its normalized line."""
+
+    @pytest.mark.parametrize(
+        "fact",
+        [
+            ANSWER,
+            ANSWER.model_copy(update={"value": "**TLS**   \u201c1.3\u201d"}),
+            ANSWER.model_copy(update={"detail": "Behind  the *edge* proxy"}),
+            ANSWER.model_copy(update={"value": "  TLS 1.3  "}),
+            kind_answer(PROCESS, "audit-evidence", records_actor="yes"),
+        ],
+        ids=["attribute", "markup", "detail", "padded", "question"],
+    )
+    def test_each_span_holds_the_answer_s_words(self, fact):
+        line = normalize(fact_line(fact))
+        words = [fact.value, *([fact.detail] if fact.detail else [])]
+        # A padded word keeps one space at each edge, inside its quotes.
+        assert [line[start:end].strip() for start, end in stated_spans(fact)] == [
+            normalize(word) for word in words
+        ]
+        assert normalize(control_line("Edge", fact)).startswith(line)

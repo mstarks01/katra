@@ -31,8 +31,9 @@ planned workflow ended, not that every answer was right. The owner of a final
 report can change an answer its run read, or take it back to "I don't know".
 The correction is kept beside the report, apart from the answers the run read
 (`JobRecord.corrections`), and the report marks each
-finding that rests on a corrected fact: one that quotes the fact's line of the
-answers Source or a line a Control wrote the fact on, grounds on the same
+finding that rests on a corrected fact: one that quotes the answer's value or
+detail in the fact's line of the answers Source or in a line a Control wrote
+the fact on, grounds on the same
 element's attribute or on a row the fact's answer wrote, or waits on the fact
 (`report_conditions.corrected_findings`). The analysis does not run again. A report
 that is not final still has its follow-up, which takes a changed answer, so

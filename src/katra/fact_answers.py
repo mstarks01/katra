@@ -110,6 +110,7 @@ __all__ = [
     "part_answers",
     "quotes_answer",
     "refuse_repeated_facts",
+    "stated_spans",
     "with_element",
 ]
 
@@ -363,6 +364,28 @@ def fact_line(fact: FactAnswer) -> str:
     else:
         line = f'Asked "{_phrase(ref.subject)}", the answer is "{fact.value}".'
     return line + detail_note(fact.detail)
+
+
+def stated_spans(fact: FactAnswer) -> tuple[tuple[int, int], ...]:
+    """Where the normalized :func:`fact_line` holds the answer's own words: its
+    value, and its detail where it has one.
+
+    Half-open offsets into ``normalize(fact_line(fact))``. A Control's line
+    starts with that line (:func:`control_line`), so they hold there too. Each
+    word sits between double quotes, and :func:`~katra.grounding.normalize`
+    folds one character at a time and collapses whitespace. So the text up to
+    a double quote normalizes to the head of the normalized line.
+    """
+    line = fact_line(fact)
+    ends = [len(line) - len(detail_note(fact.detail)) - 2]
+    words = [fact.value]
+    if fact.detail:
+        ends.append(len(line) - 2)
+        words.append(fact.detail)
+    return tuple(
+        (len(normalize(line[: end - len(word)])), len(normalize(line[: end + 1])) - 1)
+        for word, end in zip(words, ends, strict=True)
+    )
 
 
 def quotes_answer(entry: Assertion, lines: Sequence[str]) -> bool:
