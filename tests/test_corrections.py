@@ -16,7 +16,7 @@ from katra.assertions import (
     assertion_id,
 )
 from katra.claims import Ground, UnknownRef
-from katra.fact_answers import FactAnswer, control_line, fact_line
+from katra.fact_answers import FactAnswer, fact_line
 from katra.grounding import verify_quote
 from katra.jobs import Checkpoint, JobRecord, Resumption
 from katra.links import apply_answers
@@ -306,26 +306,3 @@ class TestACorrectionReachesTheRowItsAnswerWrote:
         changed = fact.model_copy(update={"value": UNKNOWN, "facets": None})
         controls = [("Audit log", fact)]
         assert self.reached([fact], [changed], controls) == ("stride/S-01",)
-
-
-@pytest.mark.parametrize(
-    "spelled",
-    [
-        lambda line: line,
-        lambda line: line.replace('"', "\u201c"),
-        lambda line: line.removesuffix("."),
-        lambda line: line.removesuffix(' log".'),
-    ],
-    ids=["whole", "typographic", "no-period", "cut-in-the-name"],
-)
-def test_a_quote_of_a_control_s_line_is_reached(spelled):
-    text = spelled(control_line("Audit log", ANSWER))
-    quote = Ground(kind="quote", text=text, source_label=ANSWERS_LABEL)
-    report = sample_report([sample_threat(grounds=[quote])])
-    back = FactAnswer(key=ASKED.key, value="unknown")
-
-    reached = corrected_findings(
-        report.analyses, [ANSWER], [back], report.system_model, None
-    )
-
-    assert reached == ("stride/S-01",)

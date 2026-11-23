@@ -130,7 +130,7 @@ def corrected_findings(
             if ground.kind == "assertion" and ground.assertion in rows:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
-                _quotes(ground.text, line) for line in lines
+                verify_normalized(ground.text, line) for line in lines
             ):
                 return True
         return False
@@ -141,17 +141,6 @@ def corrected_findings(
         for claim in block.all_claims()
         if rests_on(claim)
     )
-
-
-def _quotes(text: str, line: str) -> bool:
-    """Whether a quote of the answers Source quotes the normalized ``line``.
-
-    The grounding ladder admits a quote of the line or a cut of it
-    (:func:`~katra.grounding.verify_normalized`). A quote that holds the
-    whole line quotes it too: a Control's line is the fact's line and then
-    the Control's name (:func:`~katra.fact_answers.control_line`).
-    """
-    return verify_normalized(text, line) or line in normalize(text)
 
 
 def _answer_rows(
