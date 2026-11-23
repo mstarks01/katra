@@ -17,7 +17,8 @@ from katra.assertions import (
     disputed,
     settled,
 )
-from katra.evidence import evidence_catalog
+from katra.evidence import prepared_view
+from katra.fact_answers import FactAnswer
 from katra.links import apply_answers
 from tests.factories import valid_model
 from tests.test_contradicted_answers import CREDENTIAL, LOGIN, MECHANISM, SUBJECTS
@@ -86,12 +87,23 @@ class TestTwoSourceRows:
 
         assert len(disputed(held)) == 2
 
-    def test_the_catalog_offers_both_sides_as_questions(self):
-        held = catalog(NO_AUTHENTICATION, CREDENTIAL)
-        offered = evidence_catalog(valid_model(), held)
+    def test_the_lanes_read_no_stated_absence(self):
+        """Through the model the lanes read: the field is a question, never
+        the absence one side states."""
+        for partner in (CREDENTIAL, MFA):
+            _, _, offered = prepared_view(
+                valid_model(), catalog(NO_AUTHENTICATION, partner)
+            )
 
-        assert offered[assertion_id(NO_AUTHENTICATION)].kind == "unknown-assertion"
-        assert offered[assertion_id(CREDENTIAL)].kind == "unknown-assertion"
+            assert f"absent:{LOGIN}:authentication" not in offered
+            assert offered[f"unknown:{LOGIN}:authentication"].kind == (
+                "unknown-attribute"
+            )
+
+    def test_the_second_factor_is_offered_as_a_question(self):
+        _, _, offered = prepared_view(valid_model(), catalog(NO_AUTHENTICATION, MFA))
+
+        assert offered[assertion_id(MFA)].kind == "unknown-assertion"
 
 
 class TestNoConflict:
@@ -128,6 +140,22 @@ class TestNoConflict:
         held = catalog(VALIDATED.model_copy(update={"value": ABSENT}), MFA)
 
         assert conflicts(held) == ()
+
+
+def test_an_attribute_answer_settles_against_the_paired_source_row():
+    """The attribute step writes an absent mechanism row beside a scoped one;
+    the second factor the sources stated disagrees with it and goes."""
+    scoped = MECHANISM.model_copy(
+        update={"scope": [Qualifier(kind="resource", value="backups")]}
+    )
+    answer = FactAnswer(key=(LOGIN, "authentication", "", "", "", ""), value="none")
+
+    written, issues = apply_answers(catalog(scoped, MFA), valid_model(), [], [answer])
+
+    assert disputed(written) == ()
+    assert assertion_id(MFA) in {
+        issue.assertion for issue in issues if issue.code == "superseded-by-answer"
+    }
 
 
 def test_an_answer_settles_its_fact_and_the_source_row_goes():

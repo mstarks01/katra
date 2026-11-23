@@ -2023,11 +2023,11 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
     return tuple(
         sorted(
             found,
-            key=lambda found: (
-                found.subject,
-                found.predicate,
-                found.scope,
-                found.values,
+            key=lambda conflict: (
+                conflict.subject,
+                conflict.predicate,
+                conflict.scope,
+                conflict.values,
             ),
         )
     )
@@ -2037,10 +2037,11 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
 #: (:func:`conflicts`): about one subject and scope, a row of the first states
 #: its control missing while a row of the second states it present. A stated
 #: table, not an inferred one (the maintainer's ruling of 2026-11-23 on #2307
-#: N2). The first two pairs are one-way: a mechanism such as an address
-#: allowlist presents no credential and asks no second factor. Each extracted
-#: verification predicate and the question part that asks the same control are
-#: paired both ways.
+#: N2). An authentication mechanism pairs one way with a presented credential
+#: and with a second factor: a mechanism such as an address allowlist presents
+#: no credential and asks no second factor. Each extracted verification
+#: predicate and the question part that asks the same control are paired both
+#: ways.
 CROSS_CONFLICTS: tuple[tuple[PredicateName, PredicateName], ...] = (
     ("authentication-mechanism", "credential-presented"),
     ("authentication-mechanism", "mfa-requirement"),
@@ -3249,6 +3250,7 @@ def project(catalog: AssertionCatalog) -> tuple[Projection, ...]:
     order.
     """
     subjects = {subject.id: subject for subject in catalog.subjects}
+    open_rows = frozenset(assertion_id(entry) for entry in disputed(catalog))
     grouped: dict[tuple[str, ProjectedField], list[tuple[str, Assertion]]] = {}
     for entry in catalog.entries:
         attribute = projected_attribute(entry.predicate, entry.subject)
@@ -3260,7 +3262,7 @@ def project(catalog: AssertionCatalog) -> tuple[Projection, ...]:
                 (assertion_id(entry), entry)
             )
     return tuple(
-        _projected(element_id, attribute, rows, subjects)
+        _projected(element_id, attribute, rows, subjects, open_rows)
         for (element_id, attribute), rows in sorted(grouped.items())
     )
 
@@ -3313,8 +3315,9 @@ def contradictions(
     extracted ``none`` beside them is a contradiction (the maintainer's ruling
     of 2026-11-18). Rows that read two states disagree with each other, so
     the attribute states neither side against them. :func:`conflicts` reports
-    two such rows of one predicate; two such rows of two predicates
-    (``several-predicates``) are neither contradicted nor disputed. A scoped
+    two such rows of one predicate, and two of a :data:`CROSS_CONFLICTS` pair;
+    two such rows of any other two predicates (``several-predicates``) are
+    neither contradicted nor disputed. A scoped
     row states a narrower fact than the attribute and is not compared. A row
     that holds :data:`UNKNOWN` states nothing to contradict.
     """
@@ -3909,8 +3912,15 @@ def _projected(
     attribute: ProjectedField,
     rows: list[tuple[str, Assertion]],
     subjects: Mapping[str, Subject],
+    open_rows: frozenset[str],
 ) -> Projection:
-    """One attribute's projected value, and the reason it reads that way."""
+    """One attribute's projected value, and the reason it reads that way.
+
+    ``open_rows`` holds the identity of each :func:`disputed` row. A row a
+    row of another predicate disputes (:data:`CROSS_CONFLICTS`), where that
+    row reaches no field here, writes no value: the sources state facts that
+    cannot all hold.
+    """
     ids = tuple(sorted(identity for identity, _ in rows))
     valued = [entry for _, entry in rows if entry.value != UNKNOWN]
     stated = _value_rows([entry for _, entry in rows])
@@ -3937,6 +3947,8 @@ def _projected(
         if len({entry.predicate for entry in stated}) > 1:
             return projected(UNKNOWN, "several-predicates")
         return projected(UNKNOWN, "several-values")
+    if any(assertion_id(entry) in open_rows for entry in stated):
+        return projected(UNKNOWN, "several-predicates")
     value = _graph_spelling(stated[0], subjects)
     if states_missing(stated[0]):
         return projected(value, "absent")

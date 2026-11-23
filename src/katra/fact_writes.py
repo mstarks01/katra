@@ -391,8 +391,10 @@ def fact_rows(
     assertion answer or a part row removes each source row at its place, the
     same subject, predicate and scope, that is open, is set aside, has the
     answer's identity or disagrees with it**, so the answer settles the fact.
-    A row that can hold beside the answer stays, and so does a row of another
-    scope. A ``superseded-by-answer`` issue names each removed row that holds
+    **Any row an answer writes also removes each source row of the other
+    predicate of a** :data:`~katra.assertions.CROSS_CONFLICTS` **pair that
+    disagrees with it**, about the same subject and scope. A row that can hold
+    beside the answer stays, and so does a row of another scope. A ``superseded-by-answer`` issue names each removed row that holds
     a value. An assertion answer at an attribute that an
     attribute answer settles writes nothing, and an ``unmatched-answer`` issue
     names its place.
@@ -515,6 +517,9 @@ def fact_rows(
     )
     rewritten = {assertion_id(row) for row in answer_rows}
     written_here = {place_identity(row): row for row in (*answer_rows, *parts.values())}
+    # Every row an answer writes in this run, the attribute step's too, for
+    # the rows of another predicate it settles (CROSS_CONFLICTS).
+    every_answer_row = (*written_here.values(), *written.values())
 
     def answered_over(entry: Assertion) -> bool:
         """An earlier run's part row, or a source row an answer settles now.
@@ -546,7 +551,7 @@ def fact_rows(
         if written_row is None:
             return any(
                 conflicts(AssertionCatalog(entries=[entry, row]))
-                for row in written_here.values()
+                for row in every_answer_row
                 if row.subject == entry.subject
             )
         return (
