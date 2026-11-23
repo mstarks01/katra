@@ -104,12 +104,13 @@ def corrected_findings(
     ``earlier`` is the answers the report's run read, and ``controls`` each
     fact a Control wrote with the Control's name. A finding rests on a
     corrected fact where it quotes the fact's line of the answers Source or a
-    Control's line that starts with it (:func:`quotes_answer`), grounds on the
-    same element's attribute, grounds on a row the fact's earlier answer wrote
-    (:func:`_answer_row_ids`), or names the fact as one it waits on. A quote matches a line under the grounding ladder,
-    which admitted it (:func:`~katra.grounding.verify_normalized`). A fact is
-    named as it is asked (:func:`~katra.open_facts.fact_routes`), against
-    ``model`` and ``catalog``.
+    Control's line of the same fact, whatever value the Control wrote, grounds
+    on the same element's attribute, grounds on a row the fact's earlier
+    answer wrote (:func:`_answer_row_ids`), or names the fact as one it waits
+    on. A quote matches a line under the grounding ladder, which admitted it
+    (:func:`~katra.grounding.verify_normalized`). A fact is named as it is
+    asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
+    ``catalog``.
     """
     routes = fact_routes(catalog, model)
     before = {fact.key: fact for fact in earlier}
@@ -118,15 +119,15 @@ def corrected_findings(
         for fact in corrections
         if fact.key in before
     ]
+    keys = {fact.key for fact in corrections}
     quoted = [
         *lines,
         *(
-            text
-            for text in (normalize(control_line(name, fact)) for name, fact in controls)
-            if text.startswith(tuple(lines))
+            normalize(control_line(name, fact))
+            for name, fact in controls
+            if fact.key in keys
         ),
     ]
-    keys = {fact.key for fact in corrections}
     answer_row_ids = _answer_row_ids(catalog, lines)
     attributes = {attribute_place(key) for key in keys if fact_kind(key) == "attribute"}
 

@@ -244,9 +244,23 @@ class TestWhichFindingsACorrectionReaches:
             "stride/S-01",
         )
 
-    def test_a_control_s_line_of_another_value_is_not_reached(self):
-        """The answer's own line replaced that Control's line in the run."""
+    def test_a_control_s_line_of_another_value(self):
+        """The run keeps a Control's line beside the answer that replaced its
+        value, or that merged facets with it, and the line states the fact."""
         other = ANSWER.model_copy(update={"value": "TLS 1.2"})
+        quote = Ground(
+            kind="quote",
+            text=control_line("Edge TLS", other),
+            source_label=ANSWERS_LABEL,
+        )
+        controls = [("Edge TLS", other)]
+        assert self.reached(sample_threat(grounds=[quote]), controls) == (
+            "stride/S-01",
+        )
+
+    def test_a_control_s_line_of_another_fact_is_not_reached(self):
+        place = UnknownRef(element_id=ASKED.element_id, attribute="authentication")
+        other = FactAnswer(key=place.key, value="mTLS")
         quote = Ground(
             kind="quote",
             text=control_line("Edge TLS", other),
