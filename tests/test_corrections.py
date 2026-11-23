@@ -7,21 +7,32 @@ import asyncio
 import pytest
 
 from katra.answer_sets import AnswerSet
+from katra.assertions import (
+    UNKNOWN,
+    Assertion,
+    AssertionCatalog,
+    Subject,
+    answer,
+    assertion_id,
+)
 from katra.claims import Ground, UnknownRef
 from katra.fact_answers import FactAnswer, fact_line
 from katra.grounding import verify_quote
 from katra.jobs import Checkpoint, JobRecord, Resumption
+from katra.links import apply_answers
 from katra.report_conditions import corrected_findings
 from katra.sources import ANSWERS_LABEL, Source
 from tests.factories import (
     DESCRIPTION_TEXT,
     asking_threat,
+    sample_analysis,
     sample_report,
     sample_selection,
     sample_threat,
     valid_model,
 )
 from tests.test_api import auth, make_client
+from tests.test_part_rows import PROCESS, kind_answer
 
 ASKED = UnknownRef(
     element_id=valid_model().data_flows[1].id, attribute="encryption_in_transit"
@@ -225,3 +236,73 @@ class TestWhichFindingsACorrectionReaches:
     def test_a_quote_from_another_source_is_not_reached(self):
         quote = Ground(kind="quote", text=fact_line(ANSWER), source_label="description")
         assert self.reached(sample_threat(grounds=[quote])) == ()
+
+
+class TestACorrectionReachesTheRowItsAnswerWrote:
+    """A finding that grounds on the stated row an answer wrote rests on that
+    answer, so a correction of it reaches the finding (#2307 A3). A row at the
+    same place that another answer wrote rests on that other answer."""
+
+    OPEN = Assertion(
+        subject=PROCESS,
+        predicate="record-attribution",
+        value=UNKNOWN,
+        reason="silent",
+        basis="inferred",
+        origin="assertion-pass",
+        explanation="the notes do not say",
+    )
+    PLACE = FactAnswer(
+        key=UnknownRef(assertion=assertion_id(OPEN)).key, value="principal"
+    )
+    KIND = kind_answer(PROCESS, "audit-evidence", records_actor="yes")
+
+    def reached(self, answers, corrections, controls=()):
+        """The findings a correction reaches, each grounded on the one
+        ``record-attribution`` row that ``answers`` wrote."""
+        held = AssertionCatalog(
+            subjects=[Subject(id=PROCESS, type="component", label="Web app")],
+            entries=[self.OPEN],
+        )
+        catalog, _ = apply_answers(held, valid_model(), [], answers, controls)
+        (row,) = [
+            row
+            for row in answer(catalog, PROCESS, "record-attribution").rows
+            if row.origin == "answer"
+        ]
+        ground = Ground(kind="assertion", assertion=assertion_id(row))
+        analyses = [sample_analysis([sample_threat(grounds=[ground])])]
+        return corrected_findings(
+            analyses, answers, corrections, valid_model(), catalog
+        )
+
+    def test_an_assertion_answer_s_row(self):
+        changed = self.PLACE.model_copy(update={"value": UNKNOWN})
+        assert self.reached([self.PLACE], [changed]) == ("stride/S-01",)
+
+    def test_a_question_kind_answer_s_part_row(self):
+        changed = kind_answer(PROCESS, "audit-evidence", records_actor="no")
+        assert self.reached([self.KIND], [changed]) == ("stride/S-01",)
+
+    def test_a_kind_correction_misses_the_assertion_answer_s_row(self):
+        """The assertion answer writes the place, so the part writes no row."""
+        changed = kind_answer(PROCESS, "audit-evidence", records_actor="no")
+        assert self.reached([self.PLACE, self.KIND], [changed]) == ()
+
+    def test_an_assertion_correction_misses_the_part_row(self):
+        """An unknown assertion answer writes nothing, so the row is the part's."""
+        unknown = self.PLACE.model_copy(update={"value": UNKNOWN})
+        assert self.reached([unknown, self.KIND], [self.PLACE]) == ()
+
+    def test_a_detail_that_ends_like_a_control_s_name(self):
+        """The row quotes the whole line, whatever its detail says."""
+        fact = self.PLACE.model_copy(update={"detail": 'ok From the Control "x'})
+        changed = fact.model_copy(update={"value": UNKNOWN})
+        assert self.reached([fact], [changed]) == ("stride/S-01",)
+
+    @pytest.mark.parametrize("fact", [PLACE, KIND], ids=["assertion", "kind"])
+    def test_a_row_a_control_wrote(self, fact):
+        """The row quotes the Control's line, which names the Control."""
+        changed = fact.model_copy(update={"value": UNKNOWN, "facets": None})
+        controls = [("Audit log", fact)]
+        assert self.reached([fact], [changed], controls) == ("stride/S-01",)
