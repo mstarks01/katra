@@ -44,13 +44,12 @@ from katra.assertions import (
     AssertionCatalog,
     CatalogIssue,
     CatalogIssueCode,
+    PredicateName,
     Subject,
     SupportSpan,
     answer,
     answered,
-    assertion_id,
     conflicts,
-    read_assertion_id,
     settled,
     subjects_of,
 )
@@ -59,11 +58,12 @@ from katra.fact_answers import (
     FactAnswer,
     control_line,
     fact_line,
-    key_ref,
     merged_facts,
+    quotes_answer,
     refuse_repeated_facts,
 )
 from katra.fact_writes import check_fact_answers, fact_rows
+from katra.grounding import normalize
 from katra.sources import ANSWERS_LABEL, Source, plain_name, text_digest
 from katra.system_model import (
     ELEMENT_ID_MAX_CHARS,
@@ -473,81 +473,69 @@ def check_answers(
             _, issues = apply_answers(catalog, model, [link])
             if issues:
                 raise ValueError(f"links[{at}]: {_LINK_REFUSALS[issues[0].code]}")
-        _refuse_disagreeing_facts(facts, model, catalog)
+        _refuse_disagreeing_facts(facts, earlier, model, catalog)
 
 
 def _refuse_disagreeing_facts(
-    facts: Sequence[FactAnswer], model: SystemModel, catalog: AssertionCatalog
+    facts: Sequence[FactAnswer],
+    earlier: Sequence[FactAnswer],
+    model: SystemModel,
+    catalog: AssertionCatalog,
 ) -> None:
-    """Refuse two answers of one submission whose rows disagree.
+    """Refuse an answer whose row disagrees with a row another answer writes.
 
-    Two rows the answers write disagree where :func:`~katra.assertions.conflicts`
-    finds a stated pair of predicates
-    (:data:`~katra.assertions.CROSS_CONFLICTS`) with one row stating a control
-    missing and the other stating it present. The service cannot know which of
-    the two the submitter meant, as with two answers to one fact
-    (:func:`~katra.fact_answers.refuse_repeated_facts`).
-
-    The writer runs once over every answer. Only where two of its rows
-    disagree does it run again for each answer about that subject, to name
-    the two answers by position.
+    The run writes this submission's answers and each earlier answer that none
+    of them replaces, so the writer runs once over all of them. Two of the rows
+    disagree where :func:`~katra.assertions.conflicts` finds a stated pair of
+    predicates (:data:`~katra.assertions.CROSS_CONFLICTS`) with one row stating
+    a control missing and the other stating it present. Each row is the
+    answer's whose line it quotes (:func:`~katra.fact_answers.quotes_answer`).
+    The service cannot know which of the two the submitter meant, as with two
+    answers to one fact (:func:`~katra.fact_answers.refuse_repeated_facts`).
+    Two earlier answers that disagree are not this submission's to refuse.
     """
-    held = {assertion_id(entry) for entry in catalog.entries}
-    disputed_subjects = {
-        one.subject
-        for one, other in combinations(_paired_rows(catalog, model, facts, held), 2)
-        if one.subject == other.subject
-        and conflicts(AssertionCatalog(entries=[one, other]))
-    }
-    if not disputed_subjects:
-        return
-    about = [
-        at for at, fact in enumerate(facts) if _subject_of(fact) in disputed_subjects
+    keys = {fact.key for fact in facts}
+    every = [*facts, *(fact for fact in earlier if fact.key not in keys)]
+    written, _ = apply_answers(catalog, model, [], every)
+    paired = [
+        entry
+        for entry in written.entries
+        if answered(entry) and entry.predicate in _PAIRED_PREDICATES
     ]
-    written = {at: _paired_rows(catalog, model, [facts[at]], held) for at in about}
-    for first, second in combinations(about, 2):
+    rows = {
+        at: wrote
+        for at, fact in enumerate(every)
+        if (
+            wrote := [
+                entry
+                for entry in paired
+                if quotes_answer(entry, [normalize(fact_line(fact))])
+            ]
+        )
+    }
+
+    def named(at: int) -> str:
+        return f"facts[{at}]" if at < len(facts) else "an earlier answer"
+
+    for first, second in combinations(sorted(rows), 2):
+        if first >= len(facts):
+            break
         if any(
             conflicts(AssertionCatalog(entries=[one, other]))
-            for one in written[first]
-            for other in written[second]
+            for one in rows[first]
+            for other in rows[second]
         ):
             raise ValueError(
-                f"facts[{first}] and facts[{second}] state facts that cannot both"
+                f"{named(first)} and {named(second)} state facts that cannot both"
                 " hold, so the service cannot know which one is meant; change one"
                 " of them"
             )
 
 
 #: Each predicate of a :data:`~katra.assertions.CROSS_CONFLICTS` pair.
-_PAIRED_PREDICATES = frozenset(name for pair in CROSS_CONFLICTS for name in pair)
-
-
-def _paired_rows(
-    catalog: AssertionCatalog,
-    model: SystemModel,
-    facts: Sequence[FactAnswer],
-    held: Collection[str],
-) -> list[Assertion]:
-    """The rows ``facts`` write that ``catalog`` does not hold, of a paired
-    predicate."""
-    written, _ = apply_answers(catalog, model, [], facts)
-    return [
-        entry
-        for entry in written.entries
-        if answered(entry)
-        and entry.predicate in _PAIRED_PREDICATES
-        and assertion_id(entry) not in held
-    ]
-
-
-def _subject_of(fact: FactAnswer) -> str:
-    """The subject a fact answer writes rows about: its element, or the
-    subject its open row's identity names."""
-    ref = key_ref(fact.key)
-    if not ref.assertion:
-        return ref.element_id
-    parts = read_assertion_id(ref.assertion)
-    return "" if parts is None else parts.subject
+_PAIRED_PREDICATES: frozenset[PredicateName] = frozenset(
+    name for pair in CROSS_CONFLICTS for name in pair
+)
 
 
 def _link_rows(

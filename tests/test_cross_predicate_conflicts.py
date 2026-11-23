@@ -19,11 +19,14 @@ from katra.assertions import (
     conflicts,
     disputed,
     place_identity,
+    project,
     settled,
+    support_span,
 )
 from katra.evidence import prepared_view
 from katra.fact_answers import FactAnswer
 from katra.links import apply_answers, check_answers
+from katra.sources import ANSWERS_LABEL
 from tests.factories import valid_model
 from tests.test_contradicted_answers import CREDENTIAL, LOGIN, MECHANISM, SUBJECTS
 from tests.test_part_rows import kind_answer
@@ -162,19 +165,52 @@ def test_an_attribute_answer_settles_against_the_paired_source_row():
     }
 
 
-def test_an_answer_settles_its_fact_and_the_source_row_goes():
-    """The part answer says no; the extracted row said validated."""
-    answer = kind_answer(LOGIN, "content-validation", validates="no")
+def test_an_assertion_answer_settles_against_the_paired_source_row():
+    """The submitter answers the open mechanism: no authentication. The
+    credential the sources named disagrees with it and goes."""
+    open_row = MECHANISM.model_copy(update={"value": UNKNOWN, "reason": "silent"})
+    place = place_identity(open_row)
+    answer = FactAnswer(key=("", "", place, "", "", ""), value=ABSENT)
 
-    written, issues = apply_answers(catalog(VALIDATED), valid_model(), [], [answer])
+    written, issues = apply_answers(
+        catalog(open_row, CREDENTIAL), valid_model(), [], [answer]
+    )
 
-    assert VALIDATED not in written.entries
-    assert assertion_id(VALIDATED) in {
+    assert disputed(written) == ()
+    assert assertion_id(CREDENTIAL) in {
         issue.assertion for issue in issues if issue.code == "superseded-by-answer"
     }
     (row,) = [entry for entry in written.entries if entry.origin == "answer"]
-    assert (row.predicate, row.value) == ("content-validation-validates", "no")
-    assert row in settled(written)
+    assert (row.predicate, row.value) == ("authentication-mechanism", ABSENT)
+
+
+def test_a_part_answer_writes_nothing_beside_a_paired_source_row():
+    """A stated fact stands against a part, as it does for the part's own
+    predicate (ADR 0125), so a Control cannot remove it either."""
+    answer = kind_answer(LOGIN, "content-validation", validates="no")
+
+    written, _ = apply_answers(catalog(VALIDATED), valid_model(), [], [answer])
+
+    assert [entry.origin for entry in written.entries] == ["assertion-pass"]
+    assert ids(settled(written)) == ids([VALIDATED])
+
+
+def test_an_answer_beside_its_own_disagreeing_row_still_projects():
+    """Only a paired predicate's dispute qualifies the field; an answer that
+    drives the value over a row of its own predicate projects its value."""
+    line = "Login: mutual TLS."
+    answer_row = MECHANISM.model_copy(
+        update={
+            "value": "mutual TLS",
+            "basis": "stated",
+            "origin": "answer",
+            "explanation": "",
+            "support": [support_span(line, ANSWERS_LABEL, line)],
+        }
+    )
+    (projection,) = project(catalog(answer_row, NO_AUTHENTICATION))
+
+    assert (projection.value, projection.reason) == ("mutual TLS", "stated")
 
 
 class TestTwoAnswersThatDisagree:
@@ -210,3 +246,19 @@ class TestTwoAnswersThatDisagree:
         self.check(
             self.PLACE, kind_answer(LOGIN, "content-validation", validates="yes")
         )
+
+    def test_an_answer_that_disagrees_with_an_earlier_one_is_refused(self):
+        part_no = kind_answer(LOGIN, "content-validation", validates="no")
+
+        with pytest.raises(ValueError, match=r"facts\[0\] and an earlier answer"):
+            check_answers(
+                [],
+                [part_no],
+                valid_model(),
+                catalog(self.OPEN),
+                {part_no.key, self.PLACE.key},
+                [self.PLACE],
+                asked_links=(),
+                earlier_links=(),
+                reopen=False,
+            )

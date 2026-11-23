@@ -122,6 +122,10 @@ UNIONS = (UnionType, Union)
 #: suppression: the constant still has to stay a subset, which
 #: :func:`test_no_declaration_outlives_its_subset` checks.
 PARTIAL: dict[tuple[str, str], str] = {
+    ("katra.links", "_PAIRED_PREDICATES"): (
+        "the predicates of a stated pair whose rows can disagree across"
+        " predicates, which leaves out every unpaired predicate"
+    ),
     ("evals.harness.delivery", "VALUE_KEEPING_FATES"): (
         "the replay fates that keep the signed value, which leaves out a wrong"
         " value and a rescoped row"

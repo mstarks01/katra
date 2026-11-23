@@ -1991,14 +1991,8 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
     Sorted by subject, then predicate, then scope, so two runs over one catalog
     report the same order.
     """
-    groups: dict[tuple[str, str, str], dict[str, Assertion]] = {}
-    for entry in catalog.entries:
-        if not admissible(entry) or entry.value == UNKNOWN:
-            continue
-        key = (entry.subject, entry.predicate, _scope_key(entry.scope))
-        groups.setdefault(key, {}).setdefault(entry.value, entry)
-
-    found = set()
+    groups = _value_groups(catalog)
+    found = set(_cross_conflicts(groups))
     for (subject, predicate, scope), rows in groups.items():
         stated = tuple(sorted(rows))
         if len(stated) < 2:
@@ -2006,6 +2000,38 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
         one_only = table_entry(REGISTRY, predicate).multiplicity == "one"
         if one_only or any(map(states_missing, rows.values())):
             found.add(Conflict(subject, predicate, scope, stated))
+    return tuple(
+        sorted(
+            found,
+            key=lambda conflict: (
+                conflict.subject,
+                conflict.predicate,
+                conflict.scope,
+                conflict.values,
+            ),
+        )
+    )
+
+
+def _value_groups(
+    catalog: AssertionCatalog,
+) -> dict[tuple[str, str, str], dict[str, Assertion]]:
+    """The admissible rows that hold a value, by subject, predicate and scope,
+    one row for each value."""
+    groups: dict[tuple[str, str, str], dict[str, Assertion]] = {}
+    for entry in catalog.entries:
+        if not admissible(entry) or entry.value == UNKNOWN:
+            continue
+        key = (entry.subject, entry.predicate, _scope_key(entry.scope))
+        groups.setdefault(key, {}).setdefault(entry.value, entry)
+    return groups
+
+
+def _cross_conflicts(
+    groups: Mapping[tuple[str, str, str], Mapping[str, Assertion]],
+) -> set[Conflict]:
+    """The conflicts of :data:`CROSS_CONFLICTS` pairs, one for each side."""
+    found = set()
     for missing, present in CROSS_CONFLICTS:
         for (subject, predicate, scope), rows in groups.items():
             if predicate != missing:
@@ -2020,17 +2046,7 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
                 values = tuple(sorted(absent | there))
                 found.add(Conflict(subject, missing, scope, values))
                 found.add(Conflict(subject, present, scope, values))
-    return tuple(
-        sorted(
-            found,
-            key=lambda conflict: (
-                conflict.subject,
-                conflict.predicate,
-                conflict.scope,
-                conflict.values,
-            ),
-        )
-    )
+    return found
 
 
 #: Each ordered pair of predicates whose rows disagree across predicates
@@ -3250,7 +3266,17 @@ def project(catalog: AssertionCatalog) -> tuple[Projection, ...]:
     order.
     """
     subjects = {subject.id: subject for subject in catalog.subjects}
-    open_rows = frozenset(assertion_id(entry) for entry in disputed(catalog))
+    crossed = {
+        (conflict.subject, conflict.predicate, conflict.scope)
+        for conflict in _cross_conflicts(_value_groups(catalog))
+    }
+    open_rows = frozenset(
+        assertion_id(entry)
+        for entry in catalog.entries
+        if admissible(entry)
+        and entry.value != UNKNOWN
+        and (entry.subject, entry.predicate, _scope_key(entry.scope)) in crossed
+    )
     grouped: dict[tuple[str, ProjectedField], list[tuple[str, Assertion]]] = {}
     for entry in catalog.entries:
         attribute = projected_attribute(entry.predicate, entry.subject)
@@ -3916,10 +3942,10 @@ def _projected(
 ) -> Projection:
     """One attribute's projected value, and the reason it reads that way.
 
-    ``open_rows`` holds the identity of each :func:`disputed` row. A row a
-    row of another predicate disputes (:data:`CROSS_CONFLICTS`), where that
-    row reaches no field here, writes no value: the sources state facts that
-    cannot all hold.
+    ``open_rows`` holds the identity of each row that a row of the paired
+    predicate disputes (:data:`CROSS_CONFLICTS`). Where that paired row reaches
+    no field here, the row writes no value: the sources state facts that cannot
+    all hold.
     """
     ids = tuple(sorted(identity for identity, _ in rows))
     valued = [entry for _, entry in rows if entry.value != UNKNOWN]

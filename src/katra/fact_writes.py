@@ -391,9 +391,12 @@ def fact_rows(
     assertion answer or a part row removes each source row at its place, the
     same subject, predicate and scope, that is open, is set aside, has the
     answer's identity or disagrees with it**, so the answer settles the fact.
-    **Any row an answer writes also removes each source row of the other
-    predicate of a** :data:`~katra.assertions.CROSS_CONFLICTS` **pair that
-    disagrees with it**, about the same subject and scope. A row that can hold
+    **A row an assertion answer or an attribute answer writes also removes
+    each source row of the other predicate of a**
+    :data:`~katra.assertions.CROSS_CONFLICTS` **pair that disagrees with it**,
+    about the same subject and scope. A part row removes none, and a part
+    writes no row where a source row of its paired predicate disagrees, as it
+    writes none where the sources state its own predicate (ADR 0125). A row that can hold
     beside the answer stays, and so does a row of another scope. A ``superseded-by-answer`` issue names each removed row that holds
     a value. An assertion answer at an attribute that an
     attribute answer settles writes nothing, and an ``unmatched-answer`` issue
@@ -517,9 +520,10 @@ def fact_rows(
     )
     rewritten = {assertion_id(row) for row in answer_rows}
     written_here = {place_identity(row): row for row in (*answer_rows, *parts.values())}
-    # Every row an answer writes in this run, the attribute step's too, for
-    # the rows of another predicate it settles (CROSS_CONFLICTS).
-    every_answer_row = (*written_here.values(), *written.values())
+    # The rows an assertion answer or an attribute answer writes, for the
+    # source rows of the paired predicate they settle (CROSS_CONFLICTS). A part
+    # row settles none: a stated fact stands against it (ADR 0125).
+    settling_rows = (*answer_rows, *written.values())
 
     def answered_over(entry: Assertion) -> bool:
         """An earlier run's part row, or a source row an answer settles now.
@@ -529,9 +533,9 @@ def fact_rows(
         goes where it is open, set aside, the answer's own identity, or where
         it disagrees with the answer
         (:func:`~katra.assertions.conflicts`). Elsewhere, a source row goes
-        where it disagrees with an answer row of another predicate
-        (:data:`~katra.assertions.CROSS_CONFLICTS`), because an answer settles
-        its fact even against the sources. A row that can hold
+        where it disagrees with an assertion answer's or an attribute answer's
+        row of another predicate (:data:`~katra.assertions.CROSS_CONFLICTS`),
+        because such an answer settles its fact even against the sources. A row that can hold
         beside the answer, such as another value of a predicate of many, or a
         row of a narrower scope, stays. A row an attribute answer removes is
         that step's.
@@ -551,7 +555,7 @@ def fact_rows(
         if written_row is None:
             return any(
                 conflicts(AssertionCatalog(entries=[entry, row]))
-                for row in every_answer_row
+                for row in settling_rows
                 if row.subject == entry.subject
             )
         return (
@@ -616,9 +620,11 @@ def _part_rows(
     element's subject type is asked there, whatever the answer. A part writes
     a stated row where its answer has a value (:attr:`~katra.assertions.OwnerQuestion.values`),
     the sources do not state it (:func:`source_states`), no assertion answer
-    in ``assertion_rows`` writes the same place, and no attribute answer in
-    ``attributes`` settles the attribute it projects into: a stated fact
-    stands, a Control fills only an open fact (ADR 0125), and an answer to the
+    in ``assertion_rows`` writes the same place, no attribute answer in
+    ``attributes`` settles the attribute it projects into, and no source row
+    of the paired predicate disagrees with it
+    (:data:`~katra.assertions.CROSS_CONFLICTS`): a stated fact stands, a
+    Control fills only an open fact (ADR 0125), and an answer to the
     attribute itself is the narrower one.
     """
     answered_places = {
@@ -644,7 +650,7 @@ def _part_rows(
                 or stated(element_id, name)
             ):
                 continue
-            rows[place] = Assertion(
+            row = Assertion(
                 subject=element_id,
                 predicate=name,
                 value=value,
@@ -652,4 +658,12 @@ def _part_rows(
                 origin="answer",
                 support=[span],
             )
+            if not any(
+                conflicts(AssertionCatalog(entries=[row, entry]))
+                for entry in catalog.entries
+                if entry.subject == element_id
+                and entry.predicate != name
+                and not answered(entry)
+            ):
+                rows[place] = row
     return frozenset(asked), rows
