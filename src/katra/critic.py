@@ -60,7 +60,7 @@ from katra.claims import (
     Verdict,
     rests_on,
 )
-from katra.evidence import ground_gloss
+from katra.evidence import ground_gloss, held_value
 from katra.frameworks import FrameworkPackage, FrameworkSchemas
 from katra.job_controls import (
     PART_WORDS_TEXT,
@@ -964,6 +964,7 @@ def _ruling_view(
     assertions: AssertionCatalog | None,
     package: FrameworkPackage,
     controls: Sequence[AppliedControl],
+    model: SystemModel,
 ) -> list[dict]:
     """The drafts as a critic reads them, with no empty branches.
 
@@ -1042,8 +1043,13 @@ def _ruling_view(
         # the identity is a digest of the value and the scope, so a critic
         # asked whether the argument follows from the facts could not read the
         # facts (#1082).
-        if rows := _assertion_rows(draft, assertions):
+        if rows := _assertion_rows(draft, assertions, model):
             view["assertion_facts"] = rows
+        # Computed: each cited field the model shows a value for while the
+        # assertion rows hold it open. The model alone reads as a stated
+        # fact, and the evidence table told the lane otherwise.
+        if held := _held_open_rows(draft, model):
+            view["held_open_facts"] = held
         # Also computed: the package's own table says this draft's action is not
         # one its lane files. The ruling is settled in code; the key tells the
         # critic not to make a judgement on it.
@@ -1100,7 +1106,29 @@ def _evidence_entry(file: CopiedEvidence, excerpted: set[str]) -> dict:
     return entry
 
 
-def _assertion_rows(draft: Claim, assertions: AssertionCatalog | None) -> list[dict]:
+def _held_open_rows(draft: Claim, model: SystemModel) -> list[dict]:
+    """One draft's ``unknown-attribute`` grounds on a field that still states
+    a value, each with the words the evidence table gave it.
+
+    Read through :func:`~katra.evidence.ground_gloss`, so the critic reads
+    what the lane read. Empty for every ground on a field that reads
+    unverified, whose words say nothing the model does not.
+    """
+    elements = {element.id: element for element in model.elements()}
+    return [
+        {
+            "element_id": ground.element_id,
+            "attribute": ground.attribute,
+            "says": ground_gloss(ground, None, model),
+        }
+        for ground in draft.grounds
+        if held_value(ground, elements) is not None
+    ]
+
+
+def _assertion_rows(
+    draft: Claim, assertions: AssertionCatalog | None, model: SystemModel
+) -> list[dict]:
     """One draft's assertion grounds, resolved to the words the row states.
 
     Read through :func:`~katra.evidence.ground_gloss`, which is what
@@ -1113,7 +1141,10 @@ def _assertion_rows(draft: Claim, assertions: AssertionCatalog | None) -> list[d
     if assertions is None:
         return []
     return [
-        {"assertion": ground.assertion, "says": ground_gloss(ground, assertions)}
+        {
+            "assertion": ground.assertion,
+            "says": ground_gloss(ground, assertions, model),
+        }
         for ground in draft.grounds
         if ground.kind in ASSERTION_GROUNDS
     ]
@@ -1128,6 +1159,7 @@ def critic_view(
     assertions: AssertionCatalog | None,
     package: FrameworkPackage,
     controls: Sequence[AppliedControl],
+    model: SystemModel,
 ) -> list[dict]:
     """The drafts a critic is shown, with everything computed for it already.
 
@@ -1161,6 +1193,11 @@ def critic_view(
 
     ``controls`` is each Control that applies to the job, and ``package`` reads
     the unit of each draft, so each draft carries the Controls that reach it.
+
+    ``model`` is the model the drafts were written against, read for the value
+    a field the rows hold open still states (``held_open_facts``).
     """
     chosen = list(drafts) if only is None else [d for d in drafts if d.id in only]
-    return _ruling_view(chosen, repaired, unverified, assertions, package, controls)
+    return _ruling_view(
+        chosen, repaired, unverified, assertions, package, controls, model
+    )

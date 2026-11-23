@@ -251,6 +251,7 @@ class TestJoinDrafts:
                 assertions=None,
                 package=PACKAGES["stride"],
                 controls=(),
+                model=valid_model(),
             )
         }
         assert set(view) == {"D-01", "D-02"}
@@ -806,6 +807,7 @@ class TestQuoteVerification:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert view["repaired_quotes"] == [
@@ -823,6 +825,7 @@ class TestQuoteVerification:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
         assert "repaired_quotes" not in plain
 
@@ -850,6 +853,7 @@ class TestQuoteVerification:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
         assert [entry["index"] for entry in view["unverified_quotes"]] == [0]
         assert LABEL in view["unverified_quotes"][0]["reason"]
@@ -861,6 +865,7 @@ class TestQuoteVerification:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
         assert "unverified_quotes" not in plain
 

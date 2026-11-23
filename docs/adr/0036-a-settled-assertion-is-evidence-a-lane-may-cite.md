@@ -99,9 +99,9 @@ offered as an open question where its projection qualifies the field and
 the field states a value (`assertions.hidden_qualifications`), because the
 field then keeps what extraction wrote; that field is not offered as an
 `absent-attribute` either (`assertions.held_open_attributes`, the
-maintainer's ruling of 2026-11-18 on #2270). Where the hidden
-qualification holds no open row, such as a scoped row or a row a reviewer
-set aside, the catalog then offers no question about that attribute.
+maintainer's ruling of 2026-11-18 on #2270). The catalog offers that field
+as an `unknown-attribute`, as the applied projection would show it, whatever
+rows stand under it (#2307).
 `assertions.catalog_coverage` counts a contradicted row as open and its
 attribute as not settled.
 

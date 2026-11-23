@@ -5,7 +5,7 @@ Every surface that shows such a fact words it here, so the early list, the
 report, ``/v1`` and a refusal ask it alike: :func:`label_of` for the question,
 :func:`group_of` for the group a page lists it in. This module also names the
 elements and references a report writes (:func:`reference_labels`), lists the
-attributes the model leaves unstated (:func:`gaps`), decides which
+attributes the model leaves open (:func:`gaps`), decides which
 attribute may be asked (:func:`open_attribute`), and which part of a question
 kind the sources state (:func:`source_states`).
 
@@ -39,7 +39,7 @@ from katra.assertions import (
 )
 from katra.capabilities import CAPABILITIES, parse_capability_key
 from katra.claims import AttributeGround, UnknownRef
-from katra.evidence import evidence_catalog, prepared_view
+from katra.evidence import evidence_catalog, held_value, prepared_view
 from katra.parsing import table_entry
 from katra.question_kinds import QUESTION_KINDS, parse_question_kind
 from katra.system_model import (
@@ -125,11 +125,18 @@ def reference_labels(
             labels[f"{name}: {getattr(element, name)}"] = (
                 f"{words}: {getattr(element, name)}"
             )
+    elements = {element.id: element for element in model.elements()}
     for ref, ground in evidence_catalog(model, assertions).items():
         if ground.kind in _GROUND_STATE:
             where = names.get(ground.element_id, ground.element_id)
             attribute = attribute_words(ground.attribute)
-            labels[ref] = f"{where}: {attribute}, {_GROUND_STATE[ground.kind]}"
+            held = held_value(ground, elements)
+            state = (
+                _GROUND_STATE[ground.kind]
+                if held is None
+                else f"open, though the model reads {held}"
+            )
+            labels[ref] = f"{where}: {attribute}, {state}"
         elif ground.flow_id:
             where = names.get(ground.flow_id, ground.flow_id)
             labels[ref] = f"{where} crosses a trust boundary"
@@ -313,10 +320,10 @@ def group_of(ref: UnknownRef) -> tuple[str, str]:
 
 @dataclass(frozen=True)
 class Gap:
-    """One attribute the System Model leaves unstated, and where."""
+    """One attribute the System Model leaves open, and where."""
 
     attribute: str
-    #: Each element the attribute is unstated on, in the model's order.
+    #: Each element the attribute is open on, in the model's order.
     element_ids: tuple[str, ...]
 
     def to_json(self) -> dict[str, object]:
@@ -334,16 +341,18 @@ class Gap:
         }
 
 
-def gaps(model: SystemModel) -> tuple[Gap, ...]:
-    """Every attribute the model leaves unstated, on the most elements first.
+def gaps(model: SystemModel, catalog: AssertionCatalog | None) -> tuple[Gap, ...]:
+    """Every attribute the model leaves open, on the most elements first.
 
     Read from the ``unknown-attribute`` entries of
     :func:`~katra.evidence.evidence_catalog`, the one reader of
-    which attributes a model leaves open. Each element carries the key of its
-    open fact, so a page can link it to the question that asks it.
+    which attributes a model leaves open. ``catalog`` is the job's assertion
+    catalog, so a field that hides its qualification is a gap too. Each
+    element carries the key of its open fact, so a page can link it to the
+    question that asks it.
     """
     unstated: dict[str, list[str]] = defaultdict(list)
-    for ground in evidence_catalog(model).values():
+    for ground in evidence_catalog(model, catalog).values():
         if ground.kind == "unknown-attribute":
             unstated[ground.attribute].append(ground.element_id)
     order = sorted(

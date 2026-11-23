@@ -22,7 +22,7 @@ for line in lane["candidates"].splitlines():
         print("LEAD", line.strip()[:300])
 print("NOTES", [d for d in inputs.retrieved])
 catalog = evidence_catalog(model, held)
-text = render_catalog(catalog, held)
+text = render_catalog(catalog, held, model)
 for line in text.splitlines():
     if "custody" in line or "config" in line and "credential" in line:
         print("EVIDENCE", line[:300])

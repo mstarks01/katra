@@ -70,7 +70,9 @@ table whatever field it reaches. The attribute it contradicts, or a field
 that hides the qualification its projection writes, is not offered as an
 ``absent-attribute``
 (:func:`~katra.assertions.held_open_attributes`): its value is no
-fact, and the open rows behind it, where there are any, carry the question.
+fact. The open rows behind a contradicted attribute carry the question. A
+field that hides its qualification is offered as an ``unknown-attribute``,
+as the applied projection would show it, beside the open rows under it.
 An agent may raise a
 *conditional* claim on an open row exactly as it may on an element attribute
 nobody stated.
@@ -269,7 +271,9 @@ def evidence_catalog(
     reaches no graph field, or whose projection qualifies a field that still
     states a value, and every contradicted row. An attribute in
     :func:`~katra.assertions.held_open_attributes` is never an
-    ``absent-attribute`` entry. ``None`` is a job that
+    ``absent-attribute`` entry, and a field that hides its qualification
+    (:func:`~katra.assertions.hidden_qualifications`) is an
+    ``unknown-attribute`` entry. ``None`` is a job that
     ran no such pass, and its catalog holds only the first two enumerations;
     an empty catalog is a pass that settled nothing, which offers the same rows
     and says so on the report.
@@ -291,16 +295,22 @@ def evidence_catalog(
     described.
     """
     # A field the rows hold open is no stated absence: the rows behind it state
-    # the opposite, or its qualification is hidden.
+    # the opposite, or its qualification is hidden. A field that hides its
+    # qualification is offered as the applied projection would show it.
     held_open = _held_open_attributes(model, assertions)
+    hidden_projections = (
+        () if assertions is None else hidden_qualifications(assertions, model)
+    )
+    hidden = frozenset(
+        (projection.element_id, projection.attribute)
+        for projection in hidden_projections
+    )
     catalog: EvidenceCatalog = dict(
         entry
         for element in model.elements()
         for attribute in attribute_names(element)
-        if (entry := _attribute_entry(element, attribute)) is not None
-        and not (
-            entry[1].kind == "absent-attribute" and (element.id, attribute) in held_open
-        )
+        if (entry := _offered_attribute(element, attribute, held_open, hidden))
+        is not None
     )
     catalog.update(
         {
@@ -325,12 +335,10 @@ def evidence_catalog(
         # attribute as a qualified unknown, which the attribute enumeration
         # above offers, but a principal's second factor has no attribute to
         # qualify. Where the validity gate refuses the projected model, the
-        # field keeps what extraction wrote, so only this offer carries the
-        # question.
+        # field keeps what extraction wrote, so the attribute enumeration offers
+        # the field as an unknown and this offer names each open row under it.
         hidden_question_rows = {
-            row
-            for projection in hidden_qualifications(assertions, model)
-            for row in projection.rows
+            row for projection in hidden_projections for row in projection.rows
         }
         unprojected = [
             row
@@ -491,6 +499,28 @@ def ground_issues(
     return issues
 
 
+def _offered_attribute(
+    element: Element,
+    attribute: str,
+    held_open: frozenset[tuple[str, str]],
+    hidden: frozenset[tuple[str, str]],
+) -> tuple[str, Ground] | None:
+    """One attribute's catalog entry against the rows, or ``None``.
+
+    A field in ``hidden`` is an ``unknown-attribute``, as the qualified
+    ``unknown`` its applied projection writes would be. Any other field takes
+    :func:`_attribute_entry`'s entry, except an absence in ``held_open``.
+    """
+    if (element.id, attribute) in hidden:
+        return unknown_evidence_ref(element.id, attribute), Ground(
+            kind="unknown-attribute", element_id=element.id, attribute=attribute
+        )
+    entry = _attribute_entry(element, attribute)
+    if entry is not None and entry[1].kind == "absent-attribute":
+        return None if (element.id, attribute) in held_open else entry
+    return entry
+
+
 def _held_open_attributes(
     model: SystemModel, assertions: AssertionCatalog | None
 ) -> frozenset[tuple[str, str]]:
@@ -611,7 +641,9 @@ def _cell(value: str) -> str:
 
 
 def render_catalog(
-    catalog: Mapping[str, Ground], assertions: AssertionCatalog | None
+    catalog: Mapping[str, Ground],
+    assertions: AssertionCatalog | None,
+    model: SystemModel,
 ) -> str:
     """The catalog as a table an agent selects from rather than a list it reads.
 
@@ -637,7 +669,11 @@ def render_catalog(
     the agent needs the words. Required whenever the catalog holds one, and
     a row with no catalog behind it fails here rather than rendering a bare
     identity nobody could select on.
+
+    ``model`` is the model the catalog came from, read for the value a field
+    the rows hold open still states (:func:`_held_open_value`).
     """
+    elements = {element.id: element for element in model.elements()}
     rows_by_id = (
         {}
         if assertions is None
@@ -649,7 +685,8 @@ def render_catalog(
         else {subject.id: subject for subject in assertions.subjects}
     )
     rows = "\n".join(
-        f"| `{_cell(ref)}` | {_cell(_gloss(ground, rows_by_id, subjects))} |"
+        f"| `{_cell(ref)}` |"
+        f" {_cell(_gloss(ground, rows_by_id, subjects, held_value(ground, elements)))} |"
         for ref, ground in catalog.items()
     )
     return (
@@ -673,7 +710,9 @@ def catalog_refs(table: str) -> frozenset[str]:
     )
 
 
-def ground_gloss(ground: Ground, assertions: AssertionCatalog | None) -> str:
+def ground_gloss(
+    ground: Ground, assertions: AssertionCatalog | None, model: SystemModel
+) -> str:
     """What one ground asserts, in the words the evidence table already uses.
 
     **The one reader of "what does this ground say".** The lane agent selects
@@ -698,7 +737,36 @@ def ground_gloss(ground: Ground, assertions: AssertionCatalog | None) -> str:
         if assertions is None
         else {subject.id: subject for subject in assertions.subjects}
     )
-    return _gloss(ground, rows, subjects)
+    elements = {element.id: element for element in model.elements()}
+    return _gloss(ground, rows, subjects, held_value(ground, elements))
+
+
+def _held_open_value(element: Element, attribute: str) -> str | None:
+    """The value a field states where the catalog offers it as an unknown, or
+    ``None`` where the field reads unverified.
+
+    An ``unknown-attribute`` entry on a field that states a value is a field
+    the rows hold open: its qualification is hidden
+    (:func:`~katra.assertions.hidden_qualifications`). The entry's words name
+    that value beside the question, so they do not deny what the model shows.
+    """
+    value = getattr(element, attribute, None)
+    if isinstance(value, str) and control_state(value) != "unverified":
+        return value
+    return None
+
+
+def held_value(ground: Ground, elements: Mapping[str, Element]) -> str | None:
+    """The value an ``unknown-attribute`` entry's field still states, or ``None``
+    for any other entry and for a field that reads unverified.
+
+    **The one reader of "which held-open value does this entry name"**: the
+    catalog table, :func:`ground_gloss`, the critic's view and the report's
+    labels all call it."""
+    element = elements.get(ground.element_id)
+    if ground.kind != "unknown-attribute" or element is None:
+        return None
+    return _held_open_value(element, ground.attribute)
 
 
 def render_element_roster(model: SystemModel) -> str:
@@ -752,6 +820,7 @@ def _gloss(
     ground: Ground,
     rows: Mapping[str, Assertion],
     subjects: Mapping[str, Subject],
+    held: str | None,
 ) -> str:
     """What one catalogued fact asserts.
 
@@ -775,6 +844,10 @@ def _gloss(
     crossing. :func:`evidence_catalog` admits the decided ones only, so this
     line never tells an agent that a flow whose endpoint nobody placed crosses
     anything.
+
+    ``held`` is the value an ``unknown-attribute`` entry's field still states
+    (:func:`_held_open_value`). The entry then names that value and says the
+    sources leave it open, because *never stated* would deny the model.
     """
     if ground.kind == "derived-fact":
         return "crosses a trust boundary"
@@ -782,6 +855,8 @@ def _gloss(
         return f"`{ground.attribute}` stated absent"
     if ground.kind in ASSERTION_GROUNDS:
         return ASSERTION_GLOSSES[ground.kind](rows[ground.assertion], subjects)
+    if held is not None:
+        return f"`{ground.attribute}` reads `{held}`, but the sources leave it open"
     return f"`{ground.attribute}` never stated"
 
 

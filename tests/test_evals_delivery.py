@@ -392,7 +392,7 @@ def _captured_sweep(
         "prepared": {"user": "the input prepare handed the lanes"},
         "shared": {
             "system_model": render_model(dumped),
-            "evidence_catalog": render_catalog(catalog, held),
+            "evidence_catalog": render_catalog(catalog, held, model),
         },
         "lanes": {"stride": {lane: {**given, **extra} for lane, given in sent.items()}},
     }

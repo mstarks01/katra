@@ -3303,10 +3303,10 @@ def held_open_attributes(
     the attribute's projection qualifies it and the model does not show that
     (:func:`hidden_qualifications`). The field's value is then no fact, and
     the evidence catalog offers no ``absent-attribute`` entry for it (the
-    maintainer's ruling of 2026-11-18 on #2270). Where a hidden qualification
-    holds no open row, as a scoped row or a row a reviewer set aside does, the
-    catalog then offers no question about the attribute; a settled row under
-    it, such as the scoped row, stays a fact. A loaded report's ground
+    maintainer's ruling of 2026-11-18 on #2270). A field that hides its
+    qualification is offered as an ``unknown-attribute``, as the applied
+    projection would show it, and a settled row under it, such as a scoped
+    row, stays a fact. A loaded report's ground
     check reads today's catalog, so a stored claim on such an absence fails
     the load.
     """

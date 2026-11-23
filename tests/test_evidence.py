@@ -470,7 +470,9 @@ class TestEvidenceCatalog:
         for side in (absent, required):
             assert catalog[assertion_id(side)].kind == "unknown-assertion"
         assert "the sources disagree; this row states `required`" in ground_gloss(
-            catalog[assertion_id(required)], held
+            catalog[assertion_id(required)],
+            held,
+            valid_model(),
         )
 
     def test_a_scoped_row_is_offered_with_its_scope_and_answers_nothing_wider(self):
@@ -485,7 +487,7 @@ class TestEvidenceCatalog:
 
         assert assertion_id(row()) in catalog
         assert assertion_id(admins) in catalog
-        rendered = render_catalog(catalog, assertions(row(), admins))
+        rendered = render_catalog(catalog, assertions(row(), admins), valid_model())
         assert "where principal is administrators" in rendered
 
     def test_an_assertion_row_leaves_the_models_own_rows_untouched(self):
@@ -526,14 +528,14 @@ class TestRenderCatalog:
 
     def test_every_entry_appears_as_its_own_row(self):
         catalog = evidence_catalog(valid_model())
-        rendered = render_catalog(catalog, assertions=None)
+        rendered = render_catalog(catalog, assertions=None, model=valid_model())
 
         for ref in catalog:
             assert f"| `{ref}` |" in rendered
 
     def test_the_refs_read_back_are_the_catalog_keys(self):
         catalog = evidence_catalog(valid_model(), assertions(row()))
-        rendered = render_catalog(catalog, assertions(row()))
+        rendered = render_catalog(catalog, assertions(row()), valid_model())
 
         assert catalog_refs(rendered) == set(catalog)
         assert assertion_id(row()) in catalog_refs(rendered)
@@ -547,10 +549,12 @@ class TestRenderCatalog:
             attribute="encryption_at_rest",
         )
 
-        assert catalog_refs(render_catalog({ref: ground}, None)) == {ref}
+        assert catalog_refs(render_catalog({ref: ground}, None, valid_model())) == {ref}
 
     def test_it_is_not_a_list_an_agent_could_pattern_complete(self):
-        rendered = render_catalog(evidence_catalog(valid_model()), assertions=None)
+        rendered = render_catalog(
+            evidence_catalog(valid_model()), assertions=None, model=valid_model()
+        )
 
         assert not rendered.lstrip().startswith("[")
         assert "| cite this exactly |" in rendered
@@ -559,7 +563,9 @@ class TestRenderCatalog:
         """The count is what makes the set readable as closed rather than as a sample."""
         catalog = evidence_catalog(valid_model())
 
-        assert f"{len(catalog)} facts" in render_catalog(catalog, assertions=None)
+        assert f"{len(catalog)} facts" in render_catalog(
+            catalog, assertions=None, model=valid_model()
+        )
 
     def test_the_kinds_of_fact_read_differently(self):
         """An unstated attribute, a stated absence and a derived crossing are
@@ -587,6 +593,7 @@ class TestRenderCatalog:
                 ),
             },
             assertions=None,
+            model=valid_model(),
         )
 
         assert "`encryption_at_rest` never stated" in rendered
@@ -615,7 +622,9 @@ class TestRenderCatalog:
             explanation="a session cookie lives in the browser",
         )
         held = assertions(inferred, owned, kept)
-        rendered = render_catalog(evidence_catalog(valid_model(), held), held)
+        rendered = render_catalog(
+            evidence_catalog(valid_model(), held), held, valid_model()
+        )
 
         assert (
             "`mfa-requirement` inferred absent for shopper accounts (principal)"
@@ -636,11 +645,11 @@ class TestRenderCatalog:
         catalog = evidence_catalog(valid_model(), assertions(row()))
 
         with pytest.raises(KeyError):
-            render_catalog(catalog, assertions=None)
+            render_catalog(catalog, assertions=None, model=valid_model())
 
     def test_an_empty_catalog_renders_no_rows(self):
         """A model with every control stated and no crossing is legal, if rare."""
-        rendered = render_catalog({}, assertions=None)
+        rendered = render_catalog({}, assertions=None, model=valid_model())
 
         assert "0 facts" in rendered
         assert "| `" not in rendered
@@ -649,14 +658,18 @@ class TestRenderCatalog:
         """Two runs over one model must send byte-identical instructions."""
         catalog = evidence_catalog(valid_model())
 
-        assert render_catalog(catalog, assertions=None) == render_catalog(
-            catalog, assertions=None
+        assert render_catalog(
+            catalog, assertions=None, model=valid_model()
+        ) == render_catalog(
+            catalog,
+            assertions=None,
+            model=valid_model(),
         )
 
     def test_row_order_is_the_catalogs_own(self):
         """Which is the model's, so a diff between runs means the model moved."""
         catalog = evidence_catalog(valid_model())
-        rendered = render_catalog(catalog, assertions=None)
+        rendered = render_catalog(catalog, assertions=None, model=valid_model())
         positions = [rendered.index(f"| `{ref}` |") for ref in catalog]
 
         assert positions == sorted(positions)
@@ -692,6 +705,7 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             unverified=(),
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         (fact,) = view["assertion_facts"]
@@ -713,12 +727,17 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             unverified=(),
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert view["assertion_facts"][0]["says"] in render_catalog(
-            evidence_catalog(valid_model(), held), held
+            evidence_catalog(valid_model(), held),
+            held,
+            valid_model(),
         )
-        assert view["assertion_facts"][0]["says"] == ground_gloss(ground, held)
+        assert view["assertion_facts"][0]["says"] == ground_gloss(
+            ground, held, valid_model()
+        )
 
     def test_a_job_that_ran_no_catalog_carries_no_key(self):
         (view,) = critic_view(
@@ -729,6 +748,7 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert "assertion_facts" not in view
@@ -1436,7 +1456,9 @@ def test_a_written_value_stays_inside_its_cell():
     heading or a fence of its own (run 11)."""
     hostile = row(value="required", scope=[Qualifier(kind="principal", value=HOSTILE)])
     held = assertions(hostile)
-    rendered = render_catalog(evidence_catalog(valid_model(), held), held)
+    rendered = render_catalog(
+        evidence_catalog(valid_model(), held), held, valid_model()
+    )
     table = rendered.split("\n\n", 1)[1].splitlines()
     assert all(line.startswith("| ") and line.endswith(" |") for line in table)
     assert all(line.count(" | ") == 1 for line in table)

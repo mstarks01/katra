@@ -679,6 +679,8 @@ def test_the_exemplar_catalog_is_rendered_the_way_a_real_one_is(name):
     prefix renders "never stated" where the system states an absence, and this
     is the check that says so.
     """
+    from tests.test_exemplar_fan_in import fixture_model
+
     system = exemplar_systems()[name]
     entries = {}
     for ref in catalog(system):
@@ -692,7 +694,10 @@ def test_the_exemplar_catalog_is_rendered_the_way_a_real_one_is(name):
             )
             element, attribute = ref.split(":", 1)[1].rsplit(":", 1)
             entries[ref] = Ground(kind=kind, element_id=element, attribute=attribute)
-    assert render_catalog(entries, assertions=None).strip() in system
+    assert (
+        render_catalog(entries, assertions=None, model=fixture_model(name)).strip()
+        in system
+    )
 
 
 def test_every_exemplar_system_is_worked_by_some_category():

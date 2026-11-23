@@ -265,6 +265,7 @@ class CriticRound:
             assertions=self.assertions,
             package=package_for(self.framework),
             controls=self.controls,
+            model=self.model,
         )
 
     def summary(self) -> dict[str, Any]:

@@ -2055,13 +2055,13 @@
     ref(a.element_id), ` | ${a.assumption} — ${a.basis}`,
   ]);
 
-  // What the model leaves unstated, on the most elements first. An element
+  // What the model leaves open, on the most elements first. An element
   // whose fact this report asks links to its question.
   const GAPS = JSON.parse($("gaps").textContent);
   if (GAPS.length) {
     const table = el("table");
     const head = el("tr");
-    head.append(el("th", null, "Not stated"), el("th", null, "Elements"), el("th", null, "Where"));
+    head.append(el("th", null, "Open"), el("th", null, "Elements"), el("th", null, "Where"));
     table.append(head);
     GAPS.forEach(g => {
       const words = NAMES[g.attribute] || g.attribute;
