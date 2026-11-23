@@ -634,6 +634,36 @@ class TestAnEngineThatDoesNotBuild:
         assert rows_of(client)["tiers.base.model"]["source"] == "page"
 
 
+class TestARefusedSettingsFile:
+    """A save needs the revision of ``settings.env``, so where the app refuses
+    the file, the page data names the refusal for the script to show."""
+
+    def test_a_file_the_startup_refuses_names_its_refusal(self, tmp_path):
+        tmp_path.chmod(0o775)
+
+        data = page_data(client_for(tmp_path).get("/settings"))
+
+        assert data["revision"] is None
+        assert "mode 0775" in data["settings_file_refusal"]
+        assert data["error"] == data["settings_file_refusal"]
+
+    def test_a_file_refused_after_the_engine_built_names_its_refusal(self, tmp_path):
+        client = client_for(tmp_path, hand_written())
+        tmp_path.chmod(0o775)
+
+        data = page_data(client.get("/settings"))
+
+        assert data["error"] is None
+        assert data["revision"] is None
+        assert "mode 0775" in data["settings_file_refusal"]
+
+    def test_a_file_the_app_reads_has_no_refusal(self, tmp_path):
+        data = page_data(client_for(tmp_path, hand_written()).get("/settings"))
+
+        assert data["revision"] is not None
+        assert data["settings_file_refusal"] is None
+
+
 class TestLoopbackControls:
     def test_a_rebound_host_is_refused(self, tmp_path):
         client = TestClient(create_app(env=env_in(tmp_path)))
