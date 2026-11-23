@@ -23,6 +23,7 @@ from katra.grounding import (
     normalize,
     placements,
     prepare_source,
+    reaches_span,
     repair_deadline,
     repair_prepared,
     verify_quote,
@@ -711,3 +712,31 @@ class TestCountingWhereAQuoteCanSit:
     def test_a_cut_quote_counts_where_its_first_fragment_opens(self):
         """A span asks where these words begin, so that is what is counted."""
         assert placements("the order service … over TLS", self.TWICE) == 2
+
+
+class TestAQuoteThatReachesASpan:
+    """``reaches_span`` asks whether some placement of a quote reaches a span."""
+
+    LINE = normalize('The tls of edge is "tls 1.3". From the Control "tls 1.3 edge".')
+    VALUE = (LINE.index('1.3"') - 4, LINE.index('1.3"') + 3)
+
+    @pytest.mark.parametrize(
+        "quote",
+        ["tls 1.3", '"tls 1.3".', "The tls of edge is … 1.3", 'is "tls 1.3'],
+    )
+    def test_a_quote_of_the_value(self, quote):
+        assert reaches_span(quote, self.LINE, (self.VALUE,))
+
+    @pytest.mark.parametrize(
+        "quote",
+        ['".', "The tls of edge is", 'From the Control "tls 1.3 edge".', "nothing"],
+    )
+    def test_a_quote_beside_the_value(self, quote):
+        assert not reaches_span(quote, self.LINE, (self.VALUE,))
+
+    def test_a_later_placement_of_a_fragment(self):
+        """The first ``tls`` is the attribute's name; a cut reaches the value."""
+        assert reaches_span("The … tls … From", self.LINE, (self.VALUE,))
+
+    def test_no_span_is_covered_by_nothing(self):
+        assert not reaches_span("tls 1.3", self.LINE, ())

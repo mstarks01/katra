@@ -84,6 +84,7 @@ import bisect
 import re
 import time
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Literal, NamedTuple
@@ -396,6 +397,40 @@ def placements(quote: str, haystack: str, *, limit: int = 2) -> int:
 
 #: A word of a source, for the offset table :func:`index_source` builds. Nothing
 #: outside this module reads either field; :class:`Span` is what a caller gets.
+def reaches_span(quote: str, haystack: str, spans: Sequence[tuple[int, int]]) -> bool:
+    """Whether some placement of ``quote`` in ``haystack`` puts a fragment
+    over one of ``spans``.
+
+    ``haystack`` is normalized, and ``spans`` are half-open offsets into it.
+    :func:`match_normalized` gives the first placement only, and the words of
+    a span can also sit before it. So this tries each place where each
+    fragment sits, with the fragments before it in order ahead of it and the
+    fragments after it in order behind it. :func:`match_normalized` places
+    each of them, as it does for :func:`placements`.
+    """
+    pieces = fragments(quote)
+    for at, piece in enumerate(pieces):
+        place = match_normalized(piece, haystack)
+        while place is not None:
+            ((found, end),) = place
+            if (
+                any(found < stop and begin < end for begin, stop in spans)
+                and _fits(pieces[:at], haystack[:found])
+                and _fits(pieces[at + 1 :], haystack, end)
+            ):
+                return True
+            place = match_normalized(piece, haystack, start=found + 1)
+    return False
+
+
+def _fits(pieces: Sequence[str], haystack: str, start: int = 0) -> bool:
+    """Whether ``pieces`` sit in order in ``haystack`` from ``start``. No piece
+    fits anywhere."""
+    return not pieces or (
+        match_normalized(" … ".join(pieces), haystack, start=start) is not None
+    )
+
+
 class _Word(NamedTuple):
     start: int
     end: int

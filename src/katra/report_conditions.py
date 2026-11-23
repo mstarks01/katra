@@ -23,8 +23,9 @@ from katra.fact_answers import (
     fact_status,
     needs_of,
     quotes_answer,
+    stated_spans,
 )
-from katra.grounding import normalize, verify_normalized
+from katra.grounding import normalize, reaches_span
 from katra.links import ControlLines
 from katra.open_facts import (
     element_names,
@@ -105,34 +106,32 @@ def corrected_findings(
     fact a Control wrote with the Control's name. A finding rests on a
     corrected fact where it:
 
-    - quotes the fact's line of the answers Source;
-    - quotes a Control's line of the same fact, whatever value the Control
-      wrote;
+    - quotes the answer's words in the fact's line of the answers Source;
+    - quotes the answer's words in a Control's line of the same fact,
+      whatever value the Control wrote;
     - grounds on the same element's attribute;
     - grounds on a row the fact's earlier answer wrote
       (:func:`_answer_row_ids`);
     - or names the fact as one it waits on.
 
     Facts match by key, not by facet. A quote matches a line under the
-    grounding ladder, which admitted it
-    (:func:`~katra.grounding.verify_normalized`), anywhere in the line: a
-    quote of words that every line holds, such as ``".``, matches each
-    line. A fact is named as it is
-    asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
+    grounding ladder, which admitted it, where some placement of it reaches
+    the answer's value or detail (:func:`~katra.grounding.reaches_span`,
+    :func:`~katra.fact_answers.stated_spans`). So a quote of the words that
+    every line holds, such as ``".`` or the Control's name, reaches no
+    finding. A fact is named as it is asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
     ``catalog``.
     """
     routes = fact_routes(catalog, model)
     before = {fact.key: fact for fact in earlier}
-    lines = [
-        normalize(fact_line(before[fact.key]))
-        for fact in corrections
-        if fact.key in before
-    ]
+    answered = [before[fact.key] for fact in corrections if fact.key in before]
+    lines = [normalize(fact_line(fact)) for fact in answered]
     keys = {fact.key for fact in corrections}
+    # Each line of a corrected fact, with where it holds the answer's words.
     quoted = [
-        *lines,
+        *zip(lines, map(stated_spans, answered), strict=True),
         *(
-            normalize(control_line(name, fact))
+            (normalize(control_line(name, fact)), stated_spans(fact))
             for name, fact in controls
             if fact.key in keys
         ),
@@ -153,7 +152,7 @@ def corrected_findings(
             if ground.kind == "assertion" and ground.assertion in answer_row_ids:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
-                verify_normalized(ground.text, line) for line in quoted
+                reaches_span(ground.text, line, spans) for line, spans in quoted
             ):
                 return True
         return False
