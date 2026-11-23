@@ -93,7 +93,7 @@ def replay_fan_in(
         PACKAGES[framework],
         report.system_model,
         source_texts(case.sources),
-        assertions=report.assertions.catalog if report.assertions else None,
+        assertions=report.assertion_catalog,
     )
     return batches, merged
 

@@ -23,8 +23,10 @@ model. This instrument therefore reads finished reports rather than fixtures.
 
 There are two readings, and both are neutral. Each reads only the shared
 :class:`~katra.claims.Claim` and
-:class:`~katra.claims.Verdict` shape, so a package nobody has written
-is measured on arrival, with no entry added here.
+:class:`~katra.claims.Verdict` shape and the report's own catalog, so a
+package nobody has written is measured on arrival, with no entry added here.
+A pointer at a row the graph contradicts or another row disputes counts as
+the attribute it is asked as (:func:`~katra.open_facts.fact_routes`).
 
 Ineligible pointers is the crisper of the two, and it is not a threshold. The
 evidence catalog already decides which attributes carry information.
@@ -32,8 +34,8 @@ evidence catalog already decides which attributes carry information.
 ones and refuses ``notes``, ``description`` and the rest, on the stated grounds
 that a note "is a sentence, not an unstated control". A ``needs-info`` that
 points at an attribute that rule refuses is naming a field the repository has
-already ruled says nothing. The good case is zero, and across fifteen archived
-STRIDE sweeps it is 0 of 378.
+already ruled says nothing. The good case is zero. Across fifteen archived
+STRIDE sweeps, a count that read no catalog found 0 of 378.
 
 Ground concentration is softer, and this module reports it as a number rather
 than judging it. It is the share of a package's claims whose grounds use the
@@ -55,6 +57,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from evals.harness.rates import Rate, ratio, rounded_figure, shown_figure
+from katra.fact_answers import facts_named
+from katra.open_facts import fact_routes, routed
 from katra.report import Report
 from katra.system_model import attribute_names
 
@@ -106,12 +110,13 @@ def rows(reports: Iterable[Report]) -> tuple[FillerRow, ...]:
             element.id: set(attribute_names(element))
             for element in report.system_model.elements()
         }
+        routes = fact_routes(report.assertion_catalog, report.system_model)
         for block in report.analyses:
             name = block.framework
             seen = kinds.setdefault(name, Counter())
             for claim in (*block.claims, *block.rejected_claims):
                 seen[_kind_set(claim)] += 1
-                for ref in claim.verdict.related_unknowns:
+                for ref in facts_named(routed(claim.waits_on(), routes)):
                     if not ref.names_an_element:
                         continue
                     pointers[name] += 1

@@ -53,7 +53,7 @@ def _stated_parts(
 
 def _stated_choices(report: Report) -> int:
     """The part choices at or above the floor that this report's sources state."""
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     model = prepared_model(report.system_model, catalog)
     frameworks = {s.name: s.options for s in report.job.frameworks}
     listed = early_questions(report.system_model, frameworks, catalog)

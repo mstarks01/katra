@@ -72,7 +72,7 @@ def options(case):
 @pytest.fixture(scope="module")
 def tampering(report):
     package = package_for("stride")
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     return generate_candidates(
         report.system_model, package.lanes, package.rules, catalog
     )["tampering"]

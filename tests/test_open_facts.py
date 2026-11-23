@@ -149,7 +149,7 @@ def test_every_other_backtick_span_in_the_archive_has_a_label():
     unlabelled = set()
     for path in REPORTS:
         report = Report.model_validate_json(path.read_text(encoding="utf-8"))
-        catalog = report.assertions.catalog if report.assertions else None
+        catalog = report.assertion_catalog
         labels = reference_labels(report.system_model, catalog)
         for block in report.analyses:
             for claim in block.claims:

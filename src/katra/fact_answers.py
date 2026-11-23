@@ -102,6 +102,7 @@ __all__ = [
     "fact_label",
     "fact_line",
     "fact_status",
+    "facts_named",
     "key_ref",
     "merged_facts",
     "needed_facets",
@@ -562,6 +563,15 @@ def needs_of(refs: Sequence[UnknownRef]) -> dict[UnknownKey, tuple[str, ...]]:
         key: tuple(facet.id for facet in answer_facets(key) if facet.id in held)
         for key, held in needs.items()
     }
+
+
+def facts_named(refs: Sequence[UnknownRef]) -> list[UnknownRef]:
+    """Each fact these references name, once, in the order first named.
+
+    The facts are :func:`needs_of`'s keys, so two rows routed to one attribute
+    are one fact. A reference here carries no facets.
+    """
+    return [key_ref(key) for key in needs_of(refs)]
 
 
 def asked_facets(

@@ -93,7 +93,7 @@ def report_rows(report: Report) -> Mapping[str, str]:
     **The one reader of a Report's rows.** A report whose job ran no assertion
     pass carries no catalog, so it reads no row.
     """
-    return row_controls(report.assertions.catalog if report.assertions else None)
+    return row_controls(report.assertion_catalog)
 
 
 def grounded_mechanism(claim: Claim, rows: Mapping[str, str]) -> frozenset[str]:

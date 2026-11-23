@@ -10,6 +10,10 @@ across a resumed run, so the answer survives it.
 
 from __future__ import annotations
 
+import json
+
+from evals.harness import early_policies, filler, follow_up_policies
+from evals.harness.question_prior import replay_findings, report_findings
 from katra.assertions import (
     ABSENT,
     UNKNOWN,
@@ -27,11 +31,11 @@ from katra.fact_answers import FactAnswer
 from katra.fact_writes import check_fact_answers, fact_rows
 from katra.jobs import Checkpoint
 from katra.open_facts import open_attribute, source_states
-from katra.questions import fact_questions
+from katra.questions import choices_of, fact_questions
 from katra.report_conditions import conditions, corrected_findings
 from katra.sources import ANSWERS_LABEL
 from katra.system_model import SystemModel
-from tests.factories import sample_analysis, sample_threat, valid_model
+from tests.factories import sample_analysis, sample_report, sample_threat, valid_model
 from tests.test_questions import PRINCIPAL, resume
 
 LOGIN = "flow:entity:customer>process:web-app>login"
@@ -408,3 +412,99 @@ def test_a_later_answer_writes_over_the_earlier_answer_at_its_place():
 
     rows = [(row.value, row.origin) for row in written.entries]
     assert rows == [("required", "answer")]
+
+
+class TestTheEvalReaders:
+    """The instruments that read archived reports count a finding on a
+    contradicted row as the fact it is asked as: the login's authentication
+    (#2307 A2)."""
+
+    LOGIN_AUTHENTICATION = UnknownRef(element_id=LOGIN, attribute="authentication")
+
+    @staticmethod
+    def report(*rows, together=False):
+        """One report whose findings each wait on one of ``rows``, or one
+        finding that waits on all of them ``together``."""
+        groups = [rows] if together else [[row] for row in rows]
+        threats = [
+            sample_threat(
+                f"S-0{number}",
+                verdict=Verdict(
+                    status="needs-info",
+                    reason="The sources disagree about this.",
+                    related_unknowns=[
+                        UnknownRef(assertion=assertion_id(row)) for row in group
+                    ],
+                ),
+            )
+            for number, group in enumerate(groups, start=1)
+        ]
+        return sample_report(threats).model_copy(
+            update={
+                "system_model": model_with("none"),
+                "assertions": AssertionRecord(proposed=2, catalog=compatible()),
+            }
+        )
+
+    def test_the_prior_counts_the_attribute(self):
+        found = report_findings(self.report(MECHANISM), "stride")
+
+        assert found == [[self.LOGIN_AUTHENTICATION]]
+
+    def test_the_prior_counts_a_replay_s_attribute(self, tmp_path):
+        ruled = tmp_path / "case.rulings.json"
+        ref = UnknownRef(assertion=assertion_id(MECHANISM)).model_dump(mode="json")
+        ruled.write_text(
+            json.dumps({"claims": [{"verdict": {"related_unknowns": [ref]}}]}),
+            encoding="utf-8",
+        )
+
+        found = replay_findings(ruled, self.report())
+
+        assert found == [[self.LOGIN_AUTHENTICATION]]
+
+    def test_the_filler_counts_a_pointer_at_the_attribute(self):
+        (row,) = filler.rows([self.report(MECHANISM)])
+
+        assert (row.pointers, row.ineligible) == (1, 0)
+
+    def test_the_follow_up_order_asks_two_rows_as_one_fact(self):
+        readings = follow_up_policies.readings("r", self.report(MECHANISM, CREDENTIAL))
+
+        whole = {
+            reading.choices
+            for reading in readings
+            if reading.effort == "whole" and reading.budget is None
+        }
+        assert whole == {choices_of(ATTRIBUTE_KEY)}
+
+    def test_the_early_policies_ask_two_rows_as_one_fact(self):
+        needs = early_policies.needs_of(self.report(MECHANISM, CREDENTIAL))
+
+        waited = {keys for _, keys in needs.findings.values()}
+        assert waited == {frozenset({ATTRIBUTE_KEY})}
+
+    def test_the_prior_counts_two_rows_at_one_attribute_once(self):
+        report = self.report(MECHANISM, CREDENTIAL, together=True)
+
+        assert report_findings(report, "stride") == [[self.LOGIN_AUTHENTICATION]]
+
+    def test_a_replay_counts_two_rows_at_one_attribute_once(self, tmp_path):
+        ruled = tmp_path / "case.rulings.json"
+        refs = [
+            UnknownRef(assertion=assertion_id(row)).model_dump(mode="json")
+            for row in (MECHANISM, CREDENTIAL)
+        ]
+        ruled.write_text(
+            json.dumps({"claims": [{"verdict": {"related_unknowns": refs}}]}),
+            encoding="utf-8",
+        )
+
+        found = replay_findings(ruled, self.report())
+
+        assert found == [[self.LOGIN_AUTHENTICATION]]
+
+    def test_the_filler_counts_two_rows_at_one_attribute_once(self):
+        (row,) = filler.rows([self.report(MECHANISM, CREDENTIAL, together=True)])
+
+        assert row.pointers == 1

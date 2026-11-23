@@ -1555,7 +1555,7 @@ def test_the_page_carries_the_link_questions_its_catalog_raises():
         report, report_state(report), previous=None, parent=None, controls=()
     )
 
-    catalog = report.assertions.catalog if report.assertions else None
+    catalog = report.assertion_catalog
     assert _island(rendered.html, "link_questions") == [
         question.to_json() for question in link_questions(catalog, report.system_model)
     ]

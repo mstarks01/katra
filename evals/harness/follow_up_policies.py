@@ -129,7 +129,9 @@ def _efforts(report: Report) -> Mapping[str, Callable[[UnknownKey], int]]:
     """Each count of a question's choices on the page ``report`` shows."""
     asked = {
         question.key: len(question.asks) or 1
-        for question in fact_questions(report.analyses, report.system_model, None)
+        for question in fact_questions(
+            report.analyses, report.system_model, report.assertion_catalog
+        )
     }
     return {
         "asked": lambda key: asked.get(key, choices_of(key)),
@@ -163,11 +165,15 @@ def readings(path: str, report: Report, built: Report | None = None) -> list[Rea
     it is scored on: the same drafts under another critic sample.
     """
     (framework,) = (selection.name for selection in report.job.frameworks)
-    needs = follow_up_needs(report.analyses, report.system_model, None)
+    needs = follow_up_needs(
+        report.analyses, report.system_model, report.assertion_catalog
+    )
     source = (
         needs
         if built is None
-        else follow_up_needs(built.analyses, built.system_model, None)
+        else follow_up_needs(
+            built.analyses, built.system_model, built.assertion_catalog
+        )
     )
     labels = {finding: needs.bands[finding].label for finding in needs.waiting}
     efforts = _efforts(report if built is None else built)
