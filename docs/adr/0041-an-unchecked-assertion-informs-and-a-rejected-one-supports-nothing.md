@@ -75,10 +75,11 @@ guard costs nothing there, although it fires 78 times on them. Over the other
   crossings fall from 1,114 to 1,102.
 - **18 are corrections.** Extraction read a flow's authentication as `none`,
   an unchecked row stated a mechanism, and the blessed model reads `unknown`.
-  The guard leaves the `none`, and the row is an open question the graph
-  contradicts (#2307 N3). Without the guard, the projected model fails the
-  gate, every projection of the pair is dropped, and `none` stands as a
-  stated absence.
+  The guard writes the qualified `unknown`. Without the guard, the projected
+  model fails the gate, every projection of the pair is dropped, and `none`
+  stands. Decision 1 as amended for #2307 N3 leaves the `none` under the
+  guard too, so these 18 now differ only in the gate: in both cases the
+  Evidence Catalog offers the row as an open question.
 - **Candidates:** 47 are lost, all from three STRIDE rules that read a stated
   exposure or zone, and 31 are gained. One must-find loses every candidate
   that led to it: in case 09, a customer sends the web API the catalogue

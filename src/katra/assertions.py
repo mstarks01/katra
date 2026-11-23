@@ -259,8 +259,7 @@ REGISTRY_VERSION = 9
 #:
 #: Version 5: an unchecked row does not close a lead. Where the attribute reads
 #: unknown or absent, a stated value from rows nobody marked ``supported``
-#: writes a qualified ``unknown`` rather than the control
-#: (:func:`_unchecked_over_lead`).
+#: never writes the control (:func:`_unchecked_over_lead`).
 #:
 #: Version 6: a submitter's answer settles an attribute beside scoped rows. An
 #: unscoped row that quotes the answers Source outranks every other row
@@ -269,8 +268,7 @@ REGISTRY_VERSION = 9
 #:
 #: Version 7: only an answer that may state its value lifts the unchecked guard
 #: (:func:`_drives_value`). An answer a reviewer set aside, or an answer of
-#: ``unknown``, leaves an unchecked row under the guard, which writes a
-#: qualified ``unknown`` over the lead (#2270).
+#: ``unknown``, leaves an unchecked row under the guard (#2270).
 #:
 #: Version 8: :func:`contradictions` compares the state of each row that states
 #: the attribute's value, not the projected value (#2270). Four more shapes
@@ -284,7 +282,12 @@ REGISTRY_VERSION = 9
 #: versioned: a claim of such a record on an ``absent-attribute`` in
 #: :func:`held_open_attributes`, or on a row the evidence catalog offers as an
 #: open question, fails the load, as a hard cutover.
-PROJECTION_VERSION = 8
+#:
+#: Version 9: the unchecked guard leaves a stated absence (#2307 N3). Over an
+#: attribute nobody stated, it writes a qualified ``unknown``. Over a stated
+#: absence, the absence stays, so :func:`contradicted` holds the row open, as
+#: it holds two rows beside one absence.
+PROJECTION_VERSION = 9
 
 #: The value that says a source stated this fact is **not there**. A positive
 #: statement about an absence, which :attr:`Assertion.basis` then attributes:
