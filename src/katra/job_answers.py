@@ -66,6 +66,7 @@ from katra.job_controls import (
     ControlScopeEntry,
     CopiedControl,
     changes_nothing,
+    control_lines,
     control_offer,
     not_for_this_analysis,
     resolve_scopes,
@@ -334,6 +335,7 @@ class Answerable:
                         record.corrections,
                         self.model,
                         None if self.assertions is None else self.assertions.catalog,
+                        control_lines(state.control_facts),
                     )
                 ),
                 # What the extraction read, for a person to review at the
@@ -995,6 +997,7 @@ class JobAnswers:
                         if answerable.assertions is None
                         else answerable.assertions.catalog
                     ),
+                    control_lines(state.control_facts),
                 )
             ),
         )

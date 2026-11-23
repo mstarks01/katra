@@ -215,6 +215,7 @@ from katra.job_controls import (
     RULING_LISTS,
     ControlScopeEntry,
     SectionEntry,
+    control_lines,
     controls_section,
     controls_used,
     section_summary,
@@ -245,6 +246,7 @@ from katra.jobs import (
     readable,
 )
 from katra.links import (
+    ControlLines,
     LinkAnswer,
     components,
     fold_principal,
@@ -1180,6 +1182,7 @@ def render_report(
                 state.corrections,
                 state.revision,
                 state.answers.shares,
+                control_lines(state.control_facts),
             )
             if state.final
             else {}
@@ -1290,6 +1293,7 @@ def _corrections_payload(
     corrections: Sequence[FactAnswer],
     revision: int,
     shares: Sequence[SharedAnswer],
+    controls: ControlLines,
 ) -> dict[str, object]:
     """A final report's answers as it is corrected in, what corrections reach,
     the shares its run read, and the revision a correction names (ADR 0090,
@@ -1313,6 +1317,7 @@ def _corrections_payload(
                 corrections,
                 report.system_model,
                 report.assertion_catalog,
+                controls,
             )
         ),
         "shares": [share.model_dump(mode="json") for share in shares],

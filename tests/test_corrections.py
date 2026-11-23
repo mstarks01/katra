@@ -16,7 +16,7 @@ from katra.assertions import (
     assertion_id,
 )
 from katra.claims import Ground, UnknownRef
-from katra.fact_answers import FactAnswer, fact_line
+from katra.fact_answers import FactAnswer, control_line, fact_line
 from katra.grounding import verify_quote
 from katra.jobs import Checkpoint, JobRecord, Resumption
 from katra.links import apply_answers
@@ -195,10 +195,10 @@ class TestWhichFindingsACorrectionReaches:
 
     BACK = FactAnswer(key=ASKED.key, value="unknown")
 
-    def reached(self, threat):
+    def reached(self, threat, controls=()):
         report = sample_report([threat])
         return corrected_findings(
-            report.analyses, [ANSWER], [self.BACK], report.system_model, None
+            report.analyses, [ANSWER], [self.BACK], report.system_model, None, controls
         )
 
     def test_a_finding_that_quotes_the_answer_s_line(self):
@@ -232,6 +232,28 @@ class TestWhichFindingsACorrectionReaches:
 
     def test_a_finding_that_rests_on_neither_is_not_reached(self):
         assert self.reached(sample_threat()) == ()
+
+    def test_a_cut_of_a_control_s_line(self):
+        """A Control writes the fact on a line that names the Control, so a
+        cut of that line rests on the fact (#2307 A3)."""
+        line = control_line("Edge TLS", ANSWER)
+        text = "TLS 1.3" + line.split("TLS 1.3", 1)[1]
+        quote = Ground(kind="quote", text=text, source_label=ANSWERS_LABEL)
+        controls = [("Edge TLS", ANSWER)]
+        assert self.reached(sample_threat(grounds=[quote]), controls) == (
+            "stride/S-01",
+        )
+
+    def test_a_control_s_line_of_another_value_is_not_reached(self):
+        """The answer's own line replaced that Control's line in the run."""
+        other = ANSWER.model_copy(update={"value": "TLS 1.2"})
+        quote = Ground(
+            kind="quote",
+            text=control_line("Edge TLS", other),
+            source_label=ANSWERS_LABEL,
+        )
+        controls = [("Edge TLS", other)]
+        assert self.reached(sample_threat(grounds=[quote]), controls) == ()
 
     def test_a_quote_from_another_source_is_not_reached(self):
         quote = Ground(kind="quote", text=fact_line(ANSWER), source_label="description")
@@ -273,7 +295,7 @@ class TestACorrectionReachesTheRowItsAnswerWrote:
         ground = Ground(kind="assertion", assertion=assertion_id(row))
         analyses = [sample_analysis([sample_threat(grounds=[ground])])]
         return corrected_findings(
-            analyses, answers, corrections, valid_model(), catalog
+            analyses, answers, corrections, valid_model(), catalog, controls
         )
 
     def test_an_assertion_answer_s_row(self):
