@@ -31,6 +31,7 @@ import re
 from collections import defaultdict
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
+from itertools import combinations
 from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -45,6 +46,9 @@ from katra.assertions import (
     Subject,
     SupportSpan,
     answer,
+    answered,
+    assertion_id,
+    conflicts,
     settled,
     subjects_of,
 )
@@ -440,7 +444,8 @@ def check_answers(
     link to any other principal is refused, so a submission cannot replace a
     ``represented-by`` row the sources stated. ``reopen`` lets an ``unknown``
     answer take back an earlier one
-    (:func:`~katra.fact_writes.check_fact_answers`).
+    (:func:`~katra.fact_writes.check_fact_answers`). Two fact answers whose
+    rows would disagree are refused (:func:`_refuse_disagreeing_facts`).
     """
     if links and catalog is None:
         raise NoCatalogError(
@@ -465,6 +470,43 @@ def check_answers(
             _, issues = apply_answers(catalog, model, [link])
             if issues:
                 raise ValueError(f"links[{at}]: {_LINK_REFUSALS[issues[0].code]}")
+        _refuse_disagreeing_facts(facts, model, catalog)
+
+
+def _refuse_disagreeing_facts(
+    facts: Sequence[FactAnswer], model: SystemModel, catalog: AssertionCatalog
+) -> None:
+    """Refuse two answers of one submission whose rows disagree.
+
+    Each answer is written alone, and two rows it writes beside two rows
+    another writes are compared by :func:`~katra.assertions.conflicts`: a
+    stated pair of predicates (:data:`~katra.assertions.CROSS_CONFLICTS`)
+    where one states a control missing and the other states it present. The
+    service cannot know which of the two the submitter meant, as with two
+    answers to one fact (:func:`~katra.fact_answers.refuse_repeated_facts`).
+    """
+    held = {assertion_id(entry) for entry in catalog.entries}
+    written = []
+    for fact in facts:
+        answered_catalog, _ = apply_answers(catalog, model, [], [fact])
+        written.append(
+            [
+                entry
+                for entry in answered_catalog.entries
+                if answered(entry) and assertion_id(entry) not in held
+            ]
+        )
+    for first, second in combinations(range(len(facts)), 2):
+        if any(
+            conflicts(AssertionCatalog(entries=[one, other]))
+            for one in written[first]
+            for other in written[second]
+        ):
+            raise ValueError(
+                f"facts[{first}] and facts[{second}] state facts that cannot both"
+                " hold, so the service cannot know which one is meant; change one"
+                " of them"
+            )
 
 
 def _link_rows(

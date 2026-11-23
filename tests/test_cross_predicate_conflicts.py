@@ -8,18 +8,22 @@ with goes.
 
 from __future__ import annotations
 
+import pytest
+
 from katra.assertions import (
     ABSENT,
+    UNKNOWN,
     AssertionCatalog,
     Qualifier,
     assertion_id,
     conflicts,
     disputed,
+    place_identity,
     settled,
 )
 from katra.evidence import prepared_view
 from katra.fact_answers import FactAnswer
-from katra.links import apply_answers
+from katra.links import apply_answers, check_answers
 from tests.factories import valid_model
 from tests.test_contradicted_answers import CREDENTIAL, LOGIN, MECHANISM, SUBJECTS
 from tests.test_part_rows import kind_answer
@@ -171,3 +175,38 @@ def test_an_answer_settles_its_fact_and_the_source_row_goes():
     (row,) = [entry for entry in written.entries if entry.origin == "answer"]
     assert (row.predicate, row.value) == ("content-validation-validates", "no")
     assert row in settled(written)
+
+
+class TestTwoAnswersThatDisagree:
+    """The maintainer's ruling of 2026-11-23: a submission whose answers write
+    rows of a stated pair that disagree is refused, as two answers to one fact
+    are, because the service cannot know which one is meant."""
+
+    OPEN = VALIDATED.model_copy(update={"value": UNKNOWN})
+    PLACE = FactAnswer(
+        key=("", "", place_identity(OPEN), "", "", ""), value="validated"
+    )
+
+    def check(self, *facts):
+        check_answers(
+            [],
+            list(facts),
+            valid_model(),
+            catalog(self.OPEN),
+            {fact.key for fact in facts},
+            [],
+            asked_links=(),
+            earlier_links=(),
+            reopen=False,
+        )
+
+    def test_the_pair_is_refused_by_position(self):
+        part_no = kind_answer(LOGIN, "content-validation", validates="no")
+
+        with pytest.raises(ValueError, match=r"facts\[0\] and facts\[1\]"):
+            self.check(self.PLACE, part_no)
+
+    def test_two_answers_that_agree_are_admitted(self):
+        self.check(
+            self.PLACE, kind_answer(LOGIN, "content-validation", validates="yes")
+        )
