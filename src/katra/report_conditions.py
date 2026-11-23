@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from katra.assertions import AssertionCatalog, answered, assertion_id
+from katra.assertions import AssertionCatalog, assertion_id
 from katra.claims import FrameworkAnalysis, UnknownKey
 from katra.fact_answers import (
     FactAnswer,
@@ -21,6 +21,7 @@ from katra.fact_answers import (
     fact_line,
     fact_status,
     needs_of,
+    quotes_answer,
 )
 from katra.grounding import normalize, verify_normalized
 from katra.open_facts import (
@@ -146,25 +147,11 @@ def corrected_findings(
 def _answer_row_ids(
     catalog: AssertionCatalog | None, lines: Sequence[str]
 ) -> frozenset[str]:
-    """The identity of each answer row in ``catalog`` that quotes one of ``lines``.
-
-    The writer gives each row an answer writes a span on the whole line of
-    the answers Source that wrote the fact: the answer's own line
-    (:func:`~katra.fact_answers.fact_line`), or a Control's line of it, which
-    starts with that line (:func:`~katra.fact_answers.control_line`). So a
-    row rests on an answer where its quote starts with the answer's line. A
-    row at the same place that another answer wrote quotes another line.
-    ``lines`` are normalized.
+    """The identity of each answer row in ``catalog`` that one of ``lines``
+    wrote (:func:`~katra.fact_answers.quotes_answer`). ``lines`` are normalized.
     """
     if catalog is None:
         return frozenset()
     return frozenset(
-        assertion_id(entry)
-        for entry in catalog.entries
-        if answered(entry)
-        and any(
-            span.source_label == ANSWERS_LABEL
-            and normalize(span.quote).startswith(tuple(lines))
-            for span in entry.support
-        )
+        assertion_id(entry) for entry in catalog.entries if quotes_answer(entry, lines)
     )

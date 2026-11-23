@@ -78,7 +78,7 @@ from katra.grounding import normalize
 from katra.open_facts import element_names, label_of
 from katra.parsing import table_entry
 from katra.question_kinds import QUESTION_KINDS, Facet, parse_question_kind
-from katra.sources import FORMATTING_CATEGORIES, plain_name, quotable
+from katra.sources import ANSWERS_LABEL, FORMATTING_CATEGORIES, plain_name, quotable
 from katra.system_model import SystemModel
 
 __all__ = [
@@ -108,6 +108,7 @@ __all__ = [
     "needed_facets",
     "needs_of",
     "part_answers",
+    "quotes_answer",
     "refuse_repeated_facts",
     "with_element",
 ]
@@ -362,6 +363,24 @@ def fact_line(fact: FactAnswer) -> str:
     else:
         line = f'Asked "{_phrase(ref.subject)}", the answer is "{fact.value}".'
     return line + detail_note(fact.detail)
+
+
+def quotes_answer(entry: Assertion, lines: Sequence[str]) -> bool:
+    """Whether ``entry`` is an answer row that one of ``lines`` wrote.
+
+    The writer gives each
+    row an answer writes a span on the whole line of the answers Source that
+    wrote the fact: the answer's own line (:func:`fact_line`), or a Control's
+    line of it, which starts with that line (:func:`control_line`). So a row
+    rests on an answer where its quote starts with the answer's line, and a
+    row at the same place that another answer wrote quotes another line.
+    ``lines`` are normalized (:func:`~katra.grounding.normalize`).
+    """
+    return answered(entry) and any(
+        span.source_label == ANSWERS_LABEL
+        and normalize(span.quote).startswith(tuple(lines))
+        for span in entry.support
+    )
 
 
 def control_line(name: str, fact: FactAnswer) -> str:
