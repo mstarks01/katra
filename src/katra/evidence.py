@@ -671,7 +671,7 @@ def render_catalog(
     identity nobody could select on.
 
     ``model`` is the model the catalog came from, read for the value a field
-    the rows hold open still states (:func:`held_open_value`).
+    the rows hold open still states (:func:`_held_open_value`).
     """
     elements = {element.id: element for element in model.elements()}
     rows_by_id = (
@@ -741,7 +741,7 @@ def ground_gloss(
     return _gloss(ground, rows, subjects, held_value(ground, elements))
 
 
-def held_open_value(element: Element, attribute: str) -> str | None:
+def _held_open_value(element: Element, attribute: str) -> str | None:
     """The value a field states where the catalog offers it as an unknown, or
     ``None`` where the field reads unverified.
 
@@ -761,11 +761,12 @@ def held_value(ground: Ground, elements: Mapping[str, Element]) -> str | None:
     for any other entry and for a field that reads unverified.
 
     **The one reader of "which held-open value does this entry name"**: the
-    catalog table and the report's labels both call it."""
+    catalog table, :func:`ground_gloss`, the critic's view and the report's
+    labels all call it."""
     element = elements.get(ground.element_id)
     if ground.kind != "unknown-attribute" or element is None:
         return None
-    return held_open_value(element, ground.attribute)
+    return _held_open_value(element, ground.attribute)
 
 
 def render_element_roster(model: SystemModel) -> str:
@@ -845,7 +846,7 @@ def _gloss(
     anything.
 
     ``held`` is the value an ``unknown-attribute`` entry's field still states
-    (:func:`held_open_value`). The entry then names that value and says the
+    (:func:`_held_open_value`). The entry then names that value and says the
     sources leave it open, because *never stated* would deny the model.
     """
     if ground.kind == "derived-fact":

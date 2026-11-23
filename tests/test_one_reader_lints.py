@@ -3028,7 +3028,7 @@ ONE_READERS: dict[str, _OneReader] = {
         "",
     ),
     "which held-open value does this entry name": _OneReader(
-        lambda node: _calls(node, "held_open_value"),
+        lambda node: _calls(node, "_held_open_value"),
         ("src/katra/evidence.py", "held_value"),
         {},
         "",
