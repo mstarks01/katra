@@ -3727,14 +3727,16 @@ def _projected_model(
             )
             continue
         behind = [rows[ref] for ref in projection.rows if ref in rows]
-        if hold_unchecked and _unchecked_over_lead(
-            projection, getattr(element, projection.attribute), behind
-        ):
-            setattr(
-                element,
-                projection.attribute,
-                qualified(projection, behind, subjects, because=UNCHECKED_BECAUSE),
-            )
+        held = getattr(element, projection.attribute)
+        if hold_unchecked and _unchecked_over_lead(projection, held, behind):
+            # A stated absence stays: the row states the opposite, so it is an
+            # open question beside the absence (contradicted), as two rows are.
+            if control_state(str(held)) != "absent":
+                setattr(
+                    element,
+                    projection.attribute,
+                    qualified(projection, behind, subjects, because=UNCHECKED_BECAUSE),
+                )
             continue
         setattr(element, projection.attribute, projection.value)
         bases = {entry.basis for entry in behind}
@@ -3799,11 +3801,14 @@ def _unchecked_over_lead(
     **The unreviewed half of #926's contract** (the owner's decision of
     2026-09-23, option (iii)): an unchecked assertion informs conditional
     analysis and never becomes a verified control. So where the attribute
-    reads as a lead — never stated, or stated absent — and the projection
-    would make it a stated control, it is written as a qualified ``unknown``
-    naming the value instead. The lead stays in the Evidence Catalog, and the
-    row, not carried by the attribute, is cited as itself with its
-    review status in the gloss (:func:`offered`).
+    reads as a lead — never stated, or stated absent — the projection does not
+    make it a stated control. An attribute nobody stated is written as a
+    qualified ``unknown`` naming the value, and the row, not carried by the
+    attribute, is cited as itself with its review status in the gloss
+    (:func:`offered`). An attribute stated absent keeps its absence, and the
+    row states the opposite, so the graph contradicts it
+    (:func:`contradicted`) and the evidence catalog offers it as an open
+    question, as it offers two rows beside one absence (#2307 N3).
 
     A row a reviewer marked ``supported`` may close the lead; that is what a
     review is for. A submitter's answer that may state its value

@@ -12,6 +12,7 @@ import pytest
 
 from katra.assertions import (
     ABSENT,
+    UNCHECKED_BECAUSE,
     UNKNOWN,
     Qualifier,
     Subject,
@@ -30,6 +31,7 @@ from katra.evidence import (
     evidence_catalog,
     ground_gloss,
     ground_issues,
+    prepared_view,
     render_catalog,
     unknown_evidence_ref,
 )
@@ -419,7 +421,8 @@ class TestARejectedAnswer:
 
 def test_an_answer_of_unknown_does_not_lift_the_unchecked_guard():
     """An answer that the submitter does not know makes no value, so an
-    unchecked row beside it still cannot close the lead (ADR 0041)."""
+    unchecked row beside it still cannot close the lead (ADR 0041): the stated
+    absence stays, and the row is the open question beside it."""
     source = stated()
     dunno = _as_answer(
         source,
@@ -437,7 +440,8 @@ def test_an_answer_of_unknown_does_not_lift_the_unchecked_guard():
     updated, _ = apply_projection(graph.model("none"), catalog)
 
     (flow,) = updated.data_flows
-    assert flow.authentication.startswith("unknown")
+    assert flow.authentication == "none"
+    assert contradicted(catalog, updated) == (source,)
 
 
 class TestTheGraphSideOfAContradiction:
@@ -868,3 +872,40 @@ class TestAnAbsenceUnderAHiddenQualification:
 
         (issue,) = ground_issues([claim], _with_encryption("none"), catalog)
         assert "whose qualification the field hides" in issue
+
+
+class TestOneUncheckedRowBesideALead:
+    """One unchecked row reads as two compatible rows do beside one absence
+    (#2307 N3): the graph contradicts it, so it is an open question and the
+    absence is no fact. Beside a field nobody stated, the guard writes a
+    qualified unknown and the row stays a cited fact (ADR 0041)."""
+
+    STORE = TestARowTheGraphContradicts.STORE
+    ROW = TestADisputedPairUnderARefusedProjection.ENCRYPTED
+    ABSENT_REF = TestTheGraphSideOfAContradiction.ABSENT_REF
+
+    def offered(self, field):
+        catalog = assertions(self.ROW, subjects=(self.STORE,))
+        model, _, offered = prepared_view(_with_encryption(field), catalog)
+        return model.get(ORDERS).encryption_at_rest, offered
+
+    def test_beside_a_stated_absence_it_is_an_open_question(self):
+        field, offered = self.offered("none")
+
+        assert field == "none"
+        assert self.ABSENT_REF not in offered
+        assert offered[assertion_id(self.ROW)].kind == "unknown-assertion"
+
+    def test_beside_a_field_nobody_stated_it_stays_a_cited_fact(self):
+        field, offered = self.offered(UNKNOWN)
+
+        assert field.startswith(f"{UNKNOWN}; {UNCHECKED_BECAUSE}")
+        assert offered[assertion_id(self.ROW)].kind == "assertion"
+
+    def test_a_row_a_reviewer_supported_closes_the_lead(self):
+        supported = self.ROW.model_copy(update={"assessment": "supported"})
+        catalog = assertions(supported, subjects=(self.STORE,))
+        model, _, offered = prepared_view(_with_encryption("none"), catalog)
+
+        assert model.get(ORDERS).encryption_at_rest == "AES-256"
+        assert self.ABSENT_REF not in offered

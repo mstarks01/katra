@@ -30,11 +30,14 @@ is needed to keep either.**
 
 1. **Unreviewed: an unchecked assertion informs conditional analysis and
    never closes a lead.** Where an attribute reads as a lead (never stated, or
-   stated absent), a projection from rows nobody marked `supported` writes a
-   qualified `unknown` naming the value, never the control. The lead stays in
-   the Evidence Catalog, and the row is cited as itself, glossed `unchecked`.
-   A stated absence over an unknown still writes, because an absence is itself
-   a lead.
+   stated absent), a projection from rows nobody marked `supported` never
+   writes the control. Over an attribute nobody stated, it writes a qualified
+   `unknown` naming the value, and the row is cited as itself, glossed
+   `unchecked`. Over a stated absence, the absence stays and the row states
+   the opposite, so the graph contradicts the row: the Evidence Catalog
+   offers the row as an open question and the absence as no fact, as it does
+   for two rows beside one absence (#2307 N3). A stated absence over an
+   unknown still writes, because an absence is itself a lead.
 2. **Reviewed: no reviewer-rejected fact reaches analysis.** A row marked
    `unsupported` or `unresolved` is in neither the evidence nor any attribute.
    After a review, `reassess` recomputes the projection and the evidence
@@ -72,9 +75,10 @@ guard costs nothing there, although it fires 78 times on them. Over the other
   crossings fall from 1,114 to 1,102.
 - **18 are corrections.** Extraction read a flow's authentication as `none`,
   an unchecked row stated a mechanism, and the blessed model reads `unknown`.
-  The guard writes the qualified `unknown`. Without the guard, the projected
-  model fails the gate, every projection of the pair is dropped, and `none`
-  stands.
+  The guard leaves the `none`, and the row is an open question the graph
+  contradicts (#2307 N3). Without the guard, the projected model fails the
+  gate, every projection of the pair is dropped, and `none` stands as a
+  stated absence.
 - **Candidates:** 47 are lost, all from three STRIDE rules that read a stated
   exposure or zone, and 31 are gained. One must-find loses every candidate
   that led to it: in case 09, a customer sends the web API the catalogue
