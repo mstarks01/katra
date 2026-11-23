@@ -34,7 +34,7 @@
     figures: recall 0.386 against a 0.400 floor, endpoint recall 0.509 against
     0.578, interaction recall 0.400 against 0.445 and precision 0.351 against
     0.366.
-- **The per-case veto does not work, and the fourth application is what showed
+- **The earlier per-case floor did not work, and the fourth application showed
   it.** Every one of those 21 shortfalls ran from 0.004 to 0.075. Measured on
   the full arm alone: dropping one of its five sweeps moves a floor by a mean
   of **0.092**, up to 0.250; and **11% of the full arm's own readings sit below
@@ -47,12 +47,13 @@
   below the full arm's *mean*, sized from the spread — the shape the six
   quality margins already use.
 - **What four applications settled.** The primary figure passed every time and
-  shrank every time — 4.5%, 4.8%, then **3.3%** — because each version that made
-  the format safer put identifier text back. The quality cost is element naming,
-  it is caused by dropping the `id` field, and dropping `id` is what the saving
-  *is*. A fourth version could clear `duplicate-ref` with one sentence about flow
-  refs; nothing in reach touches case 11. #938's definition of done covers this
-  case: retain the benchmark findings and do not promote the route.
+  shrank over the first three — 4.5%, 4.8%, then **3.3%** — because each version
+  that made the format safer put identifier text back. The quality cost is
+  element naming, it is caused by dropping the `id` field, and dropping `id` is
+  what the saving *is*. The fourth version cleared `duplicate-ref` with one
+  sentence about flow refs and still fails the per-case veto, on case 10.
+  #938's definition of done covers this case: retain the benchmark findings and
+  do not promote the route.
 - **Effort**: [#938 — stage compact extraction output behind a SystemModel adapter](https://github.com/mstarks01/katra/issues/938),
   stage 4
 - **Builds on**: [ADR 0016](0016-token-caps-are-drift-alarms.md), which says a

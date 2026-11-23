@@ -167,7 +167,7 @@ interaction recall and precision. The route stays off. The saving is 3.7% of
 one node's output tokens, against a second code path and a latency this
 deployment cannot measure.
 
-The route has failed its own predeclared gate three times —
+The route has failed its own predeclared gate four times —
 [ADR 0035](adr/0035-the-compact-transport-promotes-on-a-predeclared-gate.md)
 records each application and what it cost. Latency is not in that gate and
 remains unmeasured: this deployment's pinned upstream has a per-call spread

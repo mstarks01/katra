@@ -205,6 +205,15 @@ def test_a_figure_only_one_arm_has_is_a_veto():
     assert not passed and "precision unavailable" in reading
 
 
+def test_a_figure_one_arm_holds_in_some_sweeps_only_is_a_veto():
+    """A gap in one sweep drops the case from that sweep alone, so it fails closed."""
+    full = _arm("full", 1000)
+    compact = _arm("compact", 900)
+    compact.artifacts[0]["mode_output"][0]["precision"] = None
+    passed, reading = gate._veto(full, compact)
+    assert not passed and "precision unavailable" in reading
+
+
 def test_a_margin_over_arms_valued_on_different_cases_fails():
     """One arm's gap would drop a case from its mean alone, so the means differ."""
     full = _arm("full", 1000)
