@@ -523,7 +523,10 @@ def fact_rows(
         (:func:`~katra.assertions.place_identity`), a source row
         goes where it is open, set aside, the answer's own identity, or where
         it disagrees with the answer
-        (:func:`~katra.assertions.conflicts`). A row that can hold
+        (:func:`~katra.assertions.conflicts`). Elsewhere, a source row goes
+        where it disagrees with an answer row of another predicate
+        (:data:`~katra.assertions.CROSS_CONFLICTS`), because an answer settles
+        its fact even against the sources. A row that can hold
         beside the answer, such as another value of a predicate of many, or a
         row of a narrower scope, stays. A row an attribute answer removes is
         that step's.
@@ -537,9 +540,15 @@ def fact_rows(
                 and place in asked
                 and assertion_id(entry) not in rewritten
             )
-        written_row = written_here.get(place_identity(entry))
-        if written_row is None or assertion_id(entry) in replaced:
+        if assertion_id(entry) in replaced:
             return False
+        written_row = written_here.get(place_identity(entry))
+        if written_row is None:
+            return any(
+                conflicts(AssertionCatalog(entries=[entry, row]))
+                for row in written_here.values()
+                if row.subject == entry.subject
+            )
         return (
             entry.value == UNKNOWN
             or not admissible(entry)

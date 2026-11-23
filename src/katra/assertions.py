@@ -110,6 +110,7 @@ __all__ = [
     "ABSENT",
     "ANSWER_ISSUES",
     "CATALOG_REFUSALS",
+    "CROSS_CONFLICTS",
     "EXTRACTED",
     "FACET_ANSWERS",
     "GATE_REFUSALS",
@@ -191,6 +192,7 @@ __all__ = [
     "span_source",
     "spans_for",
     "states_missing",
+    "states_present",
     "subject_id",
     "support_span",
     "uncontradicted",
@@ -1588,6 +1590,8 @@ class Conflict:
 
     Derived by :func:`conflicts` and never stored. ``values`` holds what the
     rows say, sorted, so a reader sees the disagreement without resolving it.
+    Where the rows of ``predicate`` disagree with the rows of the other
+    predicate of a :data:`CROSS_CONFLICTS` pair, ``values`` holds both sides.
     """
 
     subject: str
@@ -1958,7 +1962,7 @@ def ambiguous_quote(quote: str, haystack: str) -> bool:
 
 
 def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
-    """Every group of assertions that disagree about one subject and predicate.
+    """Every group of assertions that disagree about one subject and scope.
 
     **The one reader of "do these rows contradict each other".** A conflict is
     derived from the rows rather than stored beside them, so nothing can assert
@@ -1978,6 +1982,12 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
     nothing, so it cannot dispute a row that stands either: counted here, it
     kept the other side from settling after the review rejected it (ADR 0041).
 
+    Rows of two predicates disagree only where :data:`CROSS_CONFLICTS` pairs
+    them: about one subject and scope, a row of the first states its control
+    missing and a row of the second states it present
+    (:func:`states_present`). Each side is reported under its own predicate,
+    so both sides are open questions (:func:`disputed`).
+
     Sorted by subject, then predicate, then scope, so two runs over one catalog
     report the same order.
     """
@@ -1988,15 +1998,59 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
         key = (entry.subject, entry.predicate, _scope_key(entry.scope))
         groups.setdefault(key, {}).setdefault(entry.value, entry)
 
-    found = []
-    for (subject, predicate, scope), rows in sorted(groups.items()):
+    found = set()
+    for (subject, predicate, scope), rows in groups.items():
         stated = tuple(sorted(rows))
         if len(stated) < 2:
             continue
         one_only = table_entry(REGISTRY, predicate).multiplicity == "one"
         if one_only or any(map(states_missing, rows.values())):
-            found.append(Conflict(subject, predicate, scope, stated))
-    return tuple(found)
+            found.add(Conflict(subject, predicate, scope, stated))
+    for missing, present in CROSS_CONFLICTS:
+        for (subject, predicate, scope), rows in groups.items():
+            if predicate != missing:
+                continue
+            absent = {value for value, row in rows.items() if states_missing(row)}
+            there = {
+                value
+                for value, row in groups.get((subject, present, scope), {}).items()
+                if states_present(row)
+            }
+            if absent and there:
+                values = tuple(sorted(absent | there))
+                found.add(Conflict(subject, missing, scope, values))
+                found.add(Conflict(subject, present, scope, values))
+    return tuple(
+        sorted(
+            found,
+            key=lambda found: (
+                found.subject,
+                found.predicate,
+                found.scope,
+                found.values,
+            ),
+        )
+    )
+
+
+#: Each ordered pair of predicates whose rows disagree across predicates
+#: (:func:`conflicts`): about one subject and scope, a row of the first states
+#: its control missing while a row of the second states it present. A stated
+#: table, not an inferred one (the maintainer's ruling of 2026-11-23 on #2307
+#: N2). The first two pairs are one-way: a mechanism such as an address
+#: allowlist presents no credential and asks no second factor. Each extracted
+#: verification predicate and the question part that asks the same control are
+#: paired both ways.
+CROSS_CONFLICTS: tuple[tuple[PredicateName, PredicateName], ...] = (
+    ("authentication-mechanism", "credential-presented"),
+    ("authentication-mechanism", "mfa-requirement"),
+    ("content-validation", "content-validation-validates"),
+    ("content-validation-validates", "content-validation"),
+    ("origin-verification", "provenance-sender"),
+    ("provenance-sender", "origin-verification"),
+    ("destination-verification", "destination"),
+    ("destination", "destination-verification"),
+)
 
 
 def projection_fields() -> Mapping[str, ProjectedField]:
@@ -2060,7 +2114,8 @@ def disputed(catalog: AssertionCatalog) -> tuple[Assertion, ...]:
 
     **The other side of** :func:`settled`: an admissible row holding a value,
     at a subject, predicate and scope where :func:`conflicts` finds another
-    admissible row stating something else. Neither side is a fact, and the
+    admissible row stating something else, of the same predicate or of the
+    other predicate of a :data:`CROSS_CONFLICTS` pair. Neither side is a fact, and the
     disagreement is itself a question, so the evidence catalog offers each
     side as an open one.
     """
@@ -2088,7 +2143,8 @@ def settled(catalog: AssertionCatalog) -> tuple[Assertion, ...]:
     settled when it holds a value rather than :data:`UNKNOWN`, its predicate
     is registered, its assessment is one :data:`PROJECTS_UNDER` admits, and no
     other row disagrees with it at its
-    subject, predicate and scope. A conflict settles nothing on either side
+    subject, predicate and scope, or across a :data:`CROSS_CONFLICTS` pair
+    (:func:`conflicts`). A conflict settles nothing on either side
     until a recorded adjudication does, and an ``unsupported`` or
     ``unresolved`` row is set aside rather than read as a fact.
 
@@ -2181,6 +2237,22 @@ def missing_value(predicate: Predicate) -> str:
     if asked is None or asked.protects != "yes":
         return ABSENT
     return asked.values.get("no", ABSENT)
+
+
+def states_present(entry: Assertion) -> bool:
+    """Whether this row states that its control is there.
+
+    A row that holds a value, and neither :data:`UNKNOWN` nor a missing
+    control (:func:`states_missing`). For a part that protects on "yes", only
+    the value its "yes" writes says so: ``not applicable`` names no control.
+    """
+    if entry.value == UNKNOWN or states_missing(entry):
+        return False
+    name = parse_predicate(entry.predicate)
+    asked = None if name is None else REGISTRY[name].asked
+    if asked is None or asked.protects != "yes":
+        return True
+    return entry.value == asked.values.get("yes")
 
 
 def states_missing(entry: Assertion) -> bool:
