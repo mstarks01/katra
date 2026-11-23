@@ -185,9 +185,10 @@ def settings_view(
 ) -> dict[str, Any]:
     """The page's data: the rows, the keys of the shown store rows
     (``store_shown``), the unknown lines of ``settings.env``, the engine's
-    error, the refusal of ``settings.env`` (``file_refusal``), the modes of
-    each vendor, the keys of the rows that choose a tier's vendor (``vendor_rows``), the ``iam`` notes and the model
-    suggestions of each vendor. The page's script picks the suggestions of a
+    error, the refusal of ``settings.env`` (``settings_file_refusal``), the
+    modes of each vendor, the keys of the rows that choose a tier's vendor
+    (``vendor_rows``), the ``iam`` notes and the model suggestions of each
+    vendor. The page's script picks the suggestions of a
     tier from the vendor that the unsaved changes choose for it.
     """
     path = settings_dir(process_env) / SETTINGS_FILE
@@ -230,7 +231,7 @@ def settings_view(
         "error": None if error is None else str(error),
         "settings_file": str(path),
         "revision": revision,
-        "file_refusal": refusal,
+        "settings_file_refusal": refusal,
         "unknown": [
             {"key": var, "line": line.number}
             for var, line in lines.items()

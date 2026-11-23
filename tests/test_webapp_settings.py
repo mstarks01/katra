@@ -644,8 +644,8 @@ class TestARefusedSettingsFile:
         data = page_data(client_for(tmp_path).get("/settings"))
 
         assert data["revision"] is None
-        assert "mode 0775" in data["file_refusal"]
-        assert data["error"] == data["file_refusal"]
+        assert "mode 0775" in data["settings_file_refusal"]
+        assert data["error"] == data["settings_file_refusal"]
 
     def test_a_file_refused_after_the_engine_built_names_its_refusal(self, tmp_path):
         client = client_for(tmp_path, hand_written())
@@ -654,13 +654,14 @@ class TestARefusedSettingsFile:
         data = page_data(client.get("/settings"))
 
         assert data["error"] is None
-        assert "mode 0775" in data["file_refusal"]
+        assert data["revision"] is None
+        assert "mode 0775" in data["settings_file_refusal"]
 
     def test_a_file_the_app_reads_has_no_refusal(self, tmp_path):
         data = page_data(client_for(tmp_path, hand_written()).get("/settings"))
 
         assert data["revision"] is not None
-        assert data["file_refusal"] is None
+        assert data["settings_file_refusal"] is None
 
 
 class TestLoopbackControls:

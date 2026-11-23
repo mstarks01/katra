@@ -456,7 +456,7 @@ function showSaved(restart) {
 // A save needs the revision of settings.env, so no save can pass while the app
 // refuses the file.
 function fileRefused() {
-  return SETTINGS.file_refusal !== null;
+  return SETTINGS.settings_file_refusal !== null;
 }
 
 async function save() {
@@ -564,9 +564,9 @@ function banners() {
   }
   if (fileRefused()) {
     banner.append(
-      h("div", {}, "This page cannot save while the app refuses ", h("code", {}, SETTINGS.settings_file), ". Correct the file or its directory, then reload this page."),
+      h("div", {}, "The page cannot save while the app refuses ", h("code", {}, SETTINGS.settings_file), ". Correct the file or its directory, then reload the page."),
     );
-    if (SETTINGS.file_refusal !== SETTINGS.error) banner.append(h("div", {}, h("code", {}, SETTINGS.file_refusal)));
+    if (SETTINGS.settings_file_refusal !== SETTINGS.error) banner.append(h("div", {}, h("code", {}, SETTINGS.settings_file_refusal)));
   }
   const unknown = document.getElementById("unknown-lines");
   unknown.replaceChildren();

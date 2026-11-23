@@ -37,7 +37,7 @@ const rows = [
 ];
 const settings = { revision: "one", rows, modes: { anthropic: ["api_key"], openai: ["api_key"] },
   vendor_rows: ["tiers.base.vendor"], models: {}, iam: [], unknown: [], settings_file: "settings.env",
-  error: null, file_refusal: null, ...__PAGE__ };
+  error: null, settings_file_refusal: null, ...__PAGE__ };
 const ids = Object.fromEntries([
   "settings", "settings-rows", "model-lists", "settings-search", "changes-list",
   "changes-panel", "changes-column", "save-changes", "discard-changes", "save-errors", "save-status",
@@ -152,7 +152,7 @@ save();
 assert.strictEqual(sent, false);
 `);
 """,
-        page=f'{{ revision: null, error: {error}, file_refusal: "settings.env: mode 0775" }}',
+        page=f'{{ revision: null, error: {error}, settings_file_refusal: "settings.env: mode 0775" }}',
     )
 
 
