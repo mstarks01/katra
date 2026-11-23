@@ -195,6 +195,26 @@ def test_a_part_answer_writes_nothing_beside_a_paired_source_row():
     assert ids(settled(written)) == ids([VALIDATED])
 
 
+def test_a_part_that_agrees_with_an_answer_at_a_disputed_place_is_written():
+    """The assertion answer settles the disputed place, so the source row it
+    removes is no stated fact the part must stand aside for."""
+    absent = VALIDATED.model_copy(update={"value": ABSENT, "explanation": "none"})
+    place = FactAnswer(
+        key=("", "", place_identity(VALIDATED), "", "", ""), value=ABSENT
+    )
+    part_no = kind_answer(LOGIN, "content-validation", validates="no")
+
+    written, _ = apply_answers(
+        catalog(VALIDATED, absent), valid_model(), [], [place, part_no]
+    )
+
+    assert {
+        (entry.predicate, entry.value)
+        for entry in written.entries
+        if entry.origin == "answer"
+    } == {("content-validation", ABSENT), ("content-validation-validates", "no")}
+
+
 def test_an_answer_beside_its_own_disagreeing_row_still_projects():
     """Only a paired predicate's dispute qualifies the field; an answer that
     drives the value over a row of its own predicate projects its value."""
@@ -258,6 +278,25 @@ class TestTwoAnswersThatDisagree:
                 catalog(self.OPEN),
                 {part_no.key, self.PLACE.key},
                 [self.PLACE],
+                asked_links=(),
+                earlier_links=(),
+                reopen=False,
+            )
+
+    def test_a_facet_answer_merged_with_an_earlier_one_is_checked(self):
+        """The run merges a facet answer with the earlier one, so the check
+        reads the merged answer: its earlier "validates: no" stays."""
+        earlier = kind_answer(LOGIN, "content-validation", validates="no")
+        encodes = kind_answer(LOGIN, "content-validation", encodes="yes")
+
+        with pytest.raises(ValueError, match=r"facts\[0\] and facts\[1\]"):
+            check_answers(
+                [],
+                [self.PLACE, encodes],
+                valid_model(),
+                catalog(self.OPEN),
+                {self.PLACE.key, encodes.key},
+                [earlier],
                 asked_links=(),
                 earlier_links=(),
                 reopen=False,

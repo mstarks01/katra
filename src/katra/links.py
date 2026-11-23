@@ -484,8 +484,9 @@ def _refuse_disagreeing_facts(
 ) -> None:
     """Refuse an answer whose row disagrees with a row another answer writes.
 
-    The run writes this submission's answers and each earlier answer that none
-    of them replaces, so the writer runs once over all of them. Two of the rows
+    The run writes the answers :func:`~katra.fact_answers.merged_facts` makes
+    of the earlier answers and this submission's, so the writer runs once over
+    the same answers. A merged answer is this submission's where its key is. Two of the rows
     disagree where :func:`~katra.assertions.conflicts` finds a stated pair of
     predicates (:data:`~katra.assertions.CROSS_CONFLICTS`) with one row stating
     a control missing and the other stating it present. Each row is the
@@ -494,8 +495,11 @@ def _refuse_disagreeing_facts(
     answers to one fact (:func:`~katra.fact_answers.refuse_repeated_facts`).
     Two earlier answers that disagree are not this submission's to refuse.
     """
-    keys = {fact.key for fact in facts}
-    every = [*facts, *(fact for fact in earlier if fact.key not in keys)]
+    position = {fact.key: at for at, fact in enumerate(facts)}
+    every = sorted(
+        merged_facts(earlier, facts),
+        key=lambda fact: position.get(fact.key, len(facts)),
+    )
     written, _ = apply_answers(catalog, model, [], every)
     paired = [
         entry
@@ -515,10 +519,11 @@ def _refuse_disagreeing_facts(
     }
 
     def named(at: int) -> str:
-        return f"facts[{at}]" if at < len(facts) else "an earlier answer"
+        key = every[at].key
+        return f"facts[{position[key]}]" if key in position else "an earlier answer"
 
     for first, second in combinations(sorted(rows), 2):
-        if first >= len(facts):
+        if every[first].key not in position:
             break
         if any(
             conflicts(AssertionCatalog(entries=[one, other]))

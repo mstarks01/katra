@@ -15,7 +15,7 @@ it, so it admits only what the writer then accepts.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Sequence
 from typing import Literal, get_args
 
 from pydantic import ValidationError
@@ -611,7 +611,7 @@ def _part_rows(
     model: SystemModel,
     answers: Sequence[FactAnswer],
     spans: Sequence[SupportSpan],
-    assertion_rows: Iterable[Assertion],
+    assertion_rows: Collection[Assertion],
     attributes: Collection[tuple[str, str]],
 ) -> tuple[frozenset[tuple[str, str]], dict[tuple[str, str], Assertion]]:
     """The places that question-kind answers ask about, and the rows they write.
@@ -630,6 +630,16 @@ def _part_rows(
     answered_places = {
         (row.subject, row.predicate) for row in assertion_rows if not row.scope
     }
+    # A place an assertion answer writes is the answer's, so a source row there
+    # is no stated fact a part must stand aside for. Looked up by the row's
+    # place, as fact_rows looks up the row an answer writes there.
+    answered_at = {place_identity(row): row for row in assertion_rows}
+
+    def stands(entry: Assertion) -> bool:
+        """Whether a source row is a stated fact this write leaves standing."""
+        answer_row = answered_at.get(place_identity(entry))
+        return not answered(entry) and answer_row is None
+
     asked: set[tuple[str, str]] = set()
     rows: dict[tuple[str, str], Assertion] = {}
     stated = source_states(model, catalog)
@@ -663,7 +673,7 @@ def _part_rows(
                 for entry in catalog.entries
                 if entry.subject == element_id
                 and entry.predicate != name
-                and not answered(entry)
+                and stands(entry)
             ):
                 rows[place] = row
     return frozenset(asked), rows
