@@ -99,9 +99,9 @@ def corrected_findings(
     **The one reader of "which findings does a correction reach"** (ADR 0054).
     ``earlier`` is the answers the report's run read. A finding rests on a
     corrected fact where it quotes the fact's line of the answers Source,
-    grounds on the same element's attribute, or names the fact as one it waits
-    on, or grounds on a row the fact's earlier answer wrote
-    (:func:`_answer_rows`). A quote matches a line under the grounding ladder,
+    grounds on the same element's attribute, grounds on a row the fact's
+    earlier answer wrote (:func:`_answer_row_ids`), or names the fact as one
+    it waits on. A quote matches a line under the grounding ladder,
     which admitted it (:func:`~katra.grounding.verify_normalized`). A fact is
     named as it is asked (:func:`~katra.open_facts.fact_routes`), against
     ``model`` and ``catalog``.
@@ -114,7 +114,7 @@ def corrected_findings(
         if fact.key in before
     ]
     keys = {fact.key for fact in corrections}
-    rows = _answer_rows(catalog, lines)
+    answer_row_ids = _answer_row_ids(catalog, lines)
     attributes = {attribute_place(key) for key in keys if fact_kind(key) == "attribute"}
 
     def rests_on(claim: Any) -> bool:
@@ -127,7 +127,7 @@ def corrected_findings(
         for ground in claim.grounds:
             if (ground.element_id, ground.attribute) in attributes:
                 return True
-            if ground.kind == "assertion" and ground.assertion in rows:
+            if ground.kind == "assertion" and ground.assertion in answer_row_ids:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
                 verify_normalized(ground.text, line) for line in lines
@@ -143,7 +143,7 @@ def corrected_findings(
     )
 
 
-def _answer_rows(
+def _answer_row_ids(
     catalog: AssertionCatalog | None, lines: Sequence[str]
 ) -> frozenset[str]:
     """The identity of each answer row in ``catalog`` that quotes one of ``lines``.
