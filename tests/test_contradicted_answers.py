@@ -422,18 +422,22 @@ class TestTheEvalReaders:
     LOGIN_AUTHENTICATION = UnknownRef(element_id=LOGIN, attribute="authentication")
 
     @staticmethod
-    def report(*rows):
-        """One report whose findings each wait on one of ``rows``."""
+    def report(*rows, together=False):
+        """One report whose findings each wait on one of ``rows``, or one
+        finding that waits on all of them ``together``."""
+        groups = [rows] if together else [[row] for row in rows]
         threats = [
             sample_threat(
                 f"S-0{number}",
                 verdict=Verdict(
                     status="needs-info",
                     reason="The sources disagree about this.",
-                    related_unknowns=[UnknownRef(assertion=assertion_id(row))],
+                    related_unknowns=[
+                        UnknownRef(assertion=assertion_id(row)) for row in group
+                    ],
                 ),
             )
-            for number, row in enumerate(rows, start=1)
+            for number, group in enumerate(groups, start=1)
         ]
         return sample_report(threats).model_copy(
             update={
@@ -479,3 +483,28 @@ class TestTheEvalReaders:
 
         waited = {keys for _, keys in needs.findings.values()}
         assert waited == {frozenset({ATTRIBUTE_KEY})}
+
+    def test_the_prior_counts_two_rows_at_one_attribute_once(self):
+        report = self.report(MECHANISM, CREDENTIAL, together=True)
+
+        assert report_findings(report, "stride") == [[self.LOGIN_AUTHENTICATION]]
+
+    def test_a_replay_counts_two_rows_at_one_attribute_once(self, tmp_path):
+        ruled = tmp_path / "case.rulings.json"
+        refs = [
+            UnknownRef(assertion=assertion_id(row)).model_dump(mode="json")
+            for row in (MECHANISM, CREDENTIAL)
+        ]
+        ruled.write_text(
+            json.dumps({"claims": [{"verdict": {"related_unknowns": refs}}]}),
+            encoding="utf-8",
+        )
+
+        found = replay_findings(ruled, self.report())
+
+        assert found == [[self.LOGIN_AUTHENTICATION]]
+
+    def test_the_filler_counts_two_rows_at_one_attribute_once(self):
+        (row,) = filler.rows([self.report(MECHANISM, CREDENTIAL, together=True)])
+
+        assert row.pointers == 1
