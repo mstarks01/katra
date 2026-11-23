@@ -161,12 +161,11 @@ smaller by about what the delta prompt adds.
 
 `compact-v4` clears ten of the gate's eleven criteria, including
 `duplicate-ref` at 0 of 65 and first-pass validity tied with the full route at
-0.938. The one it fails is the per-case veto, which the same run showed does not
-work: 11% of the full route's own readings fall below a floor built from four
-other sweeps of that route. So the route fails no criterion the gate can
-resolve, and it stays off on the argument rather than on the test — 3.7% of one
-node's output tokens, a second code path, and a latency this deployment cannot
-measure.
+0.938. The one it fails is the per-case veto: case 10 falls more than two pooled
+standard deviations below the full route on recall, endpoint recall,
+interaction recall and precision. The route stays off. The saving is 3.7% of
+one node's output tokens, against a second code path and a latency this
+deployment cannot measure.
 
 The route has failed its own predeclared gate three times —
 [ADR 0035](adr/0035-the-compact-transport-promotes-on-a-predeclared-gate.md)

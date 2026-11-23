@@ -88,6 +88,47 @@ def test_one_case_below_its_floor_vetoes_a_holding_corpus_mean():
     assert not passed and "01-payments-checkout/recall" in reading
 
 
+def _readings(arm, figure, by_case):
+    """Set ``figure`` for each case in ``by_case`` to its five readings, in sweep order."""
+    for sweep, artifact in enumerate(arm.artifacts):
+        for row in artifact["mode_output"]:
+            if row["case"] in by_case:
+                row[figure] = by_case[row["case"]][sweep]
+    return arm
+
+
+#: Five readings with mean 0.8 and sd 0.158; on every case, the pooled sd is the
+#: same and the floor sits at 0.8 - 2 * 0.158 = 0.484.
+SPREAD = (0.6, 0.7, 0.8, 0.9, 1.0)
+
+
+def test_a_case_inside_the_pooled_margin_passes_below_the_lowest_full_reading():
+    """The floor is a margin below the full mean, not the lowest of five readings."""
+    full = _readings(_arm("full", 1000), "recall", dict.fromkeys(CASES, SPREAD))
+    compact = _readings(
+        _arm("compact", 900), "recall", dict.fromkeys(CASES, (0.55,) * 5)
+    )
+    assert gate._veto(full, compact) == (True, "no case below its floor")
+
+
+def test_a_case_beyond_the_pooled_margin_vetoes():
+    full = _readings(_arm("full", 1000), "recall", dict.fromkeys(CASES, SPREAD))
+    compact = _readings(_arm("compact", 900), "recall", {CASES[1]: (0.45,) * 5})
+    passed, reading = gate._veto(full, compact)
+    assert not passed and reading == f"{CASES[1]}/recall 0.450<0.484"
+
+
+def test_a_case_with_no_spread_of_its_own_takes_the_pooled_margin():
+    """Five equal readings of one case give it no spread, so the spread pools."""
+    full = _readings(
+        _arm("full", 1000),
+        "recall",
+        {CASES[0]: (1.0,) * 5, CASES[1]: SPREAD, CASES[2]: SPREAD},
+    )
+    compact = _readings(_arm("compact", 900), "recall", {CASES[0]: (0.9,) * 5})
+    assert gate._veto(full, compact)[0]
+
+
 def test_an_arm_missing_its_reports_is_refused_rather_than_passed():
     """The shape of missing evidence is the shape of a pass, so it is an error."""
     compact = _arm("compact", 900)
