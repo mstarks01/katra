@@ -7,6 +7,7 @@ same failure mode, an unmarked elision stitched into a sentence the source never
 contains.
 """
 
+import random
 import time
 
 import pytest
@@ -17,13 +18,13 @@ from katra.grounding import (
     MAX_REPAIR_WORK,
     REPAIR_THRESHOLD,
     index_source,
+    lands_on,
     locate_quote,
     match_normalized,
     meaning_moved,
     normalize,
     placements,
     prepare_source,
-    reaches_span,
     repair_deadline,
     repair_prepared,
     verify_quote,
@@ -714,8 +715,8 @@ class TestCountingWhereAQuoteCanSit:
         assert placements("the order service … over TLS", self.TWICE) == 2
 
 
-class TestAQuoteThatReachesASpan:
-    """``reaches_span`` asks whether some placement of a quote reaches a span."""
+class TestAQuoteThatLandsOnASpan:
+    """``lands_on`` asks whether some placement of a quote puts a fragment over a span."""
 
     LINE = normalize('The tls of edge is "tls 1.3". From the Control "tls 1.3 edge".')
     VALUE = (LINE.index('1.3"') - 4, LINE.index('1.3"') + 3)
@@ -725,18 +726,60 @@ class TestAQuoteThatReachesASpan:
         ["tls 1.3", '"tls 1.3".', "The tls of edge is … 1.3", 'is "tls 1.3'],
     )
     def test_a_quote_of_the_value(self, quote):
-        assert reaches_span(quote, self.LINE, (self.VALUE,))
+        assert lands_on(quote, self.LINE, (self.VALUE,))
 
     @pytest.mark.parametrize(
         "quote",
         ['".', "The tls of edge is", 'From the Control "tls 1.3 edge".', "nothing"],
     )
     def test_a_quote_beside_the_value(self, quote):
-        assert not reaches_span(quote, self.LINE, (self.VALUE,))
+        assert not lands_on(quote, self.LINE, (self.VALUE,))
 
     def test_a_later_placement_of_a_fragment(self):
-        """The first ``tls`` is the attribute's name; a cut reaches the value."""
-        assert reaches_span("The … tls … From", self.LINE, (self.VALUE,))
+        """The first ``tls`` is the attribute's name; a cut lands on the value."""
+        assert lands_on("The … tls … From", self.LINE, (self.VALUE,))
 
     def test_no_span_is_covered_by_nothing(self):
-        assert not reaches_span("tls 1.3", self.LINE, ())
+        assert not lands_on("tls 1.3", self.LINE, ())
+
+    def test_many_fragments_take_little_time(self):
+        """Each fragment takes one search per span, whatever places it can sit."""
+        line = normalize(
+            f'The v of e is "{"a" * 1000}". From the Control "zz {"a" * 300}".'
+        )
+        start = line.index('"a') + 1
+        quote = "zz … " + " … ".join(["a"] * 300)
+        began = time.perf_counter()
+        assert not lands_on(quote, line, ((start, start + 1000),))
+        assert time.perf_counter() - began < 1
+
+    @pytest.mark.parametrize("seed", range(20))
+    def test_it_agrees_with_every_placement(self, seed):
+        """Held against a search of every placement of every fragment."""
+        rng = random.Random(seed)
+        for _ in range(200):
+            line = "".join(rng.choice("ab ") for _ in range(rng.randint(1, 14))).strip()
+            parts = [
+                "".join(rng.choice("ab") for _ in range(rng.randint(1, 2)))
+                for _ in range(rng.randint(1, 3))
+            ]
+            begin = rng.randint(0, len(line))
+            span = (begin, rng.randint(begin, len(line)))
+            assert lands_on(" … ".join(parts), line, (span,)) == _any_placement(
+                parts, line, span
+            )
+
+
+def _any_placement(parts, line, span, cursor=0, landed=False):
+    """Whether ``parts`` sit in order in ``line`` from ``cursor`` with one over ``span``."""
+    if not parts:
+        return landed
+    head, *rest = parts
+    found = line.find(head, cursor)
+    while found >= 0:
+        end = found + len(head)
+        over = found < span[1] and span[0] < end
+        if _any_placement(rest, line, span, end, landed or over):
+            return True
+        found = line.find(head, found + 1)
+    return False

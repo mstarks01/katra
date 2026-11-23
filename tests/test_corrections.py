@@ -379,14 +379,16 @@ class TestWhereALineStatesTheAnswer:
             ANSWER,
             ANSWER.model_copy(update={"value": "**TLS**   \u201c1.3\u201d"}),
             ANSWER.model_copy(update={"detail": "Behind  the *edge* proxy"}),
+            ANSWER.model_copy(update={"value": "  TLS 1.3  "}),
             kind_answer(PROCESS, "audit-evidence", records_actor="yes"),
         ],
-        ids=["attribute", "markup", "detail", "question"],
+        ids=["attribute", "markup", "detail", "padded", "question"],
     )
     def test_each_span_holds_the_answer_s_words(self, fact):
         line = normalize(fact_line(fact))
         words = [fact.value, *([fact.detail] if fact.detail else [])]
-        assert [line[start:end] for start, end in stated_spans(fact)] == [
+        # A padded word keeps one space at each edge, inside its quotes.
+        assert [line[start:end].strip() for start, end in stated_spans(fact)] == [
             normalize(word) for word in words
         ]
         assert normalize(control_line("Edge", fact)).startswith(line)

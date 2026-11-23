@@ -395,42 +395,38 @@ def placements(quote: str, haystack: str, *, limit: int = 2) -> int:
     return seen
 
 
-#: A word of a source, for the offset table :func:`index_source` builds. Nothing
-#: outside this module reads either field; :class:`Span` is what a caller gets.
-def reaches_span(quote: str, haystack: str, spans: Sequence[tuple[int, int]]) -> bool:
+def lands_on(quote: str, haystack: str, spans: Sequence[tuple[int, int]]) -> bool:
     """Whether some placement of ``quote`` in ``haystack`` puts a fragment
     over one of ``spans``.
 
     ``haystack`` is normalized, and ``spans`` are half-open offsets into it.
     :func:`match_normalized` gives the first placement only, and the words of
-    a span can also sit before it. So this tries each place where each
-    fragment sits, with the fragments before it in order ahead of it and the
-    fragments after it in order behind it. :func:`match_normalized` places
-    each of them, as it does for :func:`placements`.
+    a span can also sit before it. So a fragment lands on a span where it sits
+    over the span, after the place where the fragments before it can end at
+    the earliest, and before the place where the fragments after it can start
+    at the latest. :func:`match_normalized` gives the earliest ends; a search
+    from the back gives the latest starts. Each fragment then takes one search
+    for each span, so the work grows with the fragments times the line, not
+    with the places a fragment can sit.
     """
-    pieces = fragments(quote)
-    for at, piece in enumerate(pieces):
-        place = match_normalized(piece, haystack)
-        while place is not None:
-            ((found, end),) = place
-            if (
-                any(found < stop and begin < end for begin, stop in spans)
-                and _fits(pieces[:at], haystack[:found])
-                and _fits(pieces[at + 1 :], haystack, end)
-            ):
+    placed = match_normalized(quote, haystack)
+    if placed is None:
+        return False
+    parts = [normalize(piece) for piece in fragments(quote)]
+    after = [0, *(end for _, end in placed)]
+    before = [len(haystack)] * (len(parts) + 1)
+    for at in range(len(parts) - 1, -1, -1):
+        before[at] = haystack.rfind(parts[at], 0, before[at + 1])
+    for at, part in enumerate(parts):
+        for begin, stop in spans:
+            found = haystack.find(part, max(after[at], begin - len(part) + 1))
+            if 0 <= found < stop and found + len(part) <= before[at + 1]:
                 return True
-            place = match_normalized(piece, haystack, start=found + 1)
     return False
 
 
-def _fits(pieces: Sequence[str], haystack: str, start: int = 0) -> bool:
-    """Whether ``pieces`` sit in order in ``haystack`` from ``start``. No piece
-    fits anywhere."""
-    return not pieces or (
-        match_normalized(" … ".join(pieces), haystack, start=start) is not None
-    )
-
-
+#: A word of a source, for the offset table :func:`index_source` builds. Nothing
+#: outside this module reads either field; :class:`Span` is what a caller gets.
 class _Word(NamedTuple):
     start: int
     end: int

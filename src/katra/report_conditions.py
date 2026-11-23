@@ -25,7 +25,7 @@ from katra.fact_answers import (
     quotes_answer,
     stated_spans,
 )
-from katra.grounding import normalize, reaches_span
+from katra.grounding import lands_on, normalize
 from katra.links import ControlLines
 from katra.open_facts import (
     element_names,
@@ -115,11 +115,12 @@ def corrected_findings(
     - or names the fact as one it waits on.
 
     Facts match by key, not by facet. A quote matches a line under the
-    grounding ladder, which admitted it, where some placement of it reaches
-    the answer's value or detail (:func:`~katra.grounding.reaches_span`,
+    grounding ladder, which admitted it, where some placement of it lands on
+    the answer's value or detail (:func:`~katra.grounding.lands_on`,
     :func:`~katra.fact_answers.stated_spans`). So a quote of the words that
-    every line holds, such as ``".`` or the Control's name, reaches no
-    finding. A fact is named as it is asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
+    every line holds, such as ``".`` or the Control's name, rests on no
+    corrected fact. A fact is named as it is asked
+    (:func:`~katra.open_facts.fact_routes`), against ``model`` and
     ``catalog``.
     """
     routes = fact_routes(catalog, model)
@@ -152,7 +153,7 @@ def corrected_findings(
             if ground.kind == "assertion" and ground.assertion in answer_row_ids:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
-                reaches_span(ground.text, line, spans) for line, spans in quoted
+                lands_on(ground.text, line, spans) for line, spans in quoted
             ):
                 return True
         return False
