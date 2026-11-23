@@ -425,17 +425,14 @@ def fact_routes(
 def routed(
     refs: Iterable[UnknownRef], routes: Mapping[str, UnknownRef]
 ) -> list[UnknownRef]:
-    """``refs``, each reference to an open row replaced by its fact, and each
-    fact once.
+    """``refs``, each reference to an open row replaced by its fact.
 
-    The facts are :func:`fact_routes`'s. Two rows can route to one attribute,
-    so the first reference to each key stands for the fact.
+    The facts are :func:`fact_routes`'s.
     """
-    found = (
+    return [
         routes.get(ref.assertion, ref) if ref.kind == "assertion" else ref
         for ref in refs
-    )
-    return list({ref.key: ref for ref in found}.values())
+    ]
 
 
 def source_states(

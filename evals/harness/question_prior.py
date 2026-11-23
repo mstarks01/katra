@@ -41,6 +41,7 @@ from katra.early_questions import (
     element_type,
     load_prior,
 )
+from katra.fact_answers import facts_named
 from katra.frameworks import PACKAGES
 from katra.open_facts import fact_routes, routed
 from katra.report import Report
@@ -63,7 +64,7 @@ def report_findings(report: Report, framework: FrameworkName) -> list[list[Unkno
     """
     routes = _routes(report)
     return [
-        routed(claim.waits_on(), routes)
+        facts_named(routed(claim.waits_on(), routes))
         for block in report.analyses
         if block.framework == framework
         for claim in block.all_claims()
@@ -77,7 +78,7 @@ def replay_findings(path: Path, report: Report) -> list[list[UnknownRef]]:
     claims = json.loads(path.read_text(encoding="utf-8"))["claims"]
     routes = _routes(report)
     return [
-        routed([UnknownRef.model_validate(ref) for ref in refs], routes)
+        facts_named(routed([UnknownRef.model_validate(ref) for ref in refs], routes))
         for claim in claims
         if (refs := claim["verdict"].get("related_unknowns"))
     ]

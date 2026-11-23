@@ -57,6 +57,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from evals.harness.rates import Rate, ratio, rounded_figure, shown_figure
+from katra.fact_answers import facts_named
 from katra.open_facts import fact_routes, routed
 from katra.report import Report
 from katra.system_model import attribute_names
@@ -115,7 +116,7 @@ def rows(reports: Iterable[Report]) -> tuple[FillerRow, ...]:
             seen = kinds.setdefault(name, Counter())
             for claim in (*block.claims, *block.rejected_claims):
                 seen[_kind_set(claim)] += 1
-                for ref in routed(claim.waits_on(), routes):
+                for ref in facts_named(routed(claim.waits_on(), routes)):
                     if not ref.names_an_element:
                         continue
                     pointers[name] += 1
