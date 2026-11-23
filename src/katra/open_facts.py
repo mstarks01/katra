@@ -39,7 +39,7 @@ from katra.assertions import (
 )
 from katra.capabilities import CAPABILITIES, parse_capability_key
 from katra.claims import AttributeGround, UnknownRef
-from katra.evidence import evidence_catalog, prepared_view
+from katra.evidence import evidence_catalog, held_open_value, prepared_view
 from katra.parsing import table_entry
 from katra.question_kinds import QUESTION_KINDS, parse_question_kind
 from katra.system_model import (
@@ -125,11 +125,18 @@ def reference_labels(
             labels[f"{name}: {getattr(element, name)}"] = (
                 f"{words}: {getattr(element, name)}"
             )
+    elements = {element.id: element for element in model.elements()}
     for ref, ground in evidence_catalog(model, assertions).items():
         if ground.kind in _GROUND_STATE:
             where = names.get(ground.element_id, ground.element_id)
             attribute = attribute_words(ground.attribute)
-            labels[ref] = f"{where}: {attribute}, {_GROUND_STATE[ground.kind]}"
+            held = held_open_value(elements[ground.element_id], ground.attribute)
+            state = (
+                _GROUND_STATE[ground.kind]
+                if held is None or ground.kind != "unknown-attribute"
+                else f"open, though the model reads {held}"
+            )
+            labels[ref] = f"{where}: {attribute}, {state}"
         elif ground.flow_id:
             where = names.get(ground.flow_id, ground.flow_id)
             labels[ref] = f"{where} crosses a trust boundary"

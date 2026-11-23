@@ -641,7 +641,9 @@ def _cell(value: str) -> str:
 
 
 def render_catalog(
-    catalog: Mapping[str, Ground], assertions: AssertionCatalog | None
+    catalog: Mapping[str, Ground],
+    assertions: AssertionCatalog | None,
+    model: SystemModel,
 ) -> str:
     """The catalog as a table an agent selects from rather than a list it reads.
 
@@ -667,7 +669,11 @@ def render_catalog(
     the agent needs the words. Required whenever the catalog holds one, and
     a row with no catalog behind it fails here rather than rendering a bare
     identity nobody could select on.
+
+    ``model`` is the model the catalog came from, read for the value a field
+    the rows hold open still states (:func:`held_open_value`).
     """
+    elements = {element.id: element for element in model.elements()}
     rows_by_id = (
         {}
         if assertions is None
@@ -679,7 +685,8 @@ def render_catalog(
         else {subject.id: subject for subject in assertions.subjects}
     )
     rows = "\n".join(
-        f"| `{_cell(ref)}` | {_cell(_gloss(ground, rows_by_id, subjects))} |"
+        f"| `{_cell(ref)}` |"
+        f" {_cell(_gloss(ground, rows_by_id, subjects, _held(ground, elements)))} |"
         for ref, ground in catalog.items()
     )
     return (
@@ -728,7 +735,30 @@ def ground_gloss(ground: Ground, assertions: AssertionCatalog | None) -> str:
         if assertions is None
         else {subject.id: subject for subject in assertions.subjects}
     )
-    return _gloss(ground, rows, subjects)
+    return _gloss(ground, rows, subjects, None)
+
+
+def held_open_value(element: Element, attribute: str) -> str | None:
+    """The value a field states where the catalog offers it as an unknown, or
+    ``None`` where the field reads unverified.
+
+    An ``unknown-attribute`` entry on a field that states a value is a field
+    the rows hold open: its qualification is hidden
+    (:func:`~katra.assertions.hidden_qualifications`). The entry's words name
+    that value beside the question, so they do not deny what the model shows.
+    """
+    value = getattr(element, attribute, None)
+    if isinstance(value, str) and control_state(value) != "unverified":
+        return value
+    return None
+
+
+def _held(ground: Ground, elements: Mapping[str, Element]) -> str | None:
+    """The value an ``unknown-attribute`` entry's field still states, or ``None``."""
+    element = elements.get(ground.element_id)
+    if ground.kind != "unknown-attribute" or element is None:
+        return None
+    return held_open_value(element, ground.attribute)
 
 
 def render_element_roster(model: SystemModel) -> str:
@@ -782,6 +812,7 @@ def _gloss(
     ground: Ground,
     rows: Mapping[str, Assertion],
     subjects: Mapping[str, Subject],
+    held: str | None,
 ) -> str:
     """What one catalogued fact asserts.
 
@@ -805,6 +836,10 @@ def _gloss(
     crossing. :func:`evidence_catalog` admits the decided ones only, so this
     line never tells an agent that a flow whose endpoint nobody placed crosses
     anything.
+
+    ``held`` is the value an ``unknown-attribute`` entry's field still states
+    (:func:`held_open_value`). The entry then names that value and says the
+    sources leave it open, because *never stated* would deny the model.
     """
     if ground.kind == "derived-fact":
         return "crosses a trust boundary"
@@ -812,6 +847,8 @@ def _gloss(
         return f"`{ground.attribute}` stated absent"
     if ground.kind in ASSERTION_GROUNDS:
         return ASSERTION_GLOSSES[ground.kind](rows[ground.assertion], subjects)
+    if held is not None:
+        return f"`{ground.attribute}` reads `{held}`, but the sources leave it open"
     return f"`{ground.attribute}` never stated"
 
 

@@ -29,11 +29,13 @@ from katra.evidence import (
     absent_evidence_ref,
     evidence_catalog,
     ground_issues,
+    render_catalog,
     unknown_evidence_ref,
 )
 from katra.fan_in import DraftJoinError, JoinedDrafts, join_drafts
 from katra.frameworks import schemas_for
 from katra.frameworks.stride import STRIDE
+from katra.open_facts import reference_labels
 from katra.sources import ANSWERS_LABEL
 from katra.system_model import DataStore, SystemModel
 from tests import test_assertions
@@ -778,6 +780,19 @@ class TestAnAbsenceUnderAHiddenQualification:
         offered = evidence_catalog(_with_encryption("AES-256"), catalog)
 
         assert offered[self.UNKNOWN_REF].kind == "unknown-attribute"
+
+    def test_the_entry_names_the_value_the_field_states(self):
+        """ "Never stated" would deny the model the lane reads beside it."""
+        rejected = self.ENCRYPTED.model_copy(update={"assessment": "unsupported"})
+        catalog = assertions(rejected, subjects=(self.STORE,))
+        model = _with_encryption("none")
+
+        rendered = render_catalog(evidence_catalog(model, catalog), catalog, model)
+        label = reference_labels(model, catalog)[self.UNKNOWN_REF]
+
+        expected = "`encryption_at_rest` reads `none`, but the sources leave it open"
+        assert f"| `{self.UNKNOWN_REF}` | {expected} |" in rendered
+        assert label.endswith("encryption at rest, open, though the model reads none")
 
     def test_a_claim_on_the_unknown_field_has_no_issue(self):
         rejected = self.ENCRYPTED.model_copy(update={"assessment": "unsupported"})

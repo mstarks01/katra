@@ -1774,7 +1774,7 @@ def prepare_analysis(
         STATE_BOUNDARY_CROSSINGS,
         render_crossings(crossings),
     )
-    state.prompt(STATE_EVIDENCE_CATALOG, render_catalog(catalog, held))
+    state.prompt(STATE_EVIDENCE_CATALOG, render_catalog(catalog, held, model))
     # Beside the model rather than instead of it: a lane agent reasons over the
     # whole model and *selects* out of this. Neutral by construction — the roster
     # enumerates the one shared model, so every framework's lanes read the same
