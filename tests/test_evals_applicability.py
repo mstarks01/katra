@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -287,11 +288,9 @@ class TestAnExplicitNegativeIsNotAnExpectedPositive:
     def test_the_critic_rejecting_it_is_earned(self, negative_case):
         from evals.harness.applicability import score_yield
 
-        critic = score_yield(
-            negative_case,
-            RuledBlock(claims=[], rejected_claims=[ruling("V9.1.1", "rejected")]),
-            drafts=[object()],
-        )
+        block = RuledBlock(claims=[], rejected_claims=[ruling("V9.1.1", "rejected")])
+
+        critic = score_yield(negative_case, block, drafts=handed(block))
 
         assert critic.earned == ("V9.1.1",)
         assert critic.destroyed == ()
@@ -617,9 +616,17 @@ def test_stability_reads_the_applicability_block_too():
 class RuledBlock:
     """A block with both sides of a critic decision, as the graph builds one."""
 
-    def __init__(self, claims, rejected_claims=()):
+    def __init__(self, claims, rejected_claims=(), returned_claims=()):
         self.claims = list(claims)
         self.rejected_claims = list(rejected_claims)
+        self.returned_claims = list(returned_claims)
+
+
+def handed(block, *more):
+    """The drafts the critic was handed: one for each claim ``block``
+    carries, and one for each ID in ``more``."""
+    ids = [claim.id for claim in (*block.claims, *block.rejected_claims)]
+    return [SimpleNamespace(id=draft_id) for draft_id in (*ids, *more)]
 
 
 def test_the_critic_pair_reads_both_sides(case):
@@ -634,18 +641,16 @@ def test_the_critic_pair_reads_both_sides(case):
     universe = {entry.id for entry in requirements_for(declared_level(case))}
     unexpected = min(universe - set(expected))
 
-    critic = score_yield(
-        case,
-        RuledBlock(
-            claims=[ruling(expected[0])],
-            # One the corpus expects — destroyed — and one it does not — earned.
-            rejected_claims=[
-                ruling(expected[1], "rejected"),
-                ruling(unexpected, "rejected"),
-            ],
-        ),
-        drafts=[object(), object(), object()],
+    block = RuledBlock(
+        claims=[ruling(expected[0])],
+        # One the corpus expects — destroyed — and one it does not — earned.
+        rejected_claims=[
+            ruling(expected[1], "rejected"),
+            ruling(unexpected, "rejected"),
+        ],
     )
+
+    critic = score_yield(case, block, drafts=handed(block))
 
     assert critic.destroyed == (expected[1],)
     # The case did not list it, and did not rule it out either: on a sampled
@@ -666,19 +671,16 @@ def test_a_lane_or_duplicate_rejection_neither_destroys_nor_earns(case):
     from evals.harness.applicability import score_yield
 
     expected = [reference.requirement for reference in case.references["asvs"]]
-    critic = score_yield(
-        case,
-        RuledBlock(
-            claims=[],
-            rejected_claims=[
-                ruling(expected[0], "rejected", rejected_because="lane"),
-                ruling(expected[1], "rejected", rejected_because="duplicate"),
-                ruling(expected[2], "rejected"),
-                ruling(expected[3], "rejected", rejected_because="reasoning"),
-            ],
-        ),
-        drafts=[object(), object(), object(), object()],
+    block = RuledBlock(
+        claims=[],
+        rejected_claims=[
+            ruling(expected[0], "rejected", rejected_because="lane"),
+            ruling(expected[1], "rejected", rejected_because="duplicate"),
+            ruling(expected[2], "rejected"),
+            ruling(expected[3], "rejected", rejected_because="reasoning"),
+        ],
     )
+    critic = score_yield(case, block, drafts=handed(block))
 
     assert critic.rejected == (expected[2],)
     assert critic.destroyed == (expected[2],)
@@ -694,14 +696,11 @@ def test_the_split_comes_from_the_list_a_claim_sits_in(case):
     from evals.harness.applicability import score_yield
 
     expected = [reference.requirement for reference in case.references["asvs"]]
-    critic = score_yield(
-        case,
-        # A confirmed verdict sitting in the rejected list: malformed, and the
-        # block's own checks are what report that. This instrument follows the
-        # list, so the claim counts as rejected.
-        RuledBlock(claims=[], rejected_claims=[ruling(expected[0], "confirmed")]),
-        drafts=[object()],
-    )
+    # A confirmed verdict sitting in the rejected list: malformed, and the
+    # block's own checks are what report that. This instrument follows the
+    # list, so the claim counts as rejected.
+    block = RuledBlock(claims=[], rejected_claims=[ruling(expected[0], "confirmed")])
+    critic = score_yield(case, block, drafts=handed(block))
 
     assert critic.rejected == (expected[0],)
     assert critic.confirmed == ()
@@ -711,9 +710,8 @@ def test_a_critic_that_rejected_nothing_reads_unavailable_rather_than_zero(case)
     from evals.harness.applicability import aggregate_yield, score_yield
 
     expected = [reference.requirement for reference in case.references["asvs"]]
-    critic = score_yield(
-        case, RuledBlock(claims=[ruling(r) for r in expected]), drafts=[object()]
-    )
+    block = RuledBlock(claims=[ruling(r) for r in expected])
+    critic = score_yield(case, block, drafts=handed(block))
 
     assert critic.rejected == ()
     assert critic.rates["destroyed_rate"].value is None
@@ -726,18 +724,14 @@ def test_pooling_the_yield_weights_by_draft_and_not_by_case(case):
     from evals.harness.applicability import aggregate_yield, score_yield
 
     expected = [reference.requirement for reference in case.references["asvs"]]
-    small = score_yield(
-        case,
-        RuledBlock(claims=[], rejected_claims=[ruling(expected[0], "rejected")]),
-        drafts=[object()],
-    )
-    large = score_yield(
-        case, RuledBlock(claims=[ruling(r) for r in expected]), drafts=[object()] * 9
-    )
+    one = RuledBlock(claims=[], rejected_claims=[ruling(expected[0], "rejected")])
+    nine = RuledBlock(claims=[ruling(f"V9.9.{n}") for n in range(1, 10)])
+    small = score_yield(case, one, drafts=handed(one))
+    large = score_yield(case, nine, drafts=handed(nine))
 
     totals = aggregate_yield([small, large])
 
-    assert totals["drafts"] == 10
+    assert totals["drafts"] == totals["ruled"] == 10
     assert totals["rejected"] == 1
     assert totals["rejection_rate"] == 0.1
 
@@ -1212,3 +1206,26 @@ class TestARecordMayAcceptASecondRoute:
 def deferred_as(kind: str) -> Observation:
     """One run's answer: withheld, and naming the evidence that would settle it."""
     return Observation("deferred", kind)
+
+
+def test_a_draft_with_no_verdict_is_not_in_the_rejection_rate(case, capsys):
+    """A returned or omitted draft has no archived verdict, so the rate
+    divides by the drafts the critic ruled on, as the STRIDE rates do
+    (``critic_yield.has_verdict``), and the report counts the rest apart."""
+    from evals.harness.applicability import aggregate_yield, render_yield, score_yield
+
+    expected = [reference.requirement for reference in case.references["asvs"]]
+    block = RuledBlock(
+        claims=[ruling(expected[0])],
+        rejected_claims=[ruling(expected[1], "rejected")],
+        returned_claims=[SimpleNamespace(claim_id="v5.0.0-9.9.1")],
+    )
+    critic = score_yield(
+        case, block, drafts=handed(block, "v5.0.0-9.9.1", "v5.0.0-9.9.2")
+    )
+
+    assert (critic.drafts, critic.ruled) == (4, 2)
+    assert critic.rates["rejection_rate"].value == 0.5
+    assert aggregate_yield([critic])["rejection_rate"] == 0.5
+    render_yield([critic])
+    assert "2 drafts have no archived verdict" in capsys.readouterr().out

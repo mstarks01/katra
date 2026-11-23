@@ -39,6 +39,13 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from evals.harness import attribution, audit
 from evals.harness.attribution import ObservedKind
+from evals.harness.critic_yield import (
+    NO_VERDICT_FATES,
+    OMITTED,
+    fate_by_claim,
+    has_verdict,
+    no_verdict_line,
+)
 from evals.harness.rates import (
     Rate,
     mean,
@@ -1035,6 +1042,9 @@ class ApplicabilityYield:
 
     case: str
     drafts: int
+    #: The drafts with an archived verdict
+    #: (:func:`~evals.harness.critic_yield.has_verdict`).
+    ruled: int
     confirmed: tuple[str, ...]
     rejected: tuple[str, ...]
     destroyed: tuple[str, ...]
@@ -1045,20 +1055,20 @@ class ApplicabilityYield:
     def rates(self) -> dict[ApplicabilityRate, Rate]:
         """Both rates with their counts, keyed by the rate's name.
 
-        ``rejection_rate`` is the share of what the critic was handed that it
-        ruled inapplicable. ``destroyed_rate`` is the share of its rejections
-        that the case expected a ruling on, and has no value where it rejected
-        nothing.
+        ``rejection_rate`` is the share of the drafts with an archived verdict
+        that the critic ruled inapplicable. An ASVS claim ID is its
+        requirement, so a rejected requirement is a rejected draft.
+        ``destroyed_rate`` is the share of its rejections that the case
+        expected a ruling on, and has no value where it rejected nothing.
         """
-        return _applicability_rates(
-            self.drafts, len(self.rejected), len(self.destroyed)
-        )
+        return _applicability_rates(self.ruled, len(self.rejected), len(self.destroyed))
 
     def to_json(self) -> dict[str, Any]:
         return {
             "case": self.case,
             "framework": FRAMEWORK,
             "drafts": self.drafts,
+            "ruled": self.ruled,
             "confirmed": len(self.confirmed),
             "rejected": len(self.rejected),
             "destroyed": list(self.destroyed),
@@ -1073,11 +1083,11 @@ ApplicabilityRate = Literal["rejection_rate", "destroyed_rate"]
 
 
 def _applicability_rates(
-    drafts: int, rejected: int, destroyed: int
+    ruled: int, rejected: int, destroyed: int
 ) -> dict[ApplicabilityRate, Rate]:
     """The yield's two rates, from one case's counts or from pooled ones."""
     return {
-        "rejection_rate": Rate(rejected, drafts),
+        "rejection_rate": Rate(rejected, ruled),
         "destroyed_rate": Rate(destroyed, rejected),
     }
 
@@ -1087,11 +1097,14 @@ def score_yield(
 ) -> ApplicabilityYield:
     """One case's ASVS critic pass, against what the case expected.
 
-    ``drafts`` is the pre-critic union the critic was handed, which is the
-    denominator: the block's own ``claims`` and ``rejected_claims`` are what
-    came back, and a draft the fan-in never delivered was never the critic's to
-    rule on.
+    ``drafts`` is the pre-critic union the critic was handed: the block's own
+    ``claims`` and ``rejected_claims`` are what came back, and a draft the
+    fan-in never delivered was never the critic's to rule on. The rates divide
+    by the drafts among them with an archived verdict
+    (:func:`~evals.harness.critic_yield.has_verdict`): a draft the block
+    returned or omits has none.
     """
+    fate_of = fate_by_claim(block)
     positives, negatives = split_references(case.requirement_records(FRAMEWORK))
     expected = {reference.requirement for reference in positives}
     negative = {reference.requirement for reference in negatives}
@@ -1106,6 +1119,7 @@ def score_yield(
     return ApplicabilityYield(
         case=case.id,
         drafts=len(drafts),
+        ruled=sum(has_verdict(fate_of.get(draft.id, OMITTED)) for draft in drafts),
         confirmed=tuple(sorted(confirmed)),
         rejected=tuple(sorted(rejected)),
         destroyed=tuple(sorted(rejected & expected)),
@@ -1129,11 +1143,13 @@ def aggregate_yield(yields: Sequence[ApplicabilityYield]) -> Mapping[str, Any]:
     case carrying six records outweigh one carrying seventeen.
     """
     drafts = sum(entry.drafts for entry in yields)
+    ruled = sum(entry.ruled for entry in yields)
     rejected = sum(len(entry.rejected) for entry in yields)
     destroyed = sum(len(entry.destroyed) for entry in yields)
     return {
         "cases": len(yields),
         "drafts": drafts,
+        "ruled": ruled,
         "confirmed": sum(len(entry.confirmed) for entry in yields),
         "rejected": rejected,
         "destroyed": destroyed,
@@ -1141,7 +1157,7 @@ def aggregate_yield(yields: Sequence[ApplicabilityYield]) -> Mapping[str, Any]:
         "unlisted": sum(len(entry.unlisted) for entry in yields),
         **{
             name: rate.rounded()
-            for name, rate in _applicability_rates(drafts, rejected, destroyed).items()
+            for name, rate in _applicability_rates(ruled, rejected, destroyed).items()
         },
     }
 
@@ -1253,13 +1269,15 @@ def render_yield(yields: Sequence[ApplicabilityYield]) -> None:
         )
     totals = aggregate_yield(yields)
     print(
-        f"pooled: rejected {totals['rejected']}/{totals['drafts']}"
+        f"pooled: rejected {totals['rejected']}/{totals['ruled']}"
         f" ({percent(totals['rejection_rate'])}),"
         f" earned {totals['earned']}, destroyed {totals['destroyed']}"
         f" ({percent(totals['destroyed_rate'])} of rejections),"
         f" unlisted {totals['unlisted']}"
         " (instrument, non-gating)"
     )
+    if apart := totals["drafts"] - totals["ruled"]:
+        print(f"  {no_verdict_line(apart, NO_VERDICT_FATES)}")
 
 
 def artifact_yield(yields: Sequence[ApplicabilityYield]) -> dict[str, Any]:
