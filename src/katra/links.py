@@ -485,56 +485,71 @@ def _refuse_disagreeing_facts(
     """Refuse an answer whose row disagrees with a row another answer writes.
 
     The run writes the answers :func:`~katra.fact_answers.merged_facts` makes
-    of the earlier answers and this submission's, so the writer runs once over
-    the same answers. A merged answer is this submission's where its key is. Two of the rows
-    disagree where :func:`~katra.assertions.conflicts` finds a stated pair of
-    predicates (:data:`~katra.assertions.CROSS_CONFLICTS`) with one row stating
-    a control missing and the other stating it present. Each row is the
-    answer's whose line it quotes (:func:`~katra.fact_answers.quotes_answer`).
-    The service cannot know which of the two the submitter meant, as with two
-    answers to one fact (:func:`~katra.fact_answers.refuse_repeated_facts`).
-    Two earlier answers that disagree are not this submission's to refuse.
+    of the earlier answers and this submission's, so the check writes the same
+    answers once. Two of the rows disagree where
+    :func:`~katra.assertions.conflicts` finds a stated pair of predicates
+    (:data:`~katra.assertions.CROSS_CONFLICTS`) with one row stating a control
+    missing and the other stating it present. Each row is the answer's whose
+    line it quotes (:func:`~katra.fact_answers.quotes_answer`). The service
+    cannot know which of the two the submitter meant, as with two answers to
+    one fact (:func:`~katra.fact_answers.refuse_repeated_facts`). A pair that
+    the earlier answers alone already write is not this submission's to
+    refuse.
     """
-    position = {fact.key: at for at, fact in enumerate(facts)}
-    every = sorted(
-        merged_facts(earlier, facts),
-        key=lambda fact: position.get(fact.key, len(facts)),
+    merged = merged_facts(earlier, facts)
+    new = _disagreeing_keys(catalog, model, merged) - _disagreeing_keys(
+        catalog, model, earlier
     )
-    written, _ = apply_answers(catalog, model, [], every)
+    if not new:
+        return
+    position = {fact.key: at for at, fact in enumerate(facts)}
+
+    def order(key: UnknownKey) -> int:
+        return position.get(key, len(facts))
+
+    def named(key: UnknownKey) -> str:
+        return f"facts[{position[key]}]" if key in position else "an earlier answer"
+
+    one, other = min(
+        (sorted(pair, key=order) for pair in new),
+        key=lambda pair: [order(key) for key in pair],
+    )
+    raise ValueError(
+        f"{named(one)} and {named(other)} state facts that cannot both hold, so"
+        " the service cannot know which one is meant; change one of them"
+    )
+
+
+def _disagreeing_keys(
+    catalog: AssertionCatalog, model: SystemModel, answers: Sequence[FactAnswer]
+) -> set[frozenset[UnknownKey]]:
+    """Each pair of answers, by key, whose rows disagree when written together."""
+    written, _ = apply_answers(catalog, model, [], answers)
     paired = [
         entry
         for entry in written.entries
         if answered(entry) and entry.predicate in _PAIRED_PREDICATES
     ]
     rows = {
-        at: wrote
-        for at, fact in enumerate(every)
+        answer.key: wrote
+        for answer in answers
         if (
             wrote := [
                 entry
                 for entry in paired
-                if quotes_answer(entry, [normalize(fact_line(fact))])
+                if quotes_answer(entry, [normalize(fact_line(answer))])
             ]
         )
     }
-
-    def named(at: int) -> str:
-        key = every[at].key
-        return f"facts[{position[key]}]" if key in position else "an earlier answer"
-
-    for first, second in combinations(sorted(rows), 2):
-        if every[first].key not in position:
-            break
+    return {
+        frozenset((one, other))
+        for one, other in combinations(rows, 2)
         if any(
-            conflicts(AssertionCatalog(entries=[one, other]))
-            for one in rows[first]
-            for other in rows[second]
-        ):
-            raise ValueError(
-                f"{named(first)} and {named(second)} state facts that cannot both"
-                " hold, so the service cannot know which one is meant; change one"
-                " of them"
-            )
+            conflicts(AssertionCatalog(entries=[first, second]))
+            for first in rows[one]
+            for second in rows[other]
+        )
+    }
 
 
 #: Each predicate of a :data:`~katra.assertions.CROSS_CONFLICTS` pair.

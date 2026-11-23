@@ -396,11 +396,11 @@ def fact_rows(
     :data:`~katra.assertions.CROSS_CONFLICTS` **pair that disagrees with it**,
     about the same subject and scope. A part row removes none, and a part
     writes no row where a source row of its paired predicate disagrees, as it
-    writes none where the sources state its own predicate (ADR 0125). A row that can hold
-    beside the answer stays, and so does a row of another scope. A ``superseded-by-answer`` issue names each removed row that holds
-    a value. An assertion answer at an attribute that an
-    attribute answer settles writes nothing, and an ``unmatched-answer`` issue
-    names its place.
+    writes none where the sources state its own predicate (ADR 0125). A row
+    that can hold beside the answer stays, and so does a row of another scope.
+    A ``superseded-by-answer`` issue names each removed row that holds a
+    value. An assertion answer at an attribute that an attribute answer
+    settles writes nothing, and an ``unmatched-answer`` issue names its place.
     """
     replaced: dict[str, Assertion] = {}
     placed: dict[str, Assertion] = {}
@@ -535,10 +535,11 @@ def fact_rows(
         (:func:`~katra.assertions.conflicts`). Elsewhere, a source row goes
         where it disagrees with an assertion answer's or an attribute answer's
         row of another predicate (:data:`~katra.assertions.CROSS_CONFLICTS`),
-        because such an answer settles its fact even against the sources. A row that can hold
-        beside the answer, such as another value of a predicate of many, or a
-        row of a narrower scope, stays. A row an attribute answer removes is
-        that step's.
+        because such an answer settles its fact even against the sources. A
+        row that can hold beside the answer, such as another value of a
+        predicate of many, or a row of a narrower scope, stays
+        (:func:`_settled_by`). A row an attribute answer removes is that
+        step's.
         """
         if assertion_id(entry) in superseded:
             return False
@@ -558,12 +559,7 @@ def fact_rows(
                 for row in settling_rows
                 if row.subject == entry.subject
             )
-        return (
-            entry.value == UNKNOWN
-            or not admissible(entry)
-            or assertion_id(entry) == assertion_id(written_row)
-            or bool(conflicts(AssertionCatalog(entries=[entry, written_row])))
-        )
+        return _settled_by(entry, written_row)
 
     issues.extend(
         CatalogIssue(
@@ -606,6 +602,22 @@ def fact_rows(
     )
 
 
+def _settled_by(entry: Assertion, answer_row: Assertion) -> bool:
+    """Whether the answer row at a source row's place settles it.
+
+    The source row goes where it is open, set aside, the answer's own
+    identity, or where it disagrees with the answer
+    (:func:`~katra.assertions.conflicts`). A row that can hold beside the
+    answer, such as another value of a predicate of many, stays.
+    """
+    return (
+        entry.value == UNKNOWN
+        or not admissible(entry)
+        or assertion_id(entry) == assertion_id(answer_row)
+        or bool(conflicts(AssertionCatalog(entries=[entry, answer_row])))
+    )
+
+
 def _part_rows(
     catalog: AssertionCatalog,
     model: SystemModel,
@@ -630,15 +642,16 @@ def _part_rows(
     answered_places = {
         (row.subject, row.predicate) for row in assertion_rows if not row.scope
     }
-    # A place an assertion answer writes is the answer's, so a source row there
-    # is no stated fact a part must stand aside for. Looked up by the row's
-    # place, as fact_rows looks up the row an answer writes there.
+    # A source row an assertion answer of this write settles is no stated
+    # fact a part must stand aside for.
     answered_at = {place_identity(row): row for row in assertion_rows}
 
     def stands(entry: Assertion) -> bool:
         """Whether a source row is a stated fact this write leaves standing."""
+        if answered(entry):
+            return False
         answer_row = answered_at.get(place_identity(entry))
-        return not answered(entry) and answer_row is None
+        return answer_row is None or not _settled_by(entry, answer_row)
 
     asked: set[tuple[str, str]] = set()
     rows: dict[tuple[str, str], Assertion] = {}

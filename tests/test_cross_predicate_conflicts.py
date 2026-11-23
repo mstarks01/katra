@@ -301,3 +301,21 @@ class TestTwoAnswersThatDisagree:
                 earlier_links=(),
                 reopen=False,
             )
+
+    def test_two_earlier_answers_that_disagree_are_not_this_submissions(self):
+        """The earlier answers alone write the pair, so a submission that
+        adds an unrelated facet is admitted."""
+        earlier = kind_answer(LOGIN, "content-validation", validates="no")
+        encodes = kind_answer(LOGIN, "content-validation", encodes="yes")
+
+        check_answers(
+            [],
+            [encodes],
+            valid_model(),
+            catalog(self.OPEN),
+            {encodes.key, self.PLACE.key},
+            [self.PLACE, earlier],
+            asked_links=(),
+            earlier_links=(),
+            reopen=False,
+        )
