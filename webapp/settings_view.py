@@ -184,13 +184,14 @@ def settings_view(
     error: ConfigError | None,
 ) -> dict[str, Any]:
     """The page's data: the rows, the keys of the shown store rows
-    (``store_shown``), the unknown lines of ``settings.env``, the engine's error, the modes of each vendor, the keys of the rows that choose
-    a tier's vendor (``vendor_rows``), the ``iam`` notes and the model
+    (``store_shown``), the unknown lines of ``settings.env``, the engine's
+    error, the refusal of ``settings.env`` (``file_refusal``), the modes of
+    each vendor, the keys of the rows that choose a tier's vendor (``vendor_rows``), the ``iam`` notes and the model
     suggestions of each vendor. The page's script picks the suggestions of a
     tier from the vendor that the unsaved changes choose for it.
     """
     path = settings_dir(process_env) / SETTINGS_FILE
-    revision, lines = _read_page(path)
+    revision, lines, refusal = _read_page(path)
     page = _known(lines)
     merged = _merged(process_env, page, {})
     files = _Files(merged)
@@ -229,6 +230,7 @@ def settings_view(
         "error": None if error is None else str(error),
         "settings_file": str(path),
         "revision": revision,
+        "file_refusal": refusal,
         "unknown": [
             {"key": var, "line": line.number}
             for var, line in lines.items()
@@ -266,19 +268,22 @@ def store_shown(
     setting.
     """
     path = settings_dir(process_env) / SETTINGS_FILE
-    _, lines = _read_page(path)
+    _, lines, _ = _read_page(path)
     return _store_keys(_merged(process_env, _known(lines), changes))
 
 
-def _read_page(path: Path) -> tuple[str | None, dict[str, SettingsLine]]:
-    """The revision and the lines of ``settings.env``, or no revision and no
-    lines where the file is refused."""
+def _read_page(
+    path: Path,
+) -> tuple[str | None, dict[str, SettingsLine], str | None]:
+    """The revision and the lines of ``settings.env`` and no refusal, or no
+    revision, no lines and the refusal where the app refuses the file. A save
+    needs a revision, so the page cannot save while the app refuses the file.
+    """
     try:
-        return read_settings(path)
-    except SettingsFileError:
-        # The startup refused the file for the same reason, and the banner
-        # names it. A save needs a revision, so the page cannot save.
-        return None, {}
+        revision, lines = read_settings(path)
+    except SettingsFileError as exc:
+        return None, {}, str(exc)
+    return revision, lines, None
 
 
 def _known(lines: Mapping[str, SettingsLine]) -> dict[str, SettingsLine]:

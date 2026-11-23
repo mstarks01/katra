@@ -1,5 +1,5 @@
 """Offline checks of the Settings script: a pending edit while a save is in
-flight, and the keys the script never spells."""
+flight, a page that cannot save, and the keys the script never spells."""
 
 from __future__ import annotations
 
@@ -11,12 +11,10 @@ import pytest
 
 SETTINGS_SCRIPT = Path(__file__).resolve().parents[1] / "webapp/static/settings.js"
 
-
-def test_inactive_edit_stays_visible_and_pending_after_save():
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("node is needed to run the Settings script")
-    harness = r"""
+#: The start of each harness: the page data, ``settings``, and a stand-in for
+#: the DOM that the Settings script reads. ``__PAGE__`` is the page data that a
+#: test sets over the data here.
+_DOM = r"""
 const fs = require("fs");
 const assert = require("assert");
 class Node {
@@ -39,7 +37,7 @@ const rows = [
 ];
 const settings = { revision: "one", rows, modes: { anthropic: ["api_key"], openai: ["api_key"] },
   vendor_rows: ["tiers.base.vendor"], models: {}, iam: [], unknown: [], settings_file: "settings.env",
-  error: null };
+  error: null, file_refusal: null, ...__PAGE__ };
 const ids = Object.fromEntries([
   "settings", "settings-rows", "model-lists", "settings-search", "changes-list",
   "changes-panel", "changes-column", "save-changes", "discard-changes", "save-errors", "save-status",
@@ -54,13 +52,43 @@ globalThis.document = {
   createElement: (tag) => new Node(tag),
   createTextNode: (text) => { const item = new Node("text"); item.textContent = text; return item; },
 };
+// A string child stands for the text node that a real append makes of it.
+const text = (entry) =>
+  typeof entry === "string" ? entry : entry.textContent + entry.children.map(text).join("");
+const scriptText = process.argv.slice(1).map((file) => fs.readFileSync(file, "utf8")).join("\n");
+"""
+
+
+def _run(body: str, page: str = "{}") -> None:
+    """Run ``body`` in node after :data:`_DOM`, with ``page`` over the page
+    data, and fail on a failed assert."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is needed to run the Settings script")
+    harness = _DOM.replace("__PAGE__", page) + body
+    result = subprocess.run(
+        [
+            node,
+            "-e",
+            harness,
+            str(SETTINGS_SCRIPT.with_name("service_answer.js")),
+            str(SETTINGS_SCRIPT),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_inactive_edit_stays_visible_and_pending_after_save():
+    _run(r"""
 let resolveSave;
 let sent;
 globalThis.fetch = (_url, request) => {
   sent = JSON.parse(request.body);
   return new Promise((resolve) => { resolveSave = resolve; });
 };
-const scriptText = process.argv.slice(1).map((file) => fs.readFileSync(file, "utf8")).join("\n");
 eval(scriptText + `
 (async () => {
   assert.strictEqual(document.getElementById("changes-column").hidden, true);
@@ -69,7 +97,6 @@ eval(scriptText + `
   assert.strictEqual(document.getElementById("changes-column").hidden, false);
   const item = document.getElementById("changes-list").children.find(
     (entry) => entry["data-key"] === "credentials.anthropic.api_key");
-  const text = (entry) => entry.textContent + entry.children.map(text).join("");
   assert(item);
   assert(text(item).includes("stays pending"));
   assert(!text(item).includes("private-key"));
@@ -96,20 +123,37 @@ eval(scriptText + `
   assert.strictEqual(document.getElementById("changes-column").hidden, true);
 })().catch((error) => { console.error(error); process.exitCode = 1; });
 `);
-"""
-    result = subprocess.run(
-        [
-            node,
-            "-e",
-            harness,
-            str(SETTINGS_SCRIPT.with_name("service_answer.js")),
-            str(SETTINGS_SCRIPT),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+""")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param("null", id="the engine runs"),
+        pytest.param('"settings.env: mode 0775"', id="the engine did not start"),
+    ],
+)
+def test_a_refused_settings_file_disables_the_save_and_names_the_refusal(error):
+    """Where the app refuses ``settings.env``, no save can pass, so the page
+    offers none and shows the refusal once, whether or not the engine runs."""
+    _run(
+        r"""
+let sent = false;
+globalThis.fetch = () => { sent = true; return new Promise(() => {}); };
+eval(scriptText + `
+change(rowOf("tiers.base.vendor"), "openai");
+assert.strictEqual(document.getElementById("save-changes").disabled, true);
+assert.strictEqual(document.getElementById("discard-changes").disabled, false);
+const banner = document.getElementById("engine-error");
+assert.strictEqual(banner.hidden, false);
+assert(text(banner).includes("cannot save"));
+assert.strictEqual(text(banner).split("settings.env: mode 0775").length, 2);
+save();
+assert.strictEqual(sent, false);
+`);
+""",
+        page=f'{{ revision: null, error: {error}, file_refusal: "settings.env: mode 0775" }}',
     )
-    assert result.returncode == 0, result.stderr
 
 
 def test_the_script_spells_no_tier_key():

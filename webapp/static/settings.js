@@ -428,7 +428,7 @@ function panel() {
   for (const key of removals) list.append(h("li", { "data-key": key }, "Remove the line ", h("code", {}, key)));
   const count = changes.size + removals.size;
   document.getElementById("changes-column").hidden = count === 0;
-  document.getElementById("save-changes").disabled = saving || saveable === 0;
+  document.getElementById("save-changes").disabled = saving || saveable === 0 || fileRefused();
   document.getElementById("discard-changes").disabled = saving || count === 0;
 }
 
@@ -453,8 +453,14 @@ function showSaved(restart) {
   box.hidden = false;
 }
 
+// A save needs the revision of settings.env, so no save can pass while the app
+// refuses the file.
+function fileRefused() {
+  return SETTINGS.file_refusal !== null;
+}
+
 async function save() {
-  if (saving) return;
+  if (saving || fileRefused()) return;
   // A finished store edit asks for its rows, and the save sends the rows that
   // show, so the save waits for the answer.
   if (storeAnswer) {
@@ -548,13 +554,19 @@ function discard() {
 function banners() {
   const banner = document.getElementById("engine-error");
   banner.replaceChildren();
-  banner.hidden = !SETTINGS.error;
+  banner.hidden = !SETTINGS.error && !fileRefused();
   if (SETTINGS.error) {
     banner.append(
       h("b", {}, "The engine could not start. "),
       "No analysis can run until this is fixed.",
       h("div", {}, h("code", {}, SETTINGS.error)),
     );
+  }
+  if (fileRefused()) {
+    banner.append(
+      h("div", {}, "This page cannot save while the app refuses ", h("code", {}, SETTINGS.settings_file), ". Correct the file or its directory, then reload this page."),
+    );
+    if (SETTINGS.file_refusal !== SETTINGS.error) banner.append(h("div", {}, h("code", {}, SETTINGS.file_refusal)));
   }
   const unknown = document.getElementById("unknown-lines");
   unknown.replaceChildren();

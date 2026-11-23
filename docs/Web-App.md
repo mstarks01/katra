@@ -672,7 +672,9 @@ the changed settings and no value.
 The page loads with a revision of `settings.env`. A save from a tab that loaded
 before another save, or before a hand edit of the file, is refused with a
 message to reload the page, so a save never writes over a change it did not
-see.
+see. When the app refuses `settings.env` or the settings directory, the page
+has no revision. It then shows the refusal and offers no save. Correct the file
+or the directory, then reload the page.
 
 ## Its limits, which are the point
 
