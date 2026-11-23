@@ -400,6 +400,7 @@ def lands_on(quote: str, haystack: str, spans: Sequence[tuple[int, int]]) -> boo
     over one of ``spans``.
 
     ``haystack`` is normalized, and ``spans`` are half-open offsets into it.
+    An empty span holds no words, so no quote lands on it.
     :func:`match_normalized` gives the first placement only, and the words of
     a span can also sit before it. So a fragment lands on a span where it sits
     over the span, after the place where the fragments before it can end at
@@ -419,6 +420,8 @@ def lands_on(quote: str, haystack: str, spans: Sequence[tuple[int, int]]) -> boo
         before[at] = haystack.rfind(parts[at], 0, before[at + 1])
     for at, part in enumerate(parts):
         for begin, stop in spans:
+            if begin >= stop:
+                continue
             found = haystack.find(part, max(after[at], begin - len(part) + 1))
             if 0 <= found < stop and found + len(part) <= before[at + 1]:
                 return True

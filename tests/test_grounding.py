@@ -739,6 +739,13 @@ class TestAQuoteThatLandsOnASpan:
         """The first ``tls`` is the attribute's name; a cut lands on the value."""
         assert lands_on("The … tls … From", self.LINE, (self.VALUE,))
 
+    def test_an_empty_span_holds_no_words(self):
+        """A value that normalizes to nothing leaves an empty span."""
+        line = normalize('The v of e is "**".')
+        empty = (line.index('""') + 1,) * 2
+        assert not lands_on('""', line, (empty,))
+        assert not lands_on('is "".', line, (empty,))
+
     def test_no_span_is_covered_by_nothing(self):
         assert not lands_on("tls 1.3", self.LINE, ())
 
@@ -778,7 +785,7 @@ def _any_placement(parts, line, span, cursor=0, landed=False):
     found = line.find(head, cursor)
     while found >= 0:
         end = found + len(head)
-        over = found < span[1] and span[0] < end
+        over = span[0] < span[1] and found < span[1] and span[0] < end
         if _any_placement(rest, line, span, end, landed or over):
             return True
         found = line.find(head, found + 1)
