@@ -19,6 +19,7 @@ from katra.fact_answers import (
     attribute_place,
     fact_kind,
     fact_line,
+    fact_part,
     fact_status,
     needs_of,
 )
@@ -130,7 +131,7 @@ def corrected_findings(
             if ground.kind == "assertion" and ground.assertion in rows:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
-                verify_normalized(ground.text, line) for line in lines
+                verify_normalized(fact_part(ground.text), line) for line in lines
             ):
                 return True
         return False
@@ -149,20 +150,21 @@ def _answer_rows(
     """The identity of each answer row in ``catalog`` that quotes one of ``lines``.
 
     The writer gives each row an answer writes a span on the answer's line of
-    the answers Source, so the line names the answer that wrote the row. A
-    row at the same place that another answer wrote quotes another line.
-    ``lines`` are normalized, and a span matches under the grounding ladder
-    (:func:`~katra.grounding.verify_normalized`), as a quote ground does.
+    the answers Source, or on the line of the Control that wrote the fact
+    (:func:`~katra.fact_answers.fact_part` reads both as the fact's line). So
+    the line names the answer that wrote the row, and a row at the same place
+    that another answer wrote quotes another line. ``lines`` are normalized.
     """
     if catalog is None:
         return frozenset()
+    wanted = set(lines)
     return frozenset(
         assertion_id(entry)
         for entry in catalog.entries
         if answered(entry)
         and any(
             span.source_label == ANSWERS_LABEL
-            and any(verify_normalized(span.quote, line) for line in lines)
+            and normalize(fact_part(span.quote)) in wanted
             for span in entry.support
         )
     )
