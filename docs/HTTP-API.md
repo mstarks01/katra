@@ -657,8 +657,9 @@ in the batch that sends them.
 or `unknown` where it was a guess. They are kept beside the report, and a
 final job's questions list them as `corrections`, with `corrected_findings`:
 each finding that quotes a corrected answer's line, grounds on its attribute
-or on a fact the answer wrote, or waits on it. The analysis does not run again. A correction carries the
-`revision` its questions were read with, and the reply names the next one
+or on a fact the answer wrote, or waits on it. The analysis does not run
+again. A correction carries the `revision` its questions were read with, and
+the reply names the next one
 ([ADR 0090](adr/0090-a-correction-names-the-revision-it-read.md)).
 
 | Status | Cause |

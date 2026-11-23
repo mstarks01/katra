@@ -7,11 +7,19 @@ import asyncio
 import pytest
 
 from katra.answer_sets import AnswerSet
-from katra.assertions import ABSENT, assertion_id
+from katra.assertions import (
+    UNKNOWN,
+    Assertion,
+    AssertionCatalog,
+    Subject,
+    answer,
+    assertion_id,
+)
 from katra.claims import Ground, UnknownRef
 from katra.fact_answers import FactAnswer, fact_line
 from katra.grounding import verify_quote
 from katra.jobs import Checkpoint, JobRecord, Resumption
+from katra.links import apply_answers
 from katra.report_conditions import corrected_findings
 from katra.sources import ANSWERS_LABEL, Source
 from tests.factories import (
@@ -24,14 +32,7 @@ from tests.factories import (
     valid_model,
 )
 from tests.test_api import auth, make_client
-from tests.test_contradicted_answers import (
-    PLACE_KEY,
-    TestAnAnswerToADisputedPlace,
-    disputed,
-)
 from tests.test_part_rows import PROCESS, kind_answer
-from tests.test_part_rows import row as part_row
-from tests.test_part_rows import written as part_rows_written
 
 ASKED = UnknownRef(
     element_id=valid_model().data_flows[1].id, attribute="encryption_in_transit"
@@ -239,34 +240,56 @@ class TestWhichFindingsACorrectionReaches:
 
 class TestACorrectionReachesTheRowItsAnswerWrote:
     """A finding that grounds on the stated row an answer wrote rests on that
-    answer, so a correction of it reaches the finding (#2307 A3)."""
+    answer, so a correction of it reaches the finding (#2307 A3). A row at the
+    same place that another answer wrote rests on that other answer."""
 
-    @staticmethod
-    def reached(catalog, row, before, after):
+    OPEN = Assertion(
+        subject=PROCESS,
+        predicate="record-attribution",
+        value=UNKNOWN,
+        reason="silent",
+        basis="inferred",
+        origin="assertion-pass",
+        explanation="the notes do not say",
+    )
+    PLACE = FactAnswer(
+        key=UnknownRef(assertion=assertion_id(OPEN)).key, value="principal"
+    )
+    KIND = kind_answer(PROCESS, "audit-evidence", records_actor="yes")
+
+    def reached(self, answers, corrections):
+        """The findings a correction reaches, each grounded on the one
+        ``record-attribution`` row that ``answers`` wrote."""
+        held = AssertionCatalog(
+            subjects=[Subject(id=PROCESS, type="component", label="Web app")],
+            entries=[self.OPEN],
+        )
+        catalog, _ = apply_answers(held, valid_model(), [], answers)
+        (row,) = [
+            row
+            for row in answer(catalog, PROCESS, "record-attribution").rows
+            if row.origin == "answer"
+        ]
         ground = Ground(kind="assertion", assertion=assertion_id(row))
         analyses = [sample_analysis([sample_threat(grounds=[ground])])]
-        return corrected_findings(analyses, [before], [after], valid_model(), catalog)
+        return corrected_findings(
+            analyses, answers, corrections, valid_model(), catalog
+        )
 
     def test_an_assertion_answer_s_row(self):
-        before = FactAnswer(key=PLACE_KEY, value="required")
-        catalog, _ = TestAnAnswerToADisputedPlace.written(disputed(), "required")
-        (row,) = catalog.entries
-
-        after = before.model_copy(update={"value": ABSENT})
-        assert self.reached(catalog, row, before, after) == ("stride/S-01",)
+        changed = self.PLACE.model_copy(update={"value": UNKNOWN})
+        assert self.reached([self.PLACE], [changed]) == ("stride/S-01",)
 
     def test_a_question_kind_answer_s_part_row(self):
-        before = kind_answer(PROCESS, "capacity-limits", rate="yes", size="no")
-        catalog = part_rows_written(valid_model(), [before])
-        rate = part_row(catalog, PROCESS, "capacity-limits-rate")
+        changed = kind_answer(PROCESS, "audit-evidence", records_actor="no")
+        assert self.reached([self.KIND], [changed]) == ("stride/S-01",)
 
-        after = kind_answer(PROCESS, "capacity-limits", rate="no", size="no")
-        assert self.reached(catalog, rate, before, after) == ("stride/S-01",)
+    def test_a_kind_correction_misses_the_assertion_answer_s_row(self):
+        """The assertion answer writes the place, so the part writes no row."""
+        changed = kind_answer(PROCESS, "audit-evidence", records_actor="no")
+        assert self.reached([self.PLACE, self.KIND], [changed]) == ()
 
-    def test_a_row_another_answer_wrote_is_not_reached(self):
-        catalog, _ = TestAnAnswerToADisputedPlace.written(disputed(), "required")
-        (row,) = catalog.entries
-
-        before = kind_answer(PROCESS, "capacity-limits", rate="yes")
-        after = kind_answer(PROCESS, "capacity-limits", rate="no")
-        assert self.reached(catalog, row, before, after) == ()
+    def test_an_assertion_correction_misses_the_part_row(self):
+        """An unknown assertion answer writes nothing, so the row is the part's."""
+        unknown = self.PLACE.model_copy(update={"value": UNKNOWN})
+        assert self.reached([unknown, self.KIND], [self.PLACE]) == ()

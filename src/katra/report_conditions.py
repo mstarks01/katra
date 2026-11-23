@@ -16,14 +16,11 @@ from katra.fact_answers import (
     FactAnswer,
     FactStatus,
     SkipKey,
-    answered_row,
     attribute_place,
     fact_kind,
     fact_line,
     fact_status,
-    key_ref,
     needs_of,
-    part_answers,
 )
 from katra.grounding import normalize, verify_normalized
 from katra.open_facts import (
@@ -117,7 +114,7 @@ def corrected_findings(
         if fact.key in before
     ]
     keys = {fact.key for fact in corrections}
-    rows = _answer_rows(catalog, [before[key] for key in keys if key in before])
+    rows = _answer_rows(catalog, lines)
     attributes = {attribute_place(key) for key in keys if fact_kind(key) == "attribute"}
 
     def rests_on(claim: Any) -> bool:
@@ -147,31 +144,25 @@ def corrected_findings(
 
 
 def _answer_rows(
-    catalog: AssertionCatalog | None, answers: Sequence[FactAnswer]
+    catalog: AssertionCatalog | None, lines: Sequence[str]
 ) -> frozenset[str]:
-    """The identity of each row in ``catalog`` that one of ``answers`` wrote.
+    """The identity of each answer row in ``catalog`` that quotes one of ``lines``.
 
-    An assertion answer wrote the answer row at its place
-    (:func:`~katra.fact_answers.answered_row`). A question-kind answer wrote
-    an unscoped answer row for each part it names
-    (:func:`~katra.fact_answers.part_answers`) about its element.
+    The writer gives each row an answer writes a span on the answer's line of
+    the answers Source, so the line names the answer that wrote the row. A
+    row at the same place that another answer wrote quotes another line.
+    ``lines`` are normalized, and a span matches under the grounding ladder
+    (:func:`~katra.grounding.verify_normalized`), as a quote ground does.
     """
     if catalog is None:
         return frozenset()
-    found: set[str] = set()
-    parts: set[tuple[str, str]] = set()
-    for fact in answers:
-        ref = key_ref(fact.key)
-        if fact.kind == "assertion":
-            row = answered_row(catalog, ref.assertion)
-            if row is not None and answered(row):
-                found.add(assertion_id(row))
-        parts.update((ref.element_id, name) for name, _ in part_answers(fact))
-    found.update(
+    return frozenset(
         assertion_id(entry)
         for entry in catalog.entries
         if answered(entry)
-        and not entry.scope
-        and (entry.subject, entry.predicate) in parts
+        and any(
+            span.source_label == ANSWERS_LABEL
+            and any(verify_normalized(span.quote, line) for line in lines)
+            for span in entry.support
+        )
     )
-    return frozenset(found)
