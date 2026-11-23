@@ -153,6 +153,7 @@ class TestTheFirstLook:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
 

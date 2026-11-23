@@ -2193,6 +2193,7 @@ def test_the_re_ask_reads_one_view_of_a_draft_and_not_a_second():
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )[0]
     )
 

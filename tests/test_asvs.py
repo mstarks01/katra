@@ -1721,6 +1721,7 @@ class TestADraftStatesItsDirection:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
         assert view["direction"] == "excluded"
 

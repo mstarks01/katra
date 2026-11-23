@@ -418,7 +418,9 @@ def a_disputed_row_is_open_whichever_value_it_states():
 
     for side in (absent, required):
         assert catalog[assertion_id(side)].kind == "unknown-assertion"
-    assert "the sources disagree" in ground_gloss(catalog[assertion_id(required)], held)
+    assert "the sources disagree" in ground_gloss(
+        catalog[assertion_id(required)], held, valid_model()
+    )
 
 
 @decides

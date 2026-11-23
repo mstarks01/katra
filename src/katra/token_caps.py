@@ -75,12 +75,14 @@ TOKEN_CAPS: dict[str, int] = {
     # catalog omits such a crossing and ``crossing_facts`` marks it; each
     # prompt tells its reader what the ``decided`` field it reads means.
     #
-    # ``critic`` also says how to rule with the two evidence keys the view
+    # ``critic`` also says how to rule with the three evidence keys the view
     # carries (#1082). ``unverified_quotes`` names a quote the service looked
     # for and did not find — it renders in ``grounds`` whatever the search
     # answered. ``assertion_facts`` resolves an assertion ground, whose
     # identity digests the value and the scope, so the critic can read the
-    # fact a claim rests on. Both are computed rather than drafted.
+    # fact a claim rests on. ``held_open_facts`` names the value a cited field
+    # shows while the assertion rows hold it open. All three are computed
+    # rather than drafted.
     #
     # ``analyze`` says what an absence establishes (#1110): an absence rules a
     # claim out and never holds one up, and a claim that asserts nothing

@@ -24,16 +24,17 @@ from katra.assertions import (
     support_span,
 )
 from katra.claims import Ground, ProposedVerdict, Ruling, UnknownRef, Verdict
-from katra.critic import assemble_claims
+from katra.critic import assemble_claims, critic_view
 from katra.evidence import (
     absent_evidence_ref,
     evidence_catalog,
+    ground_gloss,
     ground_issues,
     render_catalog,
     unknown_evidence_ref,
 )
 from katra.fan_in import DraftJoinError, JoinedDrafts, join_drafts
-from katra.frameworks import schemas_for
+from katra.frameworks import PACKAGES, schemas_for
 from katra.frameworks.stride import STRIDE
 from katra.open_facts import reference_labels
 from katra.sources import ANSWERS_LABEL
@@ -793,6 +794,48 @@ class TestAnAbsenceUnderAHiddenQualification:
         expected = "`encryption_at_rest` reads `none`, but the sources leave it open"
         assert f"| `{self.UNKNOWN_REF}` | {expected} |" in rendered
         assert label.endswith("encryption at rest, open, though the model reads none")
+
+    def test_the_critic_reads_the_words_the_lane_read(self):
+        rejected = self.ENCRYPTED.model_copy(update={"assessment": "unsupported"})
+        catalog = assertions(rejected, subjects=(self.STORE,))
+        model = _with_encryption("none")
+        ground = Ground(
+            kind="unknown-attribute", element_id=ORDERS, attribute="encryption_at_rest"
+        )
+        draft = sample_draft("S-01", grounds=[ground])
+
+        (view,) = critic_view(
+            [draft],
+            only=None,
+            repaired=(),
+            unverified=(),
+            assertions=catalog,
+            package=PACKAGES["stride"],
+            controls=(),
+            model=model,
+        )
+        rendered = render_catalog(evidence_catalog(model, catalog), catalog, model)
+
+        (fact,) = view["held_open_facts"]
+        assert fact["says"] == ground_gloss(ground, catalog, model)
+        assert f"| `{self.UNKNOWN_REF}` | {fact['says']} |" in rendered
+
+    def test_the_critic_gets_no_words_for_an_unstated_field(self):
+        ground = Ground(
+            kind="unknown-attribute", element_id=ORDERS, attribute="encryption_at_rest"
+        )
+        (view,) = critic_view(
+            [sample_draft("S-01", grounds=[ground])],
+            only=None,
+            repaired=(),
+            unverified=(),
+            assertions=None,
+            package=PACKAGES["stride"],
+            controls=(),
+            model=_with_encryption(UNKNOWN),
+        )
+
+        assert "held_open_facts" not in view
 
     def test_a_claim_on_the_unknown_field_has_no_issue(self):
         rejected = self.ENCRYPTED.model_copy(update={"assessment": "unsupported"})

@@ -470,7 +470,9 @@ class TestEvidenceCatalog:
         for side in (absent, required):
             assert catalog[assertion_id(side)].kind == "unknown-assertion"
         assert "the sources disagree; this row states `required`" in ground_gloss(
-            catalog[assertion_id(required)], held
+            catalog[assertion_id(required)],
+            held,
+            valid_model(),
         )
 
     def test_a_scoped_row_is_offered_with_its_scope_and_answers_nothing_wider(self):
@@ -703,6 +705,7 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             unverified=(),
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         (fact,) = view["assertion_facts"]
@@ -724,6 +727,7 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             unverified=(),
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert view["assertion_facts"][0]["says"] in render_catalog(
@@ -731,7 +735,9 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             held,
             valid_model(),
         )
-        assert view["assertion_facts"][0]["says"] == ground_gloss(ground, held)
+        assert view["assertion_facts"][0]["says"] == ground_gloss(
+            ground, held, valid_model()
+        )
 
     def test_a_job_that_ran_no_catalog_carries_no_key(self):
         (view,) = critic_view(
@@ -742,6 +748,7 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert "assertion_facts" not in view

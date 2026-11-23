@@ -866,6 +866,7 @@ class TestAnUnknownGroundMakesTheClaimConditional:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert [view["id"] for view in shown] == ["S-01", "S-02"]
@@ -1155,6 +1156,7 @@ def test_ruling_view_keeps_every_field_the_critic_rules_on():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
 
     for field in ("id", "category", "description", "affected_element_ids"):
@@ -1177,6 +1179,7 @@ def test_ruling_view_drops_a_grounds_empty_branches_and_nothing_else():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
 
     # A quote carries text and source_label; the other four fields are the
@@ -1203,6 +1206,7 @@ def test_the_critic_is_shown_the_recommendations_it_now_rules_on():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
 
     assert view["mitigations"]
@@ -1218,6 +1222,7 @@ def test_ruling_view_says_when_a_verb_belongs_to_another_lane():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
     (clean,) = critic._ruling_view(
         [sample_draft("S-01")],
@@ -1226,6 +1231,7 @@ def test_ruling_view_says_when_a_verb_belongs_to_another_lane():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
 
     assert "denial-of-service" in view["filed_in_wrong_lane"]
@@ -1245,6 +1251,7 @@ class TestTheCriticView:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
         whole = critic.critic_view(
             drafts,
@@ -1254,6 +1261,7 @@ class TestTheCriticView:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert narrowed == next(view for view in whole if view["id"] == "S-01")
@@ -1272,6 +1280,7 @@ class TestTheCriticView:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert not any("same_action_as" in view for view in views)
@@ -1288,6 +1297,7 @@ class TestTheCriticView:
                 assertions=None,
                 package=PACKAGES["stride"],
                 controls=(),
+                model=valid_model(),
             )
             == []
         )
@@ -1309,6 +1319,7 @@ class TestTheCriticView:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
         re_ask = critic.critic_view(
             drafts,
@@ -1318,6 +1329,7 @@ class TestTheCriticView:
             assertions=None,
             package=PACKAGES["stride"],
             controls=(),
+            model=valid_model(),
         )
 
         assert first_pass == re_ask
@@ -1343,6 +1355,7 @@ def test_ruling_view_carries_the_unit_text_a_package_supplies():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
     asvs = RequirementRuling(
         id="v5.0.0-6.2.1",
@@ -1367,6 +1380,7 @@ def test_ruling_view_carries_the_unit_text_a_package_supplies():
         assertions=None,
         package=PACKAGES["stride"],
         controls=(),
+        model=valid_model(),
     )
 
     assert "unit_text" not in stride_view

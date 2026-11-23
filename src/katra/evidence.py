@@ -710,7 +710,9 @@ def catalog_refs(table: str) -> frozenset[str]:
     )
 
 
-def ground_gloss(ground: Ground, assertions: AssertionCatalog | None) -> str:
+def ground_gloss(
+    ground: Ground, assertions: AssertionCatalog | None, model: SystemModel
+) -> str:
     """What one ground asserts, in the words the evidence table already uses.
 
     **The one reader of "what does this ground say".** The lane agent selects
@@ -735,7 +737,8 @@ def ground_gloss(ground: Ground, assertions: AssertionCatalog | None) -> str:
         if assertions is None
         else {subject.id: subject for subject in assertions.subjects}
     )
-    return _gloss(ground, rows, subjects, None)
+    elements = {element.id: element for element in model.elements()}
+    return _gloss(ground, rows, subjects, held_value(ground, elements))
 
 
 def held_open_value(element: Element, attribute: str) -> str | None:
