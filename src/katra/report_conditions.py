@@ -103,11 +103,18 @@ def corrected_findings(
     **The one reader of "which findings does a correction reach"** (ADR 0054).
     ``earlier`` is the answers the report's run read, and ``controls`` each
     fact a Control wrote with the Control's name. A finding rests on a
-    corrected fact where it quotes the fact's line of the answers Source or a
-    Control's line of the same fact, whatever value the Control wrote, grounds
-    on the same element's attribute, grounds on a row the fact's earlier
-    answer wrote (:func:`_answer_row_ids`), or names the fact as one it waits
-    on. A quote matches a line under the grounding ladder, which admitted it
+    corrected fact where it:
+
+    - quotes the fact's line of the answers Source;
+    - quotes a Control's line of the same fact, whatever value the Control
+      wrote, beyond the tail that names the Control (:func:`_quotes_a_line`);
+    - grounds on the same element's attribute;
+    - grounds on a row the fact's earlier answer wrote
+      (:func:`_answer_row_ids`);
+    - or names the fact as one it waits on.
+
+    Facts match by key, not by facet. A quote matches a line under the
+    grounding ladder, which admitted it
     (:func:`~katra.grounding.verify_normalized`). A fact is named as it is
     asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
     ``catalog``.
@@ -120,13 +127,16 @@ def corrected_findings(
         if fact.key in before
     ]
     keys = {fact.key for fact in corrections}
-    quoted = [
-        *lines,
-        *(
-            normalize(control_line(name, fact))
+    # Each Control line of a corrected fact, with its tail that names the
+    # Control: every line the Control writes ends so, so a quote of the tail
+    # alone states no fact.
+    held = [
+        (normalize(line), normalize(line.removeprefix(fact_line(fact))))
+        for line, fact in (
+            (control_line(name, fact), fact)
             for name, fact in controls
             if fact.key in keys
-        ),
+        )
     ]
     answer_row_ids = _answer_row_ids(catalog, lines)
     attributes = {attribute_place(key) for key in keys if fact_kind(key) == "attribute"}
@@ -143,8 +153,8 @@ def corrected_findings(
                 return True
             if ground.kind == "assertion" and ground.assertion in answer_row_ids:
                 return True
-            if ground.source_label == ANSWERS_LABEL and any(
-                verify_normalized(ground.text, line) for line in quoted
+            if ground.source_label == ANSWERS_LABEL and _quotes_a_line(
+                ground.text, lines, held
             ):
                 return True
         return False
@@ -154,6 +164,17 @@ def corrected_findings(
         for block in analyses
         for claim in block.all_claims()
         if rests_on(claim)
+    )
+
+
+def _quotes_a_line(
+    text: str, lines: Sequence[str], held: Sequence[tuple[str, str]]
+) -> bool:
+    """Whether ``text`` quotes one of ``lines``, or one of the ``held`` Control
+    lines beyond the tail that names the Control. All are normalized."""
+    return any(verify_normalized(text, line) for line in lines) or any(
+        verify_normalized(text, line) and not verify_normalized(text, tail)
+        for line, tail in held
     )
 
 
