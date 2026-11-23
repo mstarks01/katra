@@ -11,7 +11,7 @@ run record (:func:`~evals.harness.run_record.run_record`).
 table that the service ranks with.
 
 **A rate is citations per element.** Each finding's open facts are counted
-once per reference, and each sample counts its model's elements again, so two
+once per fact, and each sample counts its model's elements again, so two
 samples of one sweep average rather than double.
 """
 
