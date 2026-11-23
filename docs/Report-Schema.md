@@ -382,7 +382,7 @@ class Ground:
 | `kind` | Carries | Reads as |
 | --- | --- | --- |
 | `quote` | `text` + `source_label` | the submitter's own words said this |
-| `unknown-attribute` | `element_id` + `attribute` | this fact was never stated, so the threat stands unrefuted |
+| `unknown-attribute` | `element_id` + `attribute` | this fact is open, so the threat stands unrefuted: the input never stated it, or the rows' projection qualifies it while the field still states a value |
 | `absent-attribute` | `element_id` + `attribute` | the input states this control is not there, unless the unscoped assertion rows that state its value (the answers alone, where a submitter's answer makes it) all state the opposite, or the rows' projection qualifies it while the field still states a value |
 | `derived-fact` | `flow_id` | this flow's boundary crossing is the fact relied on |
 | `absent-element` | `term` | no element's text names this thing |

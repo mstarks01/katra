@@ -3027,6 +3027,12 @@ ONE_READERS: dict[str, _OneReader] = {
         },
         "",
     ),
+    "which held-open value does this entry name": _OneReader(
+        lambda node: _calls(node, "held_open_value"),
+        ("src/katra/evidence.py", "held_value"),
+        {},
+        "",
+    ),
     "which value says a control is not there": _OneReader(
         _reads_a_no_answer,
         ("src/katra/assertions.py", "missing_value"),

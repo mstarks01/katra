@@ -806,7 +806,7 @@ def test_about_lists_the_model_s_gaps_with_their_questions():
     the report asks about links to its question."""
     parts = run_report_page(page(), "?view=about")
     gaps = parts["model-gaps"]
-    assert "Not statedElementsWhere" in gaps
+    assert "OpenElementsWhere" in gaps
     assert "Encryption in transit1" in gaps
     assert "(Answer)" in gaps
     assert "Encryption at rest1Orders DB" in gaps

@@ -5,7 +5,7 @@ Every surface that shows such a fact words it here, so the early list, the
 report, ``/v1`` and a refusal ask it alike: :func:`label_of` for the question,
 :func:`group_of` for the group a page lists it in. This module also names the
 elements and references a report writes (:func:`reference_labels`), lists the
-attributes the model leaves unstated (:func:`gaps`), decides which
+attributes the model leaves open (:func:`gaps`), decides which
 attribute may be asked (:func:`open_attribute`), and which part of a question
 kind the sources state (:func:`source_states`).
 
@@ -39,7 +39,7 @@ from katra.assertions import (
 )
 from katra.capabilities import CAPABILITIES, parse_capability_key
 from katra.claims import AttributeGround, UnknownRef
-from katra.evidence import evidence_catalog, held_open_value, prepared_view
+from katra.evidence import evidence_catalog, held_value, prepared_view
 from katra.parsing import table_entry
 from katra.question_kinds import QUESTION_KINDS, parse_question_kind
 from katra.system_model import (
@@ -130,10 +130,10 @@ def reference_labels(
         if ground.kind in _GROUND_STATE:
             where = names.get(ground.element_id, ground.element_id)
             attribute = attribute_words(ground.attribute)
-            held = held_open_value(elements[ground.element_id], ground.attribute)
+            held = held_value(ground, elements)
             state = (
                 _GROUND_STATE[ground.kind]
-                if held is None or ground.kind != "unknown-attribute"
+                if held is None
                 else f"open, though the model reads {held}"
             )
             labels[ref] = f"{where}: {attribute}, {state}"
@@ -320,10 +320,10 @@ def group_of(ref: UnknownRef) -> tuple[str, str]:
 
 @dataclass(frozen=True)
 class Gap:
-    """One attribute the System Model leaves unstated, and where."""
+    """One attribute the System Model leaves open, and where."""
 
     attribute: str
-    #: Each element the attribute is unstated on, in the model's order.
+    #: Each element the attribute is open on, in the model's order.
     element_ids: tuple[str, ...]
 
     def to_json(self) -> dict[str, object]:

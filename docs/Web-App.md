@@ -218,8 +218,9 @@ lists the same elements in words, with a column for each attribute. Hover over
 a name to see its ID.
 
 **Gaps in the system model**, in About the analysis, is a table of each
-attribute that the description leaves unstated, with the count and the
-elements it is unstated on. The
+attribute that the description leaves open, with the count and the
+elements it is open on. An attribute is open where the description does not
+state it, or where the fact catalog qualifies the value the model shows. The
 attribute on the most elements comes first. Where the report asks about an
 element, an **Answer** link opens that question.
 

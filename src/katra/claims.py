@@ -801,9 +801,9 @@ def rests_on(refs: Sequence[UnknownRef]) -> str:
     the prose is the only thing that shortens.
     """
     named = ", ".join(name_unknown(ref) for ref in refs)
-    reason = f"The claim rests on {named}, which the input never stated."
+    reason = f"The claim rests on {named}, which the input leaves open."
     if len(reason) > REASON_MAX_CHARS:
-        reason = f"The claim rests on {len(refs)} facts the input never stated."
+        reason = f"The claim rests on {len(refs)} facts the input leaves open."
     return reason
 
 
@@ -1278,7 +1278,7 @@ class Claim(BaseModel):
         """The ruling a draft's own grounds support, in the pairs alone.
 
         A draft citing an ``unknown-attribute`` ground rests on a control the
-        input never stated, and the prompts already say what that makes it: a
+        input leaves open, and the prompts already say what that makes it: a
         conditional claim, ``needs-info`` on exactly those pairs.
 
         **This decides no verdict.** The critic reads every draft, conditional

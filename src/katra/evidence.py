@@ -686,7 +686,7 @@ def render_catalog(
     )
     rows = "\n".join(
         f"| `{_cell(ref)}` |"
-        f" {_cell(_gloss(ground, rows_by_id, subjects, _held(ground, elements)))} |"
+        f" {_cell(_gloss(ground, rows_by_id, subjects, held_value(ground, elements)))} |"
         for ref, ground in catalog.items()
     )
     return (
@@ -753,8 +753,12 @@ def held_open_value(element: Element, attribute: str) -> str | None:
     return None
 
 
-def _held(ground: Ground, elements: Mapping[str, Element]) -> str | None:
-    """The value an ``unknown-attribute`` entry's field still states, or ``None``."""
+def held_value(ground: Ground, elements: Mapping[str, Element]) -> str | None:
+    """The value an ``unknown-attribute`` entry's field still states, or ``None``
+    for any other entry and for a field that reads unverified.
+
+    **The one reader of "which held-open value does this entry name"**: the
+    catalog table and the report's labels both call it."""
     element = elements.get(ground.element_id)
     if ground.kind != "unknown-attribute" or element is None:
         return None
