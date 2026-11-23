@@ -17,6 +17,7 @@ from katra.fact_answers import (
     FactStatus,
     SkipKey,
     attribute_place,
+    control_line,
     fact_kind,
     fact_line,
     fact_status,
@@ -24,6 +25,7 @@ from katra.fact_answers import (
     quotes_answer,
 )
 from katra.grounding import normalize, verify_normalized
+from katra.links import ControlLines
 from katra.open_facts import (
     element_names,
     fact_routes,
@@ -94,18 +96,30 @@ def corrected_findings(
     corrections: Sequence[FactAnswer],
     model: SystemModel,
     catalog: AssertionCatalog | None,
+    controls: ControlLines,
 ) -> tuple[str, ...]:
     """Every finding, as ``framework/claim``, that rests on a fact a correction changed.
 
     **The one reader of "which findings does a correction reach"** (ADR 0054).
-    ``earlier`` is the answers the report's run read. A finding rests on a
-    corrected fact where it quotes the fact's line of the answers Source,
-    grounds on the same element's attribute, grounds on a row the fact's
-    earlier answer wrote (:func:`_answer_row_ids`), or names the fact as one
-    it waits on. A quote matches a line under the grounding ladder,
-    which admitted it (:func:`~katra.grounding.verify_normalized`). A fact is
-    named as it is asked (:func:`~katra.open_facts.fact_routes`), against
-    ``model`` and ``catalog``.
+    ``earlier`` is the answers the report's run read, and ``controls`` each
+    fact a Control wrote with the Control's name. A finding rests on a
+    corrected fact where it:
+
+    - quotes the fact's line of the answers Source;
+    - quotes a Control's line of the same fact, whatever value the Control
+      wrote;
+    - grounds on the same element's attribute;
+    - grounds on a row the fact's earlier answer wrote
+      (:func:`_answer_row_ids`);
+    - or names the fact as one it waits on.
+
+    Facts match by key, not by facet. A quote matches a line under the
+    grounding ladder, which admitted it
+    (:func:`~katra.grounding.verify_normalized`), anywhere in the line: a
+    quote of words that every line holds, such as ``".``, matches each
+    line. A fact is named as it is
+    asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
+    ``catalog``.
     """
     routes = fact_routes(catalog, model)
     before = {fact.key: fact for fact in earlier}
@@ -115,6 +129,14 @@ def corrected_findings(
         if fact.key in before
     ]
     keys = {fact.key for fact in corrections}
+    quoted = [
+        *lines,
+        *(
+            normalize(control_line(name, fact))
+            for name, fact in controls
+            if fact.key in keys
+        ),
+    ]
     answer_row_ids = _answer_row_ids(catalog, lines)
     attributes = {attribute_place(key) for key in keys if fact_kind(key) == "attribute"}
 
@@ -131,7 +153,7 @@ def corrected_findings(
             if ground.kind == "assertion" and ground.assertion in answer_row_ids:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
-                verify_normalized(ground.text, line) for line in lines
+                verify_normalized(ground.text, line) for line in quoted
             ):
                 return True
         return False

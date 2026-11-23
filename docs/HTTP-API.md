@@ -656,7 +656,8 @@ in the batch that sends them.
 `/v1/jobs/{id}/corrections`: a new value for an answer the report's run read,
 or `unknown` where it was a guess. They are kept beside the report, and a
 final job's questions list them as `corrections`, with `corrected_findings`:
-each finding that quotes a corrected answer's line, grounds on its attribute
+each finding that quotes a corrected answer's line or a line a Control
+wrote the fact on, grounds on its attribute
 or on a fact the answer wrote, or waits on it. The analysis does not run
 again. A correction carries the `revision` its questions were read with, and
 the reply names the next one

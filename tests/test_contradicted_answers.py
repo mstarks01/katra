@@ -168,6 +168,7 @@ class TestAContradictedRow:
             [corrected],
             model_with("none"),
             compatible(),
+            (),
         )
 
         assert reached == ("stride/S-01",)
