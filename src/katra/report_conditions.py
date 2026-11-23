@@ -116,7 +116,7 @@ def corrected_findings(
     Facts match by key, not by facet. A quote matches a line under the
     grounding ladder, which admitted it
     (:func:`~katra.grounding.verify_normalized`), anywhere in the line: a
-    quote of words that every line holds, such as ``is "``, matches each
+    quote of words that every line holds, such as ``".``, matches each
     line. A fact is named as it is
     asked (:func:`~katra.open_facts.fact_routes`), against ``model`` and
     ``catalog``.
