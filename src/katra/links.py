@@ -38,6 +38,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from katra.assertions import (
     ABSENT,
+    CROSS_CONFLICTS,
     SUBJECT_PREFIXES,
     Assertion,
     AssertionCatalog,
@@ -49,6 +50,7 @@ from katra.assertions import (
     answered,
     assertion_id,
     conflicts,
+    read_assertion_id,
     settled,
     subjects_of,
 )
@@ -57,6 +59,7 @@ from katra.fact_answers import (
     FactAnswer,
     control_line,
     fact_line,
+    key_ref,
     merged_facts,
     refuse_repeated_facts,
 )
@@ -478,25 +481,31 @@ def _refuse_disagreeing_facts(
 ) -> None:
     """Refuse two answers of one submission whose rows disagree.
 
-    Each answer is written alone, and two rows it writes beside two rows
-    another writes are compared by :func:`~katra.assertions.conflicts`: a
-    stated pair of predicates (:data:`~katra.assertions.CROSS_CONFLICTS`)
-    where one states a control missing and the other states it present. The
-    service cannot know which of the two the submitter meant, as with two
-    answers to one fact (:func:`~katra.fact_answers.refuse_repeated_facts`).
+    Two rows the answers write disagree where :func:`~katra.assertions.conflicts`
+    finds a stated pair of predicates
+    (:data:`~katra.assertions.CROSS_CONFLICTS`) with one row stating a control
+    missing and the other stating it present. The service cannot know which of
+    the two the submitter meant, as with two answers to one fact
+    (:func:`~katra.fact_answers.refuse_repeated_facts`).
+
+    The writer runs once over every answer. Only where two of its rows
+    disagree does it run again for each answer about that subject, to name
+    the two answers by position.
     """
     held = {assertion_id(entry) for entry in catalog.entries}
-    written = []
-    for fact in facts:
-        answered_catalog, _ = apply_answers(catalog, model, [], [fact])
-        written.append(
-            [
-                entry
-                for entry in answered_catalog.entries
-                if answered(entry) and assertion_id(entry) not in held
-            ]
-        )
-    for first, second in combinations(range(len(facts)), 2):
+    disputed_subjects = {
+        one.subject
+        for one, other in combinations(_paired_rows(catalog, model, facts, held), 2)
+        if one.subject == other.subject
+        and conflicts(AssertionCatalog(entries=[one, other]))
+    }
+    if not disputed_subjects:
+        return
+    about = [
+        at for at, fact in enumerate(facts) if _subject_of(fact) in disputed_subjects
+    ]
+    written = {at: _paired_rows(catalog, model, [facts[at]], held) for at in about}
+    for first, second in combinations(about, 2):
         if any(
             conflicts(AssertionCatalog(entries=[one, other]))
             for one in written[first]
@@ -507,6 +516,38 @@ def _refuse_disagreeing_facts(
                 " hold, so the service cannot know which one is meant; change one"
                 " of them"
             )
+
+
+#: Each predicate of a :data:`~katra.assertions.CROSS_CONFLICTS` pair.
+_PAIRED_PREDICATES = frozenset(name for pair in CROSS_CONFLICTS for name in pair)
+
+
+def _paired_rows(
+    catalog: AssertionCatalog,
+    model: SystemModel,
+    facts: Sequence[FactAnswer],
+    held: Collection[str],
+) -> list[Assertion]:
+    """The rows ``facts`` write that ``catalog`` does not hold, of a paired
+    predicate."""
+    written, _ = apply_answers(catalog, model, [], facts)
+    return [
+        entry
+        for entry in written.entries
+        if answered(entry)
+        and entry.predicate in _PAIRED_PREDICATES
+        and assertion_id(entry) not in held
+    ]
+
+
+def _subject_of(fact: FactAnswer) -> str:
+    """The subject a fact answer writes rows about: its element, or the
+    subject its open row's identity names."""
+    ref = key_ref(fact.key)
+    if not ref.assertion:
+        return ref.element_id
+    parts = read_assertion_id(ref.assertion)
+    return "" if parts is None else parts.subject
 
 
 def _link_rows(
