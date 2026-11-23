@@ -398,8 +398,8 @@ def fact_rows(
     writes no row where a source row of its paired predicate disagrees, as it
     writes none where the sources state its own predicate (ADR 0125). A row
     that can hold beside the answer stays, and so does a row of another scope.
-    A ``superseded-by-answer`` issue names each removed row that holds a
-    value. An assertion answer at an attribute that an attribute answer
+    A ``superseded-by-answer`` issue names each row that an assertion answer
+    or a part row removes and that holds a value. An assertion answer at an attribute that an attribute answer
     settles writes nothing, and an ``unmatched-answer`` issue names its place.
     """
     replaced: dict[str, Assertion] = {}

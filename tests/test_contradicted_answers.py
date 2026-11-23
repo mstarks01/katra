@@ -174,6 +174,74 @@ class TestAContradictedRow:
         assert reached == ("stride/S-01",)
 
 
+class TestAnUnknownRowAtAnUnknownField:
+    """An unscoped row that leaves the fact open, at a field that reads
+    ``unknown``: one fact, asked once, under the attribute key (#2307 A1)."""
+
+    ROW = MECHANISM.model_copy(
+        update={
+            "value": UNKNOWN,
+            "reason": "silent",
+            "explanation": "the notes do not say",
+        }
+    )
+    REF = UnknownRef(assertion=assertion_id(ROW))
+    FIELD = UnknownRef(element_id=LOGIN, attribute="authentication")
+
+    def catalog(self, row=ROW):
+        return AssertionCatalog(subjects=SUBJECTS, entries=[row])
+
+    def test_a_finding_on_the_row_is_asked_as_the_attribute(self):
+        keys = asked(waiting_on(self.REF), model_with("unknown"), self.catalog())
+
+        assert keys == [ATTRIBUTE_KEY]
+
+    def test_findings_on_the_row_and_the_field_ask_once(self):
+        analyses = [
+            sample_analysis(
+                [
+                    sample_threat(
+                        "S-01",
+                        verdict=Verdict(
+                            status="needs-info",
+                            reason="The sources leave this open.",
+                            related_unknowns=[self.REF, self.FIELD],
+                        ),
+                    )
+                ]
+            )
+        ]
+
+        assert asked(analyses, model_with("unknown"), self.catalog()) == [ATTRIBUTE_KEY]
+
+    def test_the_card_names_the_attribute(self):
+        cards = conditions(
+            waiting_on(self.REF), model_with("unknown"), (), (), (), self.catalog()
+        )
+
+        assert [key for key, _, _ in cards["stride/S-01"]] == [ATTRIBUTE_KEY]
+
+    def test_the_attribute_answer_is_admitted(self):
+        check_fact_answers([ANSWER], model_with("unknown"), self.catalog())
+
+    def test_a_scoped_row_keeps_its_place(self):
+        """A narrower scope than the attribute is not the attribute's fact."""
+        scoped = self.ROW.model_copy(
+            update={"scope": [Qualifier(kind="principal", value="shoppers")]}
+        )
+        ref = UnknownRef(assertion=assertion_id(scoped))
+
+        keys = asked(waiting_on(ref), model_with("unknown"), self.catalog(scoped))
+
+        assert keys == [ref.key]
+
+    def test_a_field_that_states_a_value_keeps_the_row_s_place(self):
+        """The field is no open fact, so the attribute takes no answer."""
+        keys = asked(waiting_on(self.REF), model_with("session cookie"), self.catalog())
+
+        assert keys == [self.REF.key]
+
+
 class TestTheAnswerSurvivesAResumedRun:
     """The attribute key names no row, so a second run finds the answer."""
 
