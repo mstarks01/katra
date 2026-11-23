@@ -1027,10 +1027,10 @@ class ApplicabilityYield:
       about. On a sampled reference set that is unjudged rather than earned:
       the case did not list the requirement, and did not rule it out either.
 
-    Only ``rejected`` rulings count. A draft the critic sent back for its lane
-    or as a duplicate says nothing about its requirement
-    (:meth:`~katra.claims.RuledClaim.rules_on_unit`), so it can
-    neither destroy nor earn one.
+    Only ``rejected`` rulings count. A draft the critic sent back for its lane,
+    as a duplicate or for its reasoning says nothing about its requirement
+    (:meth:`~katra.claims.RuledClaim.rules_on_unit`), so it can neither
+    destroy nor earn one.
 
     A rejection count alone reads as either working or breaking things.
 
@@ -1060,9 +1060,8 @@ class ApplicabilityYield:
         (:meth:`~katra.claims.RuledClaim.rules_on_unit`): ``evidence``,
         ``control``, or no cause on a report read back. A ``lane``,
         ``duplicate`` or ``reasoning`` rejection counts in the denominator and
-        never in the numerator. An ASVS claim ID is its
-        requirement, so each requirement counted is one draft.
-        ``destroyed_rate`` is the share of its rejections that the case
+        never in the numerator. An ASVS claim ID is its requirement, so each
+        requirement counted is one draft. ``destroyed_rate`` is the share of its rejections that the case
         expected a ruling on, and has no value where it rejected nothing.
         """
         return _applicability_rates(
@@ -1117,7 +1116,8 @@ def score_yield(
     # Read from the list a claim sits in, not from its verdict: the two lists
     # *are* the critic's decision, and re-deriving it from the verdict would be
     # a second definition of the same split. What the verdict does say is the
-    # rejection's cause, and a lane, duplicate or reasoning rejection rules on nothing.
+    # rejection's cause, and a lane, duplicate or reasoning rejection rules on
+    # nothing.
     confirmed = _requirements(block.claims)
     rejected = _requirements(
         [claim for claim in block.rejected_claims if claim.rules_on_unit()]
