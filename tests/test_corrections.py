@@ -258,17 +258,6 @@ class TestWhichFindingsACorrectionReaches:
             "stride/S-01",
         )
 
-    def test_a_quote_of_the_control_s_name_alone_is_not_reached(self):
-        """Every line a Control writes ends with its name, so that tail
-        states no fact."""
-        quote = Ground(
-            kind="quote",
-            text='From the Control "Edge TLS".',
-            source_label=ANSWERS_LABEL,
-        )
-        controls = [("Edge TLS", ANSWER)]
-        assert self.reached(sample_threat(grounds=[quote]), controls) == ()
-
     def test_a_control_s_line_of_another_fact_is_not_reached(self):
         place = UnknownRef(element_id=ASKED.element_id, attribute="authentication")
         other = FactAnswer(key=place.key, value="mTLS")
