@@ -19,7 +19,6 @@ from katra.fact_answers import (
     attribute_place,
     fact_kind,
     fact_line,
-    fact_part,
     fact_status,
     needs_of,
 )
@@ -131,7 +130,7 @@ def corrected_findings(
             if ground.kind == "assertion" and ground.assertion in rows:
                 return True
             if ground.source_label == ANSWERS_LABEL and any(
-                verify_normalized(fact_part(ground.text), line) for line in lines
+                _quotes(ground.text, line) for line in lines
             ):
                 return True
         return False
@@ -144,27 +143,39 @@ def corrected_findings(
     )
 
 
+def _quotes(text: str, line: str) -> bool:
+    """Whether a quote of the answers Source quotes the normalized ``line``.
+
+    The grounding ladder admits a quote of the line or a cut of it
+    (:func:`~katra.grounding.verify_normalized`). A quote that holds the
+    whole line quotes it too: a Control's line is the fact's line and then
+    the Control's name (:func:`~katra.fact_answers.control_line`).
+    """
+    return verify_normalized(text, line) or line in normalize(text)
+
+
 def _answer_rows(
     catalog: AssertionCatalog | None, lines: Sequence[str]
 ) -> frozenset[str]:
     """The identity of each answer row in ``catalog`` that quotes one of ``lines``.
 
-    The writer gives each row an answer writes a span on the answer's line of
-    the answers Source, or on the line of the Control that wrote the fact
-    (:func:`~katra.fact_answers.fact_part` reads both as the fact's line). So
-    the line names the answer that wrote the row, and a row at the same place
-    that another answer wrote quotes another line. ``lines`` are normalized.
+    The writer gives each row an answer writes a span on the whole line of
+    the answers Source that wrote the fact: the answer's own line
+    (:func:`~katra.fact_answers.fact_line`), or a Control's line of it, which
+    starts with that line (:func:`~katra.fact_answers.control_line`). So a
+    row rests on an answer where its quote starts with the answer's line. A
+    row at the same place that another answer wrote quotes another line.
+    ``lines`` are normalized.
     """
     if catalog is None:
         return frozenset()
-    wanted = set(lines)
     return frozenset(
         assertion_id(entry)
         for entry in catalog.entries
         if answered(entry)
         and any(
             span.source_label == ANSWERS_LABEL
-            and normalize(fact_part(span.quote)) in wanted
+            and normalize(span.quote).startswith(tuple(lines))
             for span in entry.support
         )
     )

@@ -101,7 +101,6 @@ __all__ = [
     "fact_kind",
     "fact_label",
     "fact_line",
-    "fact_part",
     "fact_status",
     "key_ref",
     "merged_facts",
@@ -364,23 +363,10 @@ def fact_line(fact: FactAnswer) -> str:
     return line + detail_note(fact.detail)
 
 
-#: What a Control's line adds after the line of the fact it writes.
-_CONTROL_NOTE = ' From the Control "'
-
-
 def control_line(name: str, fact: FactAnswer) -> str:
     """A fact a Control writes as its line of the answers Source, which names
     the Control (ADR 0125)."""
-    return f'{fact_line(fact)}{_CONTROL_NOTE}{_phrase(name)}".'
-
-
-def fact_part(line: str) -> str:
-    """``line`` without the Control name that a Control's line ends with
-    (:func:`control_line`), so a fact's own line and a Control's line of it
-    read as one fact's line. Any other line is returned unchanged."""
-    head, note, name = line.rpartition(_CONTROL_NOTE)
-    named = note and name.endswith('".') and '"' not in name[:-2]
-    return head if named else line
+    return f'{fact_line(fact)} From the Control "{_phrase(name)}".'
 
 
 def _phrase(value: str) -> str:

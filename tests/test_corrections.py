@@ -16,7 +16,7 @@ from katra.assertions import (
     assertion_id,
 )
 from katra.claims import Ground, UnknownRef
-from katra.fact_answers import FactAnswer, control_line, fact_line, fact_part
+from katra.fact_answers import FactAnswer, control_line, fact_line
 from katra.grounding import verify_quote
 from katra.jobs import Checkpoint, JobRecord, Resumption
 from katra.links import apply_answers
@@ -294,6 +294,12 @@ class TestACorrectionReachesTheRowItsAnswerWrote:
         unknown = self.PLACE.model_copy(update={"value": UNKNOWN})
         assert self.reached([unknown, self.KIND], [self.PLACE]) == ()
 
+    def test_a_detail_that_ends_like_a_control_s_name(self):
+        """The row quotes the whole line, whatever its detail says."""
+        fact = self.PLACE.model_copy(update={"detail": 'ok From the Control "x'})
+        changed = fact.model_copy(update={"value": UNKNOWN})
+        assert self.reached([fact], [changed]) == ("stride/S-01",)
+
     @pytest.mark.parametrize("fact", [PLACE, KIND], ids=["assertion", "kind"])
     def test_a_row_a_control_wrote(self, fact):
         """The row quotes the Control's line, which names the Control."""
@@ -302,9 +308,19 @@ class TestACorrectionReachesTheRowItsAnswerWrote:
         assert self.reached([fact], [changed], controls) == ("stride/S-01",)
 
 
-def test_a_quote_of_a_control_s_line_is_reached():
-    line = control_line("Audit log", ANSWER)
-    quote = Ground(kind="quote", text=line, source_label=ANSWERS_LABEL)
+@pytest.mark.parametrize(
+    "spelled",
+    [
+        lambda line: line,
+        lambda line: line.replace('"', "\u201c"),
+        lambda line: line.removesuffix("."),
+        lambda line: line.removesuffix(' log".'),
+    ],
+    ids=["whole", "typographic", "no-period", "cut-in-the-name"],
+)
+def test_a_quote_of_a_control_s_line_is_reached(spelled):
+    text = spelled(control_line("Audit log", ANSWER))
+    quote = Ground(kind="quote", text=text, source_label=ANSWERS_LABEL)
     report = sample_report([sample_threat(grounds=[quote])])
     back = FactAnswer(key=ASKED.key, value="unknown")
 
@@ -313,14 +329,3 @@ def test_a_quote_of_a_control_s_line_is_reached():
     )
 
     assert reached == ("stride/S-01",)
-
-
-@pytest.mark.parametrize(
-    "line",
-    [
-        'The open question q is answered "yes".',
-        'The open question q is answered "yes". From the Control "a "b"".',
-    ],
-)
-def test_a_line_that_names_no_control_is_its_own_fact_part(line):
-    assert fact_part(line) == line
