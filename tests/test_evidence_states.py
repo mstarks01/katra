@@ -29,6 +29,7 @@ from katra.evidence import (
     absent_evidence_ref,
     evidence_catalog,
     ground_issues,
+    unknown_evidence_ref,
 )
 from katra.fan_in import DraftJoinError, JoinedDrafts, join_drafts
 from katra.frameworks import schemas_for
@@ -701,22 +702,24 @@ def test_a_mechanism_written_none_is_a_stated_value():
 
 
 class TestAnAbsenceUnderAHiddenQualification:
-    """A field that reads absent under a qualifying projection the gate
-    refused is no stated absence: the applied projection would show it as an
-    unknown (the maintainer's ruling of 2026-11-18 on #2270). Open rows under
-    it carry the question; with none, the catalog offers no question about it,
-    and a settled row under it stays a fact."""
+    """A field under a qualifying projection the gate refused is offered as
+    the applied projection would show it: an unknown (the maintainer's ruling
+    of 2026-11-18 on #2270, and #2307 N1b). Its absence is no stated fact.
+    Open rows under it are offered as questions too, and a settled row under
+    it stays a fact."""
 
     STORE = TestARowTheGraphContradicts.STORE
     ABSENCE = TestARowTheGraphContradicts.STORED
     ENCRYPTED = TestADisputedPairUnderARefusedProjection.ENCRYPTED
     ABSENT_REF = TestTheGraphSideOfAContradiction.ABSENT_REF
+    UNKNOWN_REF = unknown_evidence_ref(ORDERS, "encryption_at_rest")
 
     def test_a_disputed_pair_drops_the_absence(self):
         catalog = assertions(self.ABSENCE, self.ENCRYPTED, subjects=(self.STORE,))
         offered = evidence_catalog(_with_encryption("none"), catalog)
 
         assert self.ABSENT_REF not in offered
+        assert offered[self.UNKNOWN_REF].kind == "unknown-attribute"
         assert offered[assertion_id(self.ENCRYPTED)].kind == "unknown-assertion"
 
     def test_a_hedged_row_drops_the_absence(self):
@@ -727,6 +730,7 @@ class TestAnAbsenceUnderAHiddenQualification:
         offered = evidence_catalog(_with_encryption("none"), catalog)
 
         assert self.ABSENT_REF not in offered
+        assert offered[self.UNKNOWN_REF].kind == "unknown-attribute"
         assert offered[assertion_id(hedged)].kind == "unknown-assertion"
 
     def test_a_silent_row_keeps_the_absence(self):
@@ -738,20 +742,22 @@ class TestAnAbsenceUnderAHiddenQualification:
         offered = evidence_catalog(_with_encryption("none"), catalog)
 
         assert offered[self.ABSENT_REF].kind == "absent-attribute"
+        assert self.UNKNOWN_REF not in offered
 
-    def test_a_set_aside_row_drops_the_absence_and_offers_no_question(self):
-        """A row a reviewer set aside qualifies the field too, and no row
-        carries a question, so the catalog offers nothing about it."""
+    def test_a_set_aside_row_offers_the_field_as_an_unknown(self):
+        """A row a reviewer set aside qualifies the field too. No row carries
+        a question, so the field does."""
         rejected = self.ENCRYPTED.model_copy(update={"assessment": "unsupported"})
         catalog = assertions(rejected, subjects=(self.STORE,))
         offered = evidence_catalog(_with_encryption("none"), catalog)
 
         assert self.ABSENT_REF not in offered
         assert assertion_id(rejected) not in offered
+        assert offered[self.UNKNOWN_REF].kind == "unknown-attribute"
 
-    def test_a_scoped_row_drops_the_absence_and_stays_a_fact(self):
-        """A scoped row qualifies the field and is a settled fact about part
-        of the store; no row carries a question about the whole."""
+    def test_a_scoped_row_stays_a_fact_beside_the_unknown_field(self):
+        """A scoped row is a settled fact about part of the store; the field
+        about the whole store is the question."""
         backups = self.ENCRYPTED.model_copy(
             update={"scope": [Qualifier(kind="resource", value="backups")]}
         )
@@ -760,6 +766,28 @@ class TestAnAbsenceUnderAHiddenQualification:
 
         assert self.ABSENT_REF not in offered
         assert offered[assertion_id(backups)].kind == "assertion"
+        assert offered[self.UNKNOWN_REF].kind == "unknown-attribute"
+
+    def test_a_field_that_states_a_control_is_offered_as_an_unknown(self):
+        """The applied projection writes a qualified unknown over a stated
+        control too."""
+        hedged = self.ENCRYPTED.model_copy(
+            update={"value": UNKNOWN, "reason": "hedged", "explanation": "h"}
+        )
+        catalog = assertions(hedged, subjects=(self.STORE,))
+        offered = evidence_catalog(_with_encryption("AES-256"), catalog)
+
+        assert offered[self.UNKNOWN_REF].kind == "unknown-attribute"
+
+    def test_a_claim_on_the_unknown_field_has_no_issue(self):
+        rejected = self.ENCRYPTED.model_copy(update={"assessment": "unsupported"})
+        catalog = assertions(rejected, subjects=(self.STORE,))
+        ground = Ground(
+            kind="unknown-attribute", element_id=ORDERS, attribute="encryption_at_rest"
+        )
+        claim = sample_draft("S-01", grounds=[ground])
+
+        assert ground_issues([claim], _with_encryption("none"), catalog) == []
 
     def test_an_answer_of_none_beside_a_hedged_row_keeps_the_absence(self):
         """The neighbour: the answer alone makes the value, so the projection
