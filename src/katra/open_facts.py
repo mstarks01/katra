@@ -400,17 +400,15 @@ def fact_routes(
     over. Where an unscoped row reaches a graph field, the question is that
     attribute's, and the attribute path writes the answer; every other
     unscoped row that reaches the same attribute, an unknown row among them,
-    asks that one fact too, and so does every unscoped row at an attribute
-    the rows hold open
-    (:func:`~katra.assertions.held_open_attributes`), or at an attribute the
-    model leaves open where an unscoped unknown row reaches it. Each such
-    attribute takes an answer as an attribute (:func:`open_attribute`). Where a row reaches no
-    field, or states a narrower scope than the attribute, the question is its
-    place's
-    (:func:`~katra.assertions.place_identity`), which names the
-    answer's row in every later run too (the maintainer's ruling of
-    2026-11-18 on #2270). ``model`` is read as the lanes read it
-    (:func:`prepared_model`).
+    asks that one fact too. So does every unscoped row at an attribute the
+    rows hold open (:func:`~katra.assertions.held_open_attributes`), or at an
+    attribute the model leaves open where an unscoped unknown row reaches it.
+    Each such attribute takes an answer as an attribute
+    (:func:`open_attribute`). Where a row reaches no field, or states a
+    narrower scope than the attribute, the question is its place's
+    (:func:`~katra.assertions.place_identity`), which names the answer's row
+    in every later run too (the maintainer's ruling of 2026-11-18 on #2270).
+    ``model`` is read as the lanes read it (:func:`prepared_model`).
     """
     if catalog is None:
         return {}
