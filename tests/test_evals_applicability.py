@@ -731,7 +731,7 @@ def test_pooling_the_yield_weights_by_draft_and_not_by_case(case):
 
     totals = aggregate_yield([small, large])
 
-    assert totals["drafts"] == totals["ruled"] == 10
+    assert totals["drafts"] == totals["with_verdict"] == 10
     assert totals["rejected"] == 1
     assert totals["rejection_rate"] == 0.1
 
@@ -1224,7 +1224,7 @@ def test_a_draft_with_no_verdict_is_not_in_the_rejection_rate(case, capsys):
         case, block, drafts=handed(block, "v5.0.0-9.9.1", "v5.0.0-9.9.2")
     )
 
-    assert (critic.drafts, critic.ruled) == (4, 2)
+    assert (critic.drafts, critic.with_verdict) == (4, 2)
     assert critic.rates["rejection_rate"].value == 0.5
     assert aggregate_yield([critic])["rejection_rate"] == 0.5
     render_yield([critic])

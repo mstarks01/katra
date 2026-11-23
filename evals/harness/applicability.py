@@ -1044,7 +1044,7 @@ class ApplicabilityYield:
     drafts: int
     #: The drafts with an archived verdict
     #: (:func:`~evals.harness.critic_yield.has_verdict`).
-    ruled: int
+    with_verdict: int
     confirmed: tuple[str, ...]
     rejected: tuple[str, ...]
     destroyed: tuple[str, ...]
@@ -1056,19 +1056,24 @@ class ApplicabilityYield:
         """Both rates with their counts, keyed by the rate's name.
 
         ``rejection_rate`` is the share of the drafts with an archived verdict
-        that the critic ruled inapplicable. An ASVS claim ID is its
-        requirement, so a rejected requirement is a rejected draft.
+        that the critic ruled inapplicable: rejected for a cause that rules on
+        the requirement (:meth:`~katra.claims.RuledClaim.rules_on_unit`). A
+        ``lane``, ``duplicate`` or ``reasoning`` rejection counts in the
+        denominator and never in the numerator. An ASVS claim ID is its
+        requirement, so each requirement counted is one draft.
         ``destroyed_rate`` is the share of its rejections that the case
         expected a ruling on, and has no value where it rejected nothing.
         """
-        return _applicability_rates(self.ruled, len(self.rejected), len(self.destroyed))
+        return _applicability_rates(
+            self.with_verdict, len(self.rejected), len(self.destroyed)
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {
             "case": self.case,
             "framework": FRAMEWORK,
             "drafts": self.drafts,
-            "ruled": self.ruled,
+            "with_verdict": self.with_verdict,
             "confirmed": len(self.confirmed),
             "rejected": len(self.rejected),
             "destroyed": list(self.destroyed),
@@ -1083,11 +1088,11 @@ ApplicabilityRate = Literal["rejection_rate", "destroyed_rate"]
 
 
 def _applicability_rates(
-    ruled: int, rejected: int, destroyed: int
+    with_verdict: int, rejected: int, destroyed: int
 ) -> dict[ApplicabilityRate, Rate]:
     """The yield's two rates, from one case's counts or from pooled ones."""
     return {
-        "rejection_rate": Rate(rejected, ruled),
+        "rejection_rate": Rate(rejected, with_verdict),
         "destroyed_rate": Rate(destroyed, rejected),
     }
 
@@ -1119,7 +1124,9 @@ def score_yield(
     return ApplicabilityYield(
         case=case.id,
         drafts=len(drafts),
-        ruled=sum(has_verdict(fate_of.get(draft.id, OMITTED)) for draft in drafts),
+        with_verdict=sum(
+            has_verdict(fate_of.get(draft.id, OMITTED)) for draft in drafts
+        ),
         confirmed=tuple(sorted(confirmed)),
         rejected=tuple(sorted(rejected)),
         destroyed=tuple(sorted(rejected & expected)),
@@ -1143,13 +1150,13 @@ def aggregate_yield(yields: Sequence[ApplicabilityYield]) -> Mapping[str, Any]:
     case carrying six records outweigh one carrying seventeen.
     """
     drafts = sum(entry.drafts for entry in yields)
-    ruled = sum(entry.ruled for entry in yields)
+    with_verdict = sum(entry.with_verdict for entry in yields)
     rejected = sum(len(entry.rejected) for entry in yields)
     destroyed = sum(len(entry.destroyed) for entry in yields)
     return {
         "cases": len(yields),
         "drafts": drafts,
-        "ruled": ruled,
+        "with_verdict": with_verdict,
         "confirmed": sum(len(entry.confirmed) for entry in yields),
         "rejected": rejected,
         "destroyed": destroyed,
@@ -1157,7 +1164,9 @@ def aggregate_yield(yields: Sequence[ApplicabilityYield]) -> Mapping[str, Any]:
         "unlisted": sum(len(entry.unlisted) for entry in yields),
         **{
             name: rate.rounded()
-            for name, rate in _applicability_rates(ruled, rejected, destroyed).items()
+            for name, rate in _applicability_rates(
+                with_verdict, rejected, destroyed
+            ).items()
         },
     }
 
@@ -1269,14 +1278,14 @@ def render_yield(yields: Sequence[ApplicabilityYield]) -> None:
         )
     totals = aggregate_yield(yields)
     print(
-        f"pooled: rejected {totals['rejected']}/{totals['ruled']}"
+        f"pooled: rejected {totals['rejected']}/{totals['with_verdict']}"
         f" ({percent(totals['rejection_rate'])}),"
         f" earned {totals['earned']}, destroyed {totals['destroyed']}"
         f" ({percent(totals['destroyed_rate'])} of rejections),"
         f" unlisted {totals['unlisted']}"
         " (instrument, non-gating)"
     )
-    if apart := totals["drafts"] - totals["ruled"]:
+    if apart := totals["drafts"] - totals["with_verdict"]:
         print(f"  {no_verdict_line(apart, NO_VERDICT_FATES)}")
 
 
