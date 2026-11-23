@@ -1266,7 +1266,7 @@ def _provenance_payload(
     }
 
 
-def _answer_rows(
+def _answer_payloads(
     report: Report, answers: Sequence[FactAnswer]
 ) -> list[dict[str, object]]:
     """Each answer with its label and the form, choices and limit it is changed in.
@@ -1304,11 +1304,11 @@ def _corrections_payload(
     """
     corrected = {fact.key for fact in corrections}
     answers = merged_facts(answered, corrections)
-    rows = _answer_rows(report, answers)
+    payloads = _answer_payloads(report, answers)
     return {
         "answers": [
-            row | {"corrected": answer.key in corrected}
-            for row, answer in zip(rows, answers, strict=True)
+            payload | {"corrected": answer.key in corrected}
+            for payload, answer in zip(payloads, answers, strict=True)
         ],
         "findings": list(
             corrected_findings(
@@ -1359,7 +1359,7 @@ def _earlier_payload(
     """
     options = list(components(report.system_model))
     return {
-        "answers": _answer_rows(
+        "answers": _answer_payloads(
             report, [answer for answer in answered if answer.key not in asked]
         ),
         "retained": [
