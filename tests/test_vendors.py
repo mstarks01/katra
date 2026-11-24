@@ -32,13 +32,16 @@ from katra.vendors import (
     CredentialMode,
     ProviderAuthError,
     ServedTrust,
+    SourceVendor,
     Vendor,
     VendorSdkError,
+    _SourceSegment,
     claude_generation,
     join_served,
     missing_sdk,
     openai_reasoning_model,
     require_sdk,
+    source_vendor_for_route,
     vendor_for,
     vendor_for_route,
 )
@@ -1154,3 +1157,61 @@ class TestTheRouteToVendorRule:
     @pytest.mark.parametrize("name", VENDOR_NAMES)
     def test_every_vendor_states_what_its_served_build_is_worth(self, name):
         assert vendor_for(name).served_trust in get_args(ServedTrust)
+
+
+#: What each Vendor row reads as the **Source Vendor** of a model ID, keyed by
+#: vendor. ``None`` is an ID whose source vendor the row cannot read.
+SOURCE_VENDOR_READINGS: dict[str, tuple[tuple[str, SourceVendor | None], ...]] = {
+    "vertex": (
+        ("gemini-2.5-pro", "google"),
+        ("claude-opus-5", "anthropic"),
+        ("claude-opus-4-1@20250805", "anthropic"),
+        ("llama-4-maverick", None),
+    ),
+    "anthropic": (("claude-opus-5", "anthropic"),),
+    "openai": (("gpt-5.6", "openai"), ("o3", "openai")),
+    "bedrock": (
+        ("anthropic.claude-opus-5", "anthropic"),
+        ("us.anthropic.claude-sonnet-4-5-20250929-v1:0", "anthropic"),
+        ("amazon.nova-pro-v1:0", "amazon"),
+        ("meta.llama3-1-70b-instruct-v1:0", "meta"),
+        ("mistral.mistral-large-2407-v1:0", "mistral"),
+        ("cohere.command-r-v1:0", None),
+    ),
+    "gemini": (("gemini-2.5-pro", "google"),),
+    "openrouter": (
+        ("anthropic/claude-opus-4.7", "anthropic"),
+        ("openai/gpt-5.6", "openai"),
+        ("google/gemini-2.5-pro", "google"),
+        ("meta-llama/llama-4-maverick", "meta"),
+        ("x-ai/grok-4", "xai"),
+        ("unknown-lab/model-1", None),
+        ("claude-opus-5", None),
+    ),
+}
+
+
+class TestSourceVendor:
+    def test_the_readings_answer_for_every_vendor_row(self):
+        assert set(SOURCE_VENDOR_READINGS) == set(VENDOR_NAMES)
+
+    @pytest.mark.parametrize(
+        ("name", "model", "expected"),
+        [
+            (name, model, expected)
+            for name, readings in SOURCE_VENDOR_READINGS.items()
+            for model, expected in readings
+        ],
+    )
+    def test_each_row_reads_the_source_vendor_of_a_model(self, name, model, expected):
+        vendor = vendor_for(name)
+
+        assert vendor.source_vendor_of(model) == expected
+        assert source_vendor_for_route(vendor.route(model)) == expected
+
+    @pytest.mark.parametrize("name", VENDOR_NAMES)
+    def test_every_value_a_row_can_read_is_in_the_closed_set(self, name):
+        rule = vendor_for(name).source_vendor_rule
+        values = rule.makers.values() if isinstance(rule, _SourceSegment) else [rule]
+
+        assert set(values) <= set(get_args(SourceVendor))

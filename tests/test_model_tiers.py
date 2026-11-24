@@ -916,7 +916,7 @@ class TestReviewIndependence:
     The point is bounded *correlated* failure, never accuracy: an analysis and a
     critic on one model share that model's blind spots, so the critic improves
     consistency and cannot notice what the model does not know. Nothing here
-    claims a second provider finds more.
+    claims a second source vendor finds more.
     """
 
     #: Declared wherever a case selects the vendor that reports a charge, so
@@ -941,7 +941,9 @@ class TestReviewIndependence:
         )
         assert config.review_independence == "shared"
 
-    @pytest.mark.parametrize("independence", ["distinct_model", "distinct_provider"])
+    @pytest.mark.parametrize(
+        "independence", ["distinct_model", "distinct_source_vendor"]
+    )
     def test_a_policy_beyond_shared_refuses_a_critic_on_the_analysis_tier(
         self, config_path, independence
     ):
@@ -954,7 +956,9 @@ class TestReviewIndependence:
                 config_path(self.critic_on("strong", independence)), env={}
             )
 
-    @pytest.mark.parametrize("independence", ["distinct_model", "distinct_provider"])
+    @pytest.mark.parametrize(
+        "independence", ["distinct_model", "distinct_source_vendor"]
+    )
     def test_the_review_tier_satisfies_both_policies(self, config_path, independence):
         # `review` selects anthropic/claude-opus-5 against strong's
         # vertex/gemini-2.5-pro, so it differs in model and in vendor.
@@ -964,20 +968,20 @@ class TestReviewIndependence:
         assert config.independence_breaches() == []
         assert config.resolve_model("critic/stride").vendor == REVIEW_VENDOR
 
-    def test_a_distinct_model_on_one_vendor_fails_the_provider_policy(
+    def test_a_distinct_model_from_one_source_vendor_fails_the_strict_policy(
         self, config_path
     ):
         # The two policies are not the same test. A second model from one
-        # provider removes a build's blind spots and keeps the provider's, so a
-        # deployment that asked for a distinct provider must not read as
+        # source vendor removes a build's blind spots and keeps its maker's, so
+        # a deployment that asked for a distinct source vendor must not read as
         # satisfied by it.
         text = self.critic_on(
             "review",
-            "distinct_provider",
+            "distinct_source_vendor",
             review_vendor=VENDOR,
             review="gemini-2.5-flash",
         )
-        with pytest.raises(ModelConfigError, match="both run vendor 'vertex'"):
+        with pytest.raises(ModelConfigError, match="source vendor 'google'"):
             load_model_tiers(config_path(text), env={})
 
         relaxed = self.critic_on(
@@ -997,47 +1001,57 @@ class TestReviewIndependence:
         with pytest.raises(ModelConfigError, match="both run one model"):
             load_model_tiers(config_path(text), env={})
 
-    def test_a_gateway_route_cannot_satisfy_a_distinct_provider(self, config_path):
-        """An aggregator chooses the upstream per call, so nothing here knows it.
-
-        The case a comparison of written keys answers confidently and wrongly:
-        two vendor keys, one of them a gateway that may route to the other's
-        provider. A deployment that asked for a distinct provider would be told
-        it had one.
-        """
+    def test_an_aggregator_critic_passes_when_the_source_vendor_differs(
+        self, config_path
+    ):
+        """The maker of the model decides, not the vendor that serves it."""
         text = self.critic_on(
             "review",
-            "distinct_provider",
+            "distinct_source_vendor",
             review_vendor="openrouter",
             review="anthropic/claude-opus-4.7",
         )
-        with pytest.raises(ModelConfigError, match="more than one upstream provider"):
-            load_model_tiers(config_path(text + self.CHARGES), env={})
+        config = load_model_tiers(config_path(text + self.CHARGES), env={})
 
-    def test_a_gateway_route_on_the_analysis_side_is_refused_too(self, config_path):
-        """Either side, because the question is whether the two differ."""
+        assert config.independence_breaches() == []
+
+    def test_one_source_vendor_through_two_vendors_is_a_breach(self, config_path):
+        """Claude on Vertex and Claude through OpenRouter share one maker."""
         text = self.critic_on(
             "review",
-            "distinct_provider",
+            "distinct_source_vendor",
+            strong="claude-opus-5",
+            review_vendor="openrouter",
+            review="anthropic/claude-opus-4.7",
+        )
+        with pytest.raises(ModelConfigError, match="source vendor 'anthropic'"):
+            load_model_tiers(config_path(text + self.CHARGES), env={})
+
+    def test_an_aggregator_on_the_analysis_side_is_read_by_its_slug(self, config_path):
+        text = self.critic_on(
+            "review",
+            "distinct_source_vendor",
             base_vendor="openrouter",
             base="anthropic/claude-sonnet-4.6",
             strong_vendor="openrouter",
-            strong="anthropic/claude-opus-4.7",
+            strong="openai/gpt-5.6",
             review_vendor="anthropic",
             review="claude-opus-5",
         )
-        with pytest.raises(ModelConfigError, match="more than one upstream provider"):
-            load_model_tiers(config_path(text + self.CHARGES), env={})
+        config = load_model_tiers(config_path(text + self.CHARGES), env={})
 
-    def test_two_direct_vendors_still_satisfy_a_distinct_provider(self, config_path):
-        """The rule refuses what it cannot know, not everything it is asked."""
+        assert config.independence_breaches() == []
+
+    def test_a_model_whose_source_vendor_is_unknown_is_a_breach(self, config_path):
+        """Fail closed: an unknown maker may be the analysis model's maker."""
         text = self.critic_on(
             "review",
-            "distinct_provider",
-            review_vendor="anthropic",
-            review="claude-opus-5",
+            "distinct_source_vendor",
+            review_vendor="openrouter",
+            review="unknown-lab/model-1",
         )
-        assert load_model_tiers(config_path(text), env={}).independence_breaches() == []
+        with pytest.raises(ModelConfigError, match="'openrouter/unknown-lab/model-1'"):
+            load_model_tiers(config_path(text + self.CHARGES), env={})
 
     def test_a_gateway_route_to_the_same_model_is_not_a_distinct_model(
         self, config_path

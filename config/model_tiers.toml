@@ -75,20 +75,21 @@ version = 9
 #                       costs one tier rather than two.
 #   "distinct_model"    every framework's critic must run a different model
 #                       from its own analysis. Removes a single build's blind
-#                       spots; leaves the provider's. Compared by the
+#                       spots; leaves its maker's. Compared by the
 #                       identifier with any gateway segment stripped, so
 #                       "openai/gpt-5.6" through an aggregator and "gpt-5.6"
 #                       direct are one model and not two.
-#   "distinct_provider" the serving organisation must differ too. Removes a
-#                       provider's blind spots, at the cost of a second
-#                       credential and quota. A gateway route cannot satisfy
-#                       it: an aggregator picks the upstream per call, so
-#                       nothing here can say the two ran on different ones,
-#                       and it is a load error rather than an assumption.
+#   "distinct_source_vendor"
+#                       the critic's model must come from a different source
+#                       vendor: the company that made the model. The vendor
+#                       that serves it does not matter, so
+#                       "anthropic/claude-opus-4.7" through openrouter is an
+#                       Anthropic model. A model ID whose source vendor the
+#                       vendor row cannot read is a load error.
 #
 # NONE OF THESE MAKES A REVIEW MORE ACCURATE. Independence bounds *correlated*
 # failure. It does not make a second opinion a better one, and no measurement in
-# this repository says a second provider finds more. Choose it as a risk control.
+# this repository says a second source vendor finds more. Choose it as a risk control.
 #
 # Asking for more than "shared" while leaving critic/* on `strong` beside
 # analyze/* is a load-time error naming the framework, not a warning: a

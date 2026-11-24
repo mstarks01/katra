@@ -24,9 +24,9 @@ from evals.harness.reference import flows_by_case, load_case
 from evals.harness.scorer import score_case
 from evals.reference_facts import load_facts
 from katra.claim_identity import report_rows
+from katra.model_tiers import charges_env_var_for
 from katra.offline import OFFLINE_ENV
 from katra.report import TokenUsage
-from katra.vendors import vendor_for
 from tests.eval_factories import sweep_document, write_report_sweep
 
 CASE = "01-payments-checkout"
@@ -296,14 +296,16 @@ def test_a_label_outside_the_batch_is_stray():
 @pytest.mark.parametrize(
     ("writer", "judge", "breach"),
     [
-        ("openai", "anthropic", None),
-        ("openai", "openai", "both run vendor 'openai'"),
-        ("openrouter", "anthropic", "'openrouter' routes one slug"),
-        ("anthropic", "openrouter", "'openrouter' routes one slug"),
+        ("openai/gpt-5.6", "anthropic/claude-opus-5", None),
+        ("openai/gpt-5.6", "openrouter/anthropic/claude-opus-5", None),
+        ("openrouter/openai/gpt-5.6", "anthropic/claude-opus-5", None),
+        ("openai/gpt-5.6", "openai/gpt-5.5", "source vendor 'openai'"),
+        ("openai/gpt-5.6", "openrouter/openai/gpt-5.6", "source vendor 'openai'"),
+        ("openai/gpt-5.6", "openrouter/unknown-lab/model-1", "'openrouter/unknown"),
     ],
 )
-def test_the_judge_must_run_on_a_distinct_provider(writer, judge, breach):
-    found = judge_replay.independence_breach([vendor_for(writer)], vendor_for(judge))
+def test_the_judge_must_run_a_model_from_another_source_vendor(writer, judge, breach):
+    found = judge_replay.independence_breach([writer], judge)
 
     if breach is None:
         assert found is None
@@ -311,10 +313,19 @@ def test_the_judge_must_run_on_a_distinct_provider(writer, judge, breach):
         assert breach in found
 
 
-def test_the_writers_are_the_vendors_the_sweep_requested(sweep):
-    assert [v.name for v in judge_replay.writer_vendors(load_artifact(sweep))] == [
-        "openai"
-    ]
+def test_one_writer_from_the_judge_s_source_vendor_is_a_breach():
+    writers = ["openai/gpt-5.6", "anthropic/claude-sonnet-4-6"]
+
+    found = judge_replay.independence_breach(writers, "anthropic/claude-opus-5")
+
+    assert "source vendor 'anthropic'" in found
+
+
+def test_the_writers_are_the_routes_the_sweep_requested(sweep):
+    routes = judge_replay.writer_routes(load_artifact(sweep))
+
+    assert routes
+    assert all(route.startswith("openai/") for route in routes)
 
 
 def test_an_unpriced_route_reads_unpriced_never_zero(held):
@@ -374,7 +385,7 @@ def test_the_dry_run_sends_nothing_and_writes_the_requests(sweep, tmp_path, no_c
     assert written["record"]["command"] == "judge-replay"
 
 
-def test_the_command_refuses_a_judge_on_the_writers_vendor(
+def test_the_command_refuses_a_judge_from_the_writers_source_vendor(
     sweep, tmp_path, monkeypatch, no_call, capsys
 ):
     monkeypatch.setenv("KATRA_MODEL_REVIEW_VENDOR", "openai")
@@ -385,7 +396,30 @@ def test_the_command_refuses_a_judge_on_the_writers_vendor(
     )
 
     assert code == 1
-    assert "both run vendor 'openai'" in capsys.readouterr().err
+    assert "source vendor 'openai'" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("model", "breach"),
+    [("anthropic/claude-opus-5", None), ("openai/gpt-5.6", "source vendor 'openai'")],
+)
+def test_a_judge_through_an_aggregator_is_read_by_its_slug(
+    sweep, tmp_path, monkeypatch, no_call, capsys, model, breach
+):
+    monkeypatch.setenv("KATRA_MODEL_REVIEW_VENDOR", "openrouter")
+    monkeypatch.setenv("KATRA_MODEL_REVIEW_MODEL", model)
+    monkeypatch.setenv(charges_env_var_for("openrouter"), "direct")
+    out = tmp_path / "requests.json"
+
+    assert judge_replay.command_judge_replay(_args(sweep, out, dry_run=True)) == 0
+
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert written["judge"]["route"] == f"openrouter/{model}"
+    if breach is None:
+        assert written["independence_breach"] is None
+        assert "independence distinct source vendors" in capsys.readouterr().out
+    else:
+        assert breach in written["independence_breach"]
 
 
 def test_the_command_refuses_a_cost_above_the_accepted_amount(
@@ -565,17 +599,19 @@ def test_each_answer_is_written_as_it_arrives(sweep, tmp_path, monkeypatch):
 
 
 def test_a_sweep_that_names_no_writer_is_refused():
-    breach = judge_replay.independence_breach([], vendor_for("anthropic"))
+    breach = judge_replay.independence_breach([], "anthropic/claude-opus-5")
 
     assert breach is not None
     assert "records no requested model" in breach
 
 
-def test_a_gateway_refusal_names_the_direct_vendor_baseline(
+def test_a_writer_from_the_judge_s_source_vendor_is_refused(
     sweep, tmp_path, monkeypatch, no_call, capsys
 ):
     monkeypatch.setattr(
-        judge_replay, "writer_vendors", lambda _artifact: (vendor_for("openrouter"),)
+        judge_replay,
+        "writer_routes",
+        lambda _artifact: ("openrouter/anthropic/claude-opus-4.7",),
     )
 
     code = judge_replay.command_judge_replay(
@@ -584,8 +620,7 @@ def test_a_gateway_refusal_names_the_direct_vendor_baseline(
 
     err = capsys.readouterr().err
     assert code == 1
-    assert "pick its upstream" in err
-    assert judge_replay.DIRECT_BASELINE in err
+    assert "source vendor 'anthropic'" in err
 
 
 def test_a_case_whose_sources_moved_is_left_out(tmp_path):

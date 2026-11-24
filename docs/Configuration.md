@@ -485,7 +485,7 @@ model = "claude-sonnet-5"
 
 A lane key names one of the three tiers. The loader refuses a lane key under a
 framework this build does not carry, and the package check refuses a lane that
-the package does not declare. Under `distinct_model` or `distinct_provider`,
+the package does not declare. Under `distinct_model` or `distinct_source_vendor`,
 each lane key must sit apart from its framework's critic, as
 `analyze/<framework>` must.
 
@@ -735,10 +735,10 @@ itself independently ends up not doing so, and reporting nothing unusual.
 | --- | --- |
 | `shared` | Nothing. Criticism may run on the very model it checks. |
 | `distinct_model` | Every framework's critic runs a different model from its own analysis. |
-| `distinct_provider` | The serving organisation must differ too. |
+| `distinct_source_vendor` | Every framework's critic runs a model from a different source vendor: the company that made the model. |
 
 **A label is not the thing it names.** An aggregator's vendor key says nothing
-about which provider or which build answered.
+about which model answered, so each policy reads the model ID.
 
 `distinct_model` compares the model identifiers with any gateway segment
 stripped, so `openai/gpt-5.6` through OpenRouter and `gpt-5.6` direct are one
@@ -746,17 +746,28 @@ model and not two. A family a vendor spells its own way is still two —
 Bedrock's `anthropic.claude-opus-5` beside `claude-opus-5` — because nothing
 here holds a cross-vendor identity for a build.
 
-`distinct_provider` cannot be satisfied by a gateway route on either side, and
-says so at load. An aggregator picks the upstream per call, so no configuration
-can state that two such routes reached different providers. Refusing is the
-point: unknown routing quietly satisfying a strict policy is the failure the
-setting exists to prevent.
+`distinct_source_vendor` compares the source vendor of each model. The vendor
+that serves the model does not matter. Each vendor row states how to read the
+source vendor:
+
+| Vendor | Source vendor |
+| --- | --- |
+| `anthropic` | Anthropic |
+| `openai` | OpenAI |
+| `gemini` | Google |
+| `vertex` | From the model ID: `claude-…` is Anthropic, `gemini-…` is Google |
+| `bedrock` | From the segment after an optional scope: `us.anthropic.…` is Anthropic, `amazon.…` is Amazon |
+| `openrouter` | From the segment before the slash: `anthropic/…` is Anthropic, `meta-llama/…` is Meta |
+
+So `anthropic/claude-opus-4.7` through `openrouter` and `claude-opus-5` on
+`vertex` are both Anthropic models, and the policy refuses the pair. A model ID
+whose source vendor the row cannot read is a load error that names the route.
 
 **None of these makes a review more accurate.** Independence bounds *correlated*
 failure — an analysis and a critic on one model share that model's blind spots,
 so the critic improves consistency and cannot notice what the model does not
 know. It does not make a second opinion a better one, and no measurement in this
-repository says a second provider finds more. Choose it as a risk control, and
+repository says a second source vendor finds more. Choose it as a risk control, and
 weigh it against a second credential, a second quota and a dearer job.
 
 Asking for more than `shared` while the node map leaves `critic/*` on the tier
@@ -769,7 +780,7 @@ To get an independent reviewer, point criticism at `review` and give that tier a
 different selection:
 
 ```toml
-review_independence = "distinct_provider"
+review_independence = "distinct_source_vendor"
 
 [tiers.review]
 vendor = "anthropic"

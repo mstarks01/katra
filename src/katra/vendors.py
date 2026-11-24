@@ -91,6 +91,14 @@ RefusalShape = Literal["stop-details", "none"]
 #: bound when the response arrives, on both rules.
 SchemaRule = Literal["as_built", "bounds_described"]
 
+#: The company that made a model, as a **Source Vendor**. It is not the vendor
+#: that serves the model: ``openrouter`` and ``bedrock`` serve models from many
+#: source vendors. A model whose source vendor is not in this set has no source
+#: vendor that this service can read.
+SourceVendor = Literal[
+    "anthropic", "openai", "google", "meta", "mistral", "amazon", "deepseek", "xai"
+]
+
 # The one reasoning knob, uniform across vendors: LiteLLM maps it to adaptive
 # ``thinking`` plus ``output_config.effort`` on Anthropic (identically via
 # Vertex), to ``thinkingConfig`` on Gemini, and passes it through on OpenAI
@@ -374,6 +382,27 @@ class _FormRule:
     family: re.Pattern[str]
     pinned: re.Pattern[str] | None
     hint: str
+
+
+@dataclass(frozen=True)
+class _SourceSegment:
+    """Where a model ID names its **Source Vendor**, on a vendor that serves
+    models from more than one source vendor.
+
+    The ID matches ``before``, then one key of ``makers``, then ``after``. The
+    key gives the source vendor. An ID that does not match names no source
+    vendor that this service can read.
+    """
+
+    before: str
+    makers: Mapping[str, SourceVendor]
+    after: str
+
+    def read(self, model: str) -> SourceVendor | None:
+        """The source vendor that ``model`` names, or ``None``."""
+        keys = "|".join(map(re.escape, self.makers))
+        found = re.match(rf"{self.before}({keys}){self.after}", model)
+        return None if found is None else self.makers[found.group(1)]
 
 
 # Floating forms, rejected for every vendor and family. This half stays an
@@ -924,9 +953,7 @@ class Vendor:
     #: than one, is refused, because a Baseline's whole value is that its
     #: sweeps are comparable and the unexplained spread would land inside one.
     #: Nothing refuses to *run* the vendor; an analysis is an analysis. The
-    #: other readers: the ``distinct_provider`` independence check in
-    #: :mod:`~katra.model_tiers` refuses such a route,
-    #: :func:`~katra.binding.build_tier_adapters` captures its
+    #: other readers: :func:`~katra.binding.build_tier_adapters` captures its
     #: charge, ``evals/harness/prices.py`` refuses to price it from a third
     #: party's entry, and ``evals/harness/run.py`` records its upstream pins
     #: with a sweep.
@@ -935,6 +962,13 @@ class Vendor:
     #: row nobody has written: any route in front of more than one provider
     #: says ``False`` here, whoever operates it.
     routes_to_one_provider: bool
+    #: How this vendor's model ID names its **Source Vendor**.
+    #:
+    #: A vendor that serves the models of one source vendor states that source
+    #: vendor. A vendor that serves the models of more than one states a
+    #: :class:`_SourceSegment`, and the model ID gives the source vendor.
+    #: :meth:`source_vendor_of` is the reader.
+    source_vendor_rule: SourceVendor | _SourceSegment
     #: How a deployment pins which upstream providers a request may reach, or
     #: ``None`` where there is nothing to pin.
     #:
@@ -1157,6 +1191,14 @@ class Vendor:
             )
         return modes[0]
 
+    def source_vendor_of(self, model: str) -> SourceVendor | None:
+        """The **Source Vendor** of ``model`` on this vendor, or ``None``.
+
+        ``None`` means that the ID names no source vendor this service can read.
+        """
+        rule = self.source_vendor_rule
+        return rule.read(model) if isinstance(rule, _SourceSegment) else rule
+
     def route(self, model: str) -> str:
         """The router string LiteLLM dispatches on, e.g. ``vertex_ai/gemini-2.5-pro``.
 
@@ -1351,6 +1393,13 @@ VENDORS: dict[VendorName, Vendor] = {
         # the response body's ``modelVersion``, cut at its ``@``.
         served_trust="provider_reported",
         routes_to_one_provider=True,
+        # Vertex serves Google's Gemini and Anthropic's Claude under bare IDs,
+        # and the family word at the start of the ID gives the source vendor.
+        source_vendor_rule=_SourceSegment(
+            before="",
+            makers={"claude": "anthropic", "gemini": "google"},
+            after="-",
+        ),
         upstream_pin=None,
         prompt_cache=None,
         # A Claude model on Vertex answers in Anthropic's message shape, but no
@@ -1397,6 +1446,8 @@ VENDORS: dict[VendorName, Vendor] = {
         # transformation.
         served_trust="provider_reported",
         routes_to_one_provider=True,
+        # The Claude API serves Anthropic's models only.
+        source_vendor_rule="anthropic",
         upstream_pin=None,
         prompt_cache=None,
         # The body holds ``stop_details`` beside ``stop_reason="refusal"``.
@@ -1417,6 +1468,8 @@ VENDORS: dict[VendorName, Vendor] = {
         # OpenAI-shaped response dict.
         served_trust="provider_reported",
         routes_to_one_provider=True,
+        # The OpenAI API serves OpenAI's models only.
+        source_vendor_rule="openai",
         upstream_pin=None,
         prompt_cache=_GPT_PROMPT_CACHE,
         # An OpenAI-shaped body has no category field.
@@ -1439,6 +1492,21 @@ VENDORS: dict[VendorName, Vendor] = {
         # fills ``model_response.model`` from the request.
         served_trust="requested_echo",
         routes_to_one_provider=True,
+        # Bedrock serves the models of many source vendors. Each ID starts with
+        # the source vendor's own segment and a dot, after an optional scope
+        # segment: ``us.anthropic.claude-sonnet-4-5``, ``amazon.nova-pro-v1:0``.
+        source_vendor_rule=_SourceSegment(
+            before=_SCOPE_SEGMENT,
+            makers={
+                "anthropic": "anthropic",
+                "amazon": "amazon",
+                "meta": "meta",
+                "mistral": "mistral",
+                "deepseek": "deepseek",
+                "openai": "openai",
+            },
+            after=r"\.",
+        ),
         upstream_pin=None,
         prompt_cache=None,
         # No measurement shows that a Bedrock body holds ``stop_details``.
@@ -1519,6 +1587,8 @@ VENDORS: dict[VendorName, Vendor] = {
         # body's ``modelVersion``.
         served_trust="provider_reported",
         routes_to_one_provider=True,
+        # The Developer API serves Google's models only.
+        source_vendor_rule="google",
         upstream_pin=None,
         prompt_cache=None,
         # A Gemini body names a harm category in ``safetyRatings``, which the
@@ -1606,6 +1676,23 @@ VENDORS: dict[VendorName, Vendor] = {
         # slug the request named. Measured, not inferred: see above.
         served_trust="requested_echo",
         routes_to_one_provider=False,
+        # OpenRouter serves the models of many source vendors. Each slug starts
+        # with the source vendor's own segment and a slash:
+        # ``anthropic/claude-opus-4.7``, ``meta-llama/llama-4-maverick``.
+        source_vendor_rule=_SourceSegment(
+            before="",
+            makers={
+                "anthropic": "anthropic",
+                "openai": "openai",
+                "google": "google",
+                "meta-llama": "meta",
+                "mistralai": "mistral",
+                "amazon": "amazon",
+                "deepseek": "deepseek",
+                "x-ai": "xai",
+            },
+            after="/",
+        ),
         # OpenRouter's provider routing object. ``only`` is the allowlist of
         # provider slugs, and ``allow_fallbacks`` off keeps the gateway inside
         # it. Endpoint variants take the slug with a tag: ``openai/flex``.
@@ -1716,6 +1803,17 @@ def vendor_for_route(route: str) -> Vendor:
     raise ValueError(
         f"no vendor serves the prefix {prefix + separator!r} (known: {known})"
     )
+
+
+def source_vendor_for_route(route: str) -> SourceVendor | None:
+    """The **Source Vendor** of the model on ``route``, or ``None``.
+
+    ``None`` means that the model ID names no source vendor this service can
+    read. Raises as :func:`vendor_for_route` does on a string that is not a
+    route.
+    """
+    vendor = vendor_for_route(route)
+    return vendor.source_vendor_of(route.removeprefix(vendor.prefix))
 
 
 def join_served(requested_route: str, served_model: str) -> str:
