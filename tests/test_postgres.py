@@ -32,8 +32,16 @@ from katra.sql_store import (
     database_url,
     engine_for,
 )
+from katra.store_backends import build_store
 from katra.store_settings import StoreConfigError
-from tests.sql_stores import admin, lane_env, lane_url, new_database, upgrade
+from tests.sql_stores import (
+    admin,
+    lane_env,
+    lane_url,
+    new_database,
+    postgres_env,
+    upgrade,
+)
 
 URL = "postgresql+asyncpg://katra@db.internal:5432/jobs"
 
@@ -341,6 +349,18 @@ class TestTheLane:
                 await engine.dispose()
 
         assert asyncio.run(scenario()) is True
+
+    def test_a_closed_store_serves_its_next_call_from_a_new_pool(self, tmp_path):
+        """The app closes the pooled connections of its store when it stops,
+        and a later app can start over the same store."""
+        store = build_store(postgres_env(tmp_path))
+
+        async def scenario() -> None:
+            await store.startup_check()
+            await store.close()
+            await store.startup_check()
+
+        asyncio.run(scenario())
 
     def test_a_server_without_tls_is_refused(self):
         plain = make_url(os.environ["TEST_POSTGRES_PLAIN_URL"])

@@ -222,7 +222,8 @@ class TestAnExplicitNegativeIsNotAnExpectedPositive:
     """
 
     @pytest.fixture(scope="class")
-    def negative_case(self, corpus):
+    @classmethod
+    def negative_case(cls, corpus):
         case = next(entry for entry in corpus if entry.id == "04-ml-inference-service")
         assert [
             ref.requirement

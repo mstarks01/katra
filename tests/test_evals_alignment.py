@@ -72,7 +72,8 @@ class TestAnApprovedAliasReachesEveryFigure:
     """
 
     @pytest.fixture(scope="class")
-    def probe(self):
+    @classmethod
+    def probe(cls):
         golden = case("09")
         model = renamed(golden.model, "process:catalogue-spreadsheet", "Spreadsheet")
         return golden, scored(golden, model)
@@ -193,7 +194,8 @@ class TestInteractionsAlignOneToOne:
     """Between one pair of endpoints, a label or the discriminators decide."""
 
     @pytest.fixture(scope="class")
-    def parallel(self):
+    @classmethod
+    def parallel(cls):
         """Case 01 with a second flow between its first flow's endpoints."""
         golden = case("01")
         model = golden.model.model_copy(deep=True)

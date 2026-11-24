@@ -388,7 +388,7 @@ def test_a_run_to_the_report_reaches_the_pause_only_for_its_controls():
 
 
 @pytest.mark.parametrize(
-    ("asks", "continues", "resumed"), itertools.product((False, True), repeat=3)
+    ("asks", "continues", "resumed"), list(itertools.product((False, True), repeat=3))
 )
 def test_a_run_starts_from_a_resumption_where_its_graph_has_the_resume_entry(
     asks, continues, resumed

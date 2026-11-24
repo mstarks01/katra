@@ -1361,6 +1361,24 @@ class ChangedAfterListing:
         return listed
 
 
+class StopInEachDelete:
+    """A store that sets ``stop`` in each delete of a job, and records the
+    deleted job IDs."""
+
+    def __init__(self, store) -> None:
+        self._store = store
+        self.stop = asyncio.Event()
+        self.deleted: list[str] = []
+
+    def __getattr__(self, name: str):
+        return getattr(self._store, name)
+
+    async def delete(self, job_id: str, owner_id: str, **kwargs):
+        self.deleted.append(job_id)
+        self.stop.set()
+        return await self._store.delete(job_id, owner_id, **kwargs)
+
+
 class TestTheRetentionSweep:
     """#1530: the sweep deletes each terminal job older than the period, through
     the delete of the route."""
@@ -1392,9 +1410,18 @@ class TestTheRetentionSweep:
         removed, saved = asyncio.run(race())
         assert isinstance(removed, int) != saved
 
+    def test_a_set_stop_ends_the_sweep_after_the_delete_that_runs(self, store):
+        jobs = [last_updated(store, "completed", days_ago=2) for _ in range(3)]
+        stopping = StopInEachDelete(store)
+        asyncio.run(store_backends.expire_jobs(stopping, 1, stopping.stop))
+        assert len(stopping.deleted) == 1
+        assert sum(asyncio.run(store.get(job)) is not None for job in jobs) == 2
+
     def test_it_keeps_a_job_that_changes_after_the_listing(self, store):
         job = last_updated(store, "completed", days_ago=2)
-        asyncio.run(store_backends.expire_jobs(ChangedAfterListing(store), 1))
+        asyncio.run(
+            store_backends.expire_jobs(ChangedAfterListing(store), 1, asyncio.Event())
+        )
         assert asyncio.run(store.get(job)) is not None
 
     @pytest.mark.parametrize(
@@ -1403,19 +1430,19 @@ class TestTheRetentionSweep:
     def test_it_deletes_a_terminal_job_older_than_the_period(self, store, status):
         old = last_updated(store, status, days_ago=30)
         recent = last_updated(store, status, days_ago=29)
-        asyncio.run(store_backends.expire_jobs(store, 30))
+        asyncio.run(store_backends.expire_jobs(store, 30, asyncio.Event()))
         assert asyncio.run(store.get(old)) is None
         assert asyncio.run(store.get(recent)) is not None
 
     @pytest.mark.parametrize("status", ["queued", "running"])
     def test_it_never_deletes_a_job_in_flight(self, store, status):
         job = last_updated(store, status, days_ago=400)
-        asyncio.run(store_backends.expire_jobs(store, 1))
+        asyncio.run(store_backends.expire_jobs(store, 1, asyncio.Event()))
         assert asyncio.run(store.get(job)).status == status
 
     def test_a_swept_job_keeps_its_usage_row(self, store):
         last_updated(store, "failed", days_ago=2, reserved=900)
-        asyncio.run(store_backends.expire_jobs(store, 1))
+        asyncio.run(store_backends.expire_jobs(store, 1, asyncio.Event()))
         assert asyncio.run(store.owned_jobs("alice")) == []
         assert reserve(store, new_record(reserved=200)).outcome == "over_owner_budget"
 
@@ -1424,7 +1451,7 @@ class TestTheRetentionSweep:
     ):
         job = last_updated(store, "completed", days_ago=2)
         with caplog.at_level(logging.INFO, logger="katra.store_backends"):
-            asyncio.run(store_backends.expire_jobs(store, 1))
+            asyncio.run(store_backends.expire_jobs(store, 1, asyncio.Event()))
         [line] = caplog.messages
         assert re.fullmatch(
             f"deleted job {job} of owner alice: cause retention,"
@@ -1480,7 +1507,7 @@ class TestAnUnreadableJobHasEnded:
     def test_the_retention_sweep_removes_it(self, store, status):
         old = unreadable(store, status, days_ago=30)
         recent = unreadable(store, status, days_ago=29)
-        asyncio.run(store_backends.expire_jobs(store, 30))
+        asyncio.run(store_backends.expire_jobs(store, 30, asyncio.Event()))
         assert asyncio.run(store.owned(old, "alice")) is None
         assert asyncio.run(store.owned(recent, "alice")) is not None
 
@@ -1619,7 +1646,7 @@ class TestAFailedObjectDelete:
         assert admission.outcome == "over_rate"
         assert asyncio.run(objects.get(sources)) is not None
         objects.failing = set()
-        assert asyncio.run(store.sweep_orphans(later())) == 1
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 1
         assert asyncio.run(objects.get(sources)) is None
 
     def test_a_child_of_a_deleted_parent_leaves_no_object(self, held):
@@ -1711,7 +1738,7 @@ class TestARepeatedSave:
 
         async def put_then_sweep(key: str, data: bytes) -> None:
             await put(key, data)
-            await store.sweep_orphans(later())
+            await store.sweep_orphans(later(), asyncio.Event())
 
         objects.put = put_then_sweep
         asyncio.run(store.save(record))
@@ -1723,21 +1750,39 @@ class TestTheOrphanSweep:
 
     def test_it_removes_nothing_that_a_row_names(self, store):
         job = completed(store)
-        assert asyncio.run(store.sweep_orphans(later())) == 0
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 0
         assert asyncio.run(store.get(job)).report is not None
 
     def test_it_deletes_an_old_object_that_no_row_names(self, held):
         store, objects = held
         key = object_key("alice", new_record().id, "sources.json")
         asyncio.run(objects.put(key, b"[]"))
-        assert asyncio.run(store.sweep_orphans(later())) == 1
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 1
         assert asyncio.run(objects.get(key)) is None
+
+    def test_a_set_stop_ends_the_sweep_after_the_delete_that_runs(self, held):
+        store, objects = held
+        keys = [object_key("alice", new_record().id, "sources.json") for _ in range(5)]
+        for key in keys:
+            asyncio.run(objects.put(key, b"[]"))
+        stop = asyncio.Event()
+        deleted = []
+
+        async def delete_then_stop(key: str) -> bool:
+            deleted.append(key)
+            stop.set()
+            return await objects._objects.delete(key)
+
+        objects.delete = delete_then_stop
+        assert asyncio.run(store.sweep_orphans(later(), stop)) == 1
+        assert len(deleted) == 1
+        assert sum(asyncio.run(objects.get(key)) is not None for key in keys) == 4
 
     def test_it_keeps_a_young_object(self, held):
         store, objects = held
         key = object_key("alice", new_record().id, "sources.json")
         asyncio.run(objects.put(key, b"[]"))
-        assert asyncio.run(store.sweep_orphans(earlier())) == 0
+        assert asyncio.run(store.sweep_orphans(earlier(), asyncio.Event())) == 0
         assert asyncio.run(objects.get(key)) == b"[]"
 
     def test_it_keeps_each_object_of_a_job_that_holds_it(self, held):
@@ -1745,7 +1790,7 @@ class TestTheOrphanSweep:
         job = completed(store)
         queued = new_record()
         asyncio.run(admit(store, queued))
-        assert asyncio.run(store.sweep_orphans(later())) == 0
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 0
         assert asyncio.run(store.get(job)).report is not None
         assert asyncio.run(store.get(queued.id)) is not None
 
@@ -1759,7 +1804,7 @@ class TestTheOrphanSweep:
         asyncio.run(admit(store, queued))
         orphan = object_key("alice", new_record().id, "sources.json")
         asyncio.run(objects.put(orphan, b"[]"))
-        assert asyncio.run(store.sweep_orphans(later())) == 1
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 1
         assert asyncio.run(objects.get(orphan)) is None
         assert all(asyncio.run(store.get(job)).report for job in named)
         assert asyncio.run(store.get(queued.id)) is not None
@@ -1771,7 +1816,7 @@ class TestTheOrphanSweep:
         asyncio.run(admit(store, queued))
         report = object_key("alice", queued.id, "report.json")
         asyncio.run(objects.put(report, b"{}"))
-        assert asyncio.run(store.sweep_orphans(later())) == 0
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 0
         assert asyncio.run(objects.get(report)) == b"{}"
 
     def test_it_deletes_an_old_report_that_a_terminal_row_does_not_name(self, held):
@@ -1783,7 +1828,7 @@ class TestTheOrphanSweep:
         report = object_key("alice", queued.id, "report.json")
         asyncio.run(objects.put(report, b"{}"))
         asyncio.run(store.fail_in_flight())
-        assert asyncio.run(store.sweep_orphans(later())) == 1
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 1
         assert asyncio.run(objects.get(report)) is None
         assert asyncio.run(store.get(queued.id)).status == "failed"
 
@@ -1793,7 +1838,7 @@ class TestTheOrphanSweep:
         asyncio.run(admit(store, queued))
         key = object_key("bob", queued.id, "sources.json")
         asyncio.run(objects.put(key, b"[]"))
-        assert asyncio.run(store.sweep_orphans(later())) == 1
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 1
         assert asyncio.run(store.get(queued.id)) is not None
 
     def test_it_never_deletes_a_key_that_the_service_never_writes(self, held):
@@ -1809,7 +1854,7 @@ class TestTheOrphanSweep:
         ]
         for key in strays:
             asyncio.run(objects.put(key, b"kept"))
-        assert asyncio.run(store.sweep_orphans(later())) == 0
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 0
         assert [asyncio.run(objects.get(key)) for key in strays] == [b"kept"] * 6
 
     def test_one_pass_writes_one_line_with_its_count(self, held, caplog, monkeypatch):
@@ -1818,7 +1863,7 @@ class TestTheOrphanSweep:
         key = object_key("alice", new_record().id, "sources.json")
         asyncio.run(objects.put(key, b"[]"))
         with caplog.at_level(logging.INFO, logger="katra.store_backends"):
-            asyncio.run(store_backends.remove_orphans(store))
+            asyncio.run(store_backends.remove_orphans(store, asyncio.Event()))
         assert caplog.messages == ["the orphan sweep removed 1 object(s)"]
 
 
@@ -1831,7 +1876,7 @@ class SweepSpy(InMemoryJobStore):
         self.passes = 0
         self.failures = failures
 
-    async def sweep_orphans(self, before: datetime) -> int:
+    async def sweep_orphans(self, before: datetime, stop: asyncio.Event) -> int:
         self.passes += 1
         if self.passes <= self.failures:
             raise OSError("the object store cannot list")
@@ -1877,6 +1922,162 @@ class TestTheSweepLoop:
         monkeypatch.setattr(store, "expired", refused)
         asyncio.run(passes_in_lifespan(store, 1))
         assert store.passes == 1
+
+
+class CloseSpy(InMemoryJobStore):
+    """A ``memory`` store that records the tasks still open when it closes."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.open_at_close: set[asyncio.Task] | None = None
+
+    async def close(self) -> None:
+        current = asyncio.current_task()
+        self.open_at_close = {
+            task for task in asyncio.all_tasks() if task is not current
+        }
+
+
+class SlowSweep(InMemoryJobStore):
+    """A ``memory`` store whose orphan sweep yields to the event loop before
+    it ends."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.ended = False
+
+    async def sweep_orphans(self, before: datetime, stop: asyncio.Event) -> int:
+        self.started.set()
+        await asyncio.sleep(0.01)
+        self.ended = True
+        return 0
+
+
+class SlowRetention(SweepSpy):
+    """A store whose retention sweep yields to the event loop before it lists
+    no job, and that counts the passes of the orphan sweep."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+
+    async def expired(self, before: datetime) -> list[tuple[str, str]]:
+        self.started.set()
+        await asyncio.sleep(0.01)
+        return []
+
+
+class RefusedStartup(CloseSpy):
+    """A store whose startup check refuses the store."""
+
+    async def startup_check(self) -> None:
+        raise StoreConfigError("the schema is old")
+
+
+class StalledSweep(CloseSpy):
+    """A store whose orphan sweep never ends."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+
+    async def sweep_orphans(self, before: datetime, stop: asyncio.Event) -> int:
+        self.started.set()
+        await asyncio.Event().wait()
+        return 0
+
+
+class TestTheStoreClose:
+    """The lifespan closes the store when the app stops, after the sweeps stop.
+
+    No cancel stops the sweep, because a cancel that stops an ``aiosqlite``
+    connect leaves the connection open. A pass ends at its next check of the
+    stop, and the loop checks the stop between its two sweeps.
+    """
+
+    def test_the_lifespan_closes_the_store_after_the_sweep_stops(self):
+        store = CloseSpy()
+
+        async def serve() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                assert store.open_at_close is None
+
+        asyncio.run(serve())
+        assert store.open_at_close == set()
+
+    def test_the_lifespan_closes_the_store_when_the_app_fails(self):
+        store = CloseSpy()
+
+        async def fail() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                raise RuntimeError("the app failed")
+
+        with pytest.raises(RuntimeError, match="the app failed"):
+            asyncio.run(fail())
+        assert store.open_at_close == set()
+
+    def test_the_lifespan_lets_a_running_pass_end(self):
+        store = SlowSweep()
+
+        async def stop_in_a_pass() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                await store.started.wait()
+
+        asyncio.run(stop_in_a_pass())
+        assert store.ended
+
+    def test_a_stop_in_the_retention_sweep_skips_the_orphan_sweep(self):
+        store = SlowRetention()
+
+        async def stop_in_a_pass() -> None:
+            async with store_backends.store_lifespan(
+                store, {"KATRA_RETENTION_DAYS": "30"}
+            ):
+                await store.started.wait()
+
+        asyncio.run(stop_in_a_pass())
+        assert store.passes == 0
+
+    def test_the_store_closes_where_the_wait_for_the_sweep_is_cancelled(self):
+        store = StalledSweep()
+
+        async def cancel_the_stop() -> None:
+            async def serve() -> None:
+                async with store_backends.store_lifespan(store, {}):
+                    await store.started.wait()
+
+            app = asyncio.create_task(serve())
+            await store.started.wait()
+            await asyncio.sleep(0.01)
+            app.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await app
+
+        asyncio.run(cancel_the_stop())
+        assert store.open_at_close is not None
+
+    def test_the_store_closes_where_the_startup_check_fails(self):
+        store = RefusedStartup()
+
+        async def start() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                pass
+
+        with pytest.raises(StoreConfigError, match="the schema is old"):
+            asyncio.run(start())
+        assert store.open_at_close == set()
+
+    def test_a_closed_store_serves_its_next_call(self, store):
+        """A later app can start over the store that an app closed."""
+        record = new_record()
+
+        async def close_then_read() -> JobRecord | None:
+            await admit(store, record)
+            await store.close()
+            return await store.get(record.id)
+
+        assert asyncio.run(close_then_read()).id == record.id
 
 
 class TestTheRetentionSetting:
@@ -2456,7 +2657,7 @@ class TestOwnerFileObjects:
         foreign = file_key("bob", named.id)
         asyncio.run(objects.put(orphan, b"x"))
         asyncio.run(objects.put(foreign, b"x"))
-        assert asyncio.run(store.sweep_orphans(later())) == 2
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 2
         assert asyncio.run(objects.get(orphan)) is None
         assert asyncio.run(store.file_text(named.id, "alice")) is not None
 
@@ -2464,7 +2665,7 @@ class TestOwnerFileObjects:
         store, objects = held
         orphan = file_key("alice", owner_file()[0].id)
         asyncio.run(objects.put(orphan, b"x"))
-        assert asyncio.run(store.sweep_orphans(earlier())) == 0
+        assert asyncio.run(store.sweep_orphans(earlier(), asyncio.Event())) == 0
 
 
 #: The bounds of a Control save in the tests: a byte limit far over each text.
@@ -3074,7 +3275,7 @@ class TestControlEvidenceObjects:
         foreign = evidence_key("bob", control_id, listed)
         for key in (unlisted, unknown, foreign):
             asyncio.run(objects.put(key, b"x"))
-        assert asyncio.run(store.sweep_orphans(later())) == 3
+        assert asyncio.run(store.sweep_orphans(later(), asyncio.Event())) == 3
         assert self.keys(objects) == {evidence_key("alice", control_id, listed)}
         assert asyncio.run(store.read_evidence(control_id, listed, "alice")) is not None
 
@@ -3084,4 +3285,4 @@ class TestControlEvidenceObjects:
             "alice", f"control-{uuid4().hex}", f"evidence-{uuid4().hex}"
         )
         asyncio.run(objects.put(orphan, b"x"))
-        assert asyncio.run(store.sweep_orphans(earlier())) == 0
+        assert asyncio.run(store.sweep_orphans(earlier(), asyncio.Event())) == 0
