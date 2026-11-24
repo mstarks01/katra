@@ -1,0 +1,107 @@
+{
+  "manifest_version": 1,
+  "run_dir": "/home/me/katra/evals/runs/20261024T-sonnet-medium-sweep",
+  "cases": [
+    "02-iot-fleet-telemetry",
+    "03-batch-data-pipeline",
+    "04-ml-inference-service",
+    "05-cookbook-queue-webapp",
+    "06-cookbook-online-game",
+    "07-cicd-store-deploy",
+    "08-sso-identity-broker",
+    "09-cookbook-sokify-retail",
+    "10-cookbook-generic-cms",
+    "11-sparse-shift-scheduling",
+    "12-overclaiming-supplier-portal",
+    "13-dispatch-control-plane",
+    "16-library-lending-interview"
+  ],
+  "trusted": [
+    false
+  ],
+  "artifact_version": 7,
+  "mode": "analysis",
+  "frameworks": [
+    "stride"
+  ],
+  "repo_commit": {
+    "commit": "5d75b23f54eeea6fe50e34917615881ec8468398",
+    "clean": true
+  },
+  "corpus_digest": "081b7ff674ceb9a7d7725c6336a1243f4ff8a2a501982cb73cc5d7efbd50296d",
+  "flow_identity_version": 2,
+  "models": {
+    "tiers_config_version": 9,
+    "tiers": {
+      "base": {
+        "vendor": "anthropic",
+        "model": "claude-haiku-4-5"
+      },
+      "strong": {
+        "vendor": "anthropic",
+        "model": "claude-sonnet-5"
+      },
+      "review": {
+        "vendor": "anthropic",
+        "model": "claude-sonnet-5"
+      }
+    }
+  },
+  "gating": "tier-1-structural-only",
+  "build": {
+    "analysis-service": "0.1.0",
+    "google-adk": "2.5.0",
+    "google-genai": "2.11.0",
+    "litellm": "1.104.0"
+  },
+  "sampling_config_version": 5,
+  "sampling": {
+    "base": {
+      "temperature": null,
+      "top_p": null,
+      "seed": null,
+      "max_output_tokens": 16384,
+      "candidate_count": 1,
+      "presence_penalty": null,
+      "frequency_penalty": null,
+      "thinking": null,
+      "constrain_output": true,
+      "structured_output": "auto"
+    },
+    "strong": {
+      "temperature": null,
+      "top_p": null,
+      "seed": null,
+      "max_output_tokens": 64000,
+      "candidate_count": 1,
+      "presence_penalty": null,
+      "frequency_penalty": null,
+      "thinking": "medium",
+      "constrain_output": true,
+      "structured_output": "auto"
+    },
+    "review": {
+      "temperature": null,
+      "top_p": null,
+      "seed": null,
+      "max_output_tokens": 64000,
+      "candidate_count": 1,
+      "presence_penalty": null,
+      "frequency_penalty": null,
+      "thinking": null,
+      "constrain_output": true,
+      "structured_output": "auto"
+    }
+  },
+  "instruction": {
+    "assert": "735ae9b2a901048144048559ec43984c3e6ecf5ee5b035910063457c103b75d8",
+    "analyze_stride_denial_of_service": "ba16cc98930383f1e7de78c4a66d7d563bc9e033756e04efdb59ad8714f3872b",
+    "analyze_stride_elevation_of_privilege": "387a28816d0c46884c14f4d97e9ba843abb012d86c5aef574631430095f41342",
+    "analyze_stride_information_disclosure": "a5c0e9757d38082b6d150e9d2965dcfba34912362461156cdeae01118a5dabbf",
+    "analyze_stride_repudiation": "a76c3651ec1d72795a2e825c91aa444288eb0f91af7d4a4063b162fb7cbb4332",
+    "analyze_stride_spoofing": "c8f96d5f613ce8a32aa83e658400b780e6b201b5246b07188dd1b1e5aca75c86",
+    "analyze_stride_tampering": "39a694622f865edbc086d1d4aaf6ca79a6848346c75dc9f7485f4360bdff08fd",
+    "critic_stride": "2fbf9bff94adebba074215073d4266c913add5c07a4c8088b57a9722bb6324c1",
+    "recritic_stride": "3699a8b782357cf8f484bc48c0f29b3e36ca25412c31045b884f51f28a3e4a32"
+  }
+}
