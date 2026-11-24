@@ -97,8 +97,9 @@ def attribute(row, verb_row):
 
     A matched row and the causes ``unstated``, ``verb``, ``position``,
     ``place`` and ``unled`` each have a rule. A verb ruling is ``different`` or
-    empty. Any other cause of ``losses.Cause``, and any other ruling, raise:
-    this audit has no evidence for them.
+    empty, and a ``different`` row's draft mechanism is one of
+    :data:`MECHANISMS`. Any other cause of ``losses.Cause``, ruling or
+    mechanism raises: this audit has no evidence for it.
     """
     cause = row["cause"]
     key = (row["case"], row["reference_index"])
