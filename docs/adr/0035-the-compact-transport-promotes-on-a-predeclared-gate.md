@@ -7,7 +7,9 @@
 - **Outcome so far**: applied four times, and the route has not promoted. The
   primary figure passes every time — 4.5%, 4.8%, 3.3%, 3.7% fewer emitted
   tokens. Versions 1 to 3 paid for it elsewhere. Version 4 fails only the
-  per-case veto, on case 10.
+  per-case veto, on case 10. The pooled margin of that veto was sized on
+  version 4's full arm, so version 4's reading under it comes after the rule.
+  The next application is the first that declares this veto before its run.
   - `compact-v1` failed three criteria: `duplicate-ref` 16 against a ceiling of
     0, first-pass validity 0.800 against a floor of 0.927, and the per-case veto
     on three cases. Every quality margin held.
@@ -46,9 +48,9 @@
   size the full route produces against itself. So the veto is now a margin
   below the full arm's *mean*, sized from the spread — the shape the six
   quality margins already use.
-- **What four applications settled.** The primary figure passed every time and
-  shrank over the first three — 4.5%, 4.8%, then **3.3%** — because each version
-  that made the format safer put identifier text back. The quality cost is
+- **What four applications settled.** The primary figure passed every time:
+  4.5%, 4.8%, **3.3%** and 3.7%. Version 3 put identifier text back to make the
+  format safer, and the figure fell to 3.3%. The quality cost is
   element naming, it is caused by dropping the `id` field, and dropping `id` is
   what the saving *is*. The fourth version cleared `duplicate-ref` with one
   sentence about flow refs and still fails the per-case veto, on case 10.

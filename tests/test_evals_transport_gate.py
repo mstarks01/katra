@@ -205,12 +205,12 @@ def test_a_figure_only_one_arm_has_is_a_veto():
     assert not passed and "precision unavailable" in reading
 
 
-def test_a_figure_one_arm_holds_in_some_sweeps_only_is_a_veto():
+@pytest.mark.parametrize("gapped", ["full", "compact"])
+def test_a_figure_one_arm_holds_in_some_sweeps_only_is_a_veto(gapped):
     """A gap in one sweep drops the case from that sweep alone, so it fails closed."""
-    full = _arm("full", 1000)
-    compact = _arm("compact", 900)
-    compact.artifacts[0]["mode_output"][0]["precision"] = None
-    passed, reading = gate._veto(full, compact)
+    arms = {"full": _arm("full", 1000), "compact": _arm("compact", 900)}
+    arms[gapped].artifacts[0]["mode_output"][0]["precision"] = None
+    passed, reading = gate._veto(arms["full"], arms["compact"])
     assert not passed and "precision unavailable" in reading
 
 

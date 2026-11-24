@@ -163,8 +163,9 @@ smaller by about what the delta prompt adds.
 `duplicate-ref` at 0 of 65 and first-pass validity tied with the full route at
 0.938. The one it fails is the per-case veto: case 10 falls more than two pooled
 standard deviations below the full route on recall, endpoint recall,
-interaction recall and precision. The route stays off. The saving is 3.7% of
-one node's output tokens, against a second code path and a latency this
+interaction recall and precision. That veto was sized on the same run's full
+arm, so this reading comes after the rule. The route stays off. The saving is
+3.7% of one node's output tokens, against a second code path and a latency this
 deployment cannot measure.
 
 The route has failed its own predeclared gate four times —
