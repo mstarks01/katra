@@ -57,7 +57,7 @@ def main(run_dir, out):
         raise SystemExit(f"the cases disagree on an identity: {differing}")
     manifest = {
         "manifest_version": MANIFEST_VERSION,
-        "run_dir": str(run_dir),
+        "run": run_dir.name,
         "cases": sorted(artifacts),
         "trusted": sorted({artifact["trusted"] for artifact in artifacts.values()}),
         **first,

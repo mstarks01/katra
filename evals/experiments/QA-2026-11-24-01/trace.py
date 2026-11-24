@@ -58,7 +58,14 @@ FIELDS = (
 
 
 def attribute(row, verb_row):
-    """The attribution, evidence, uncertainty and next action of one row."""
+    """The attribution, evidence, uncertainty and next action of one row.
+
+    A matched row and the causes ``unstated``, ``verb``, ``place`` and ``unled``
+    each have a rule. Any other cause of ``losses.Cause``, and a ``verb`` row
+    that QA-2026-11-17-13 did not read, raise: this audit has no evidence for
+    them.
+    """
+    cause = row["cause"]
     if row["status"] == "matched":
         return (
             "none: a structural match",
@@ -66,40 +73,55 @@ def attribute(row, verb_row):
             "the meaning is unreviewed, and the archive states no position",
             "rule the position on a sweep of today's contract",
         )
-    if row["cause"] == "unstated":
+    if cause == "unstated":
         return (
             "reference or scorer mismatch: the archive has no position field",
             "run.py scorecard",
             "the earliest loss is unknown",
             "a sweep of today's contract",
         )
-    if verb_row is not None and verb_row["ruling"] == "different":
+    if cause == "verb" and verb_row is not None:
+        if verb_row["ruling"] != "different":
+            return (
+                "reference or scorer mismatch: the ruled position is unstated",
+                "QA-2026-11-17-13 verb-rows.csv; run.py delivery",
+                "no ruling can move it on the archive",
+                "a sweep of today's contract",
+            )
         mechanism = verb_row["draft_mechanism"]
         return (
             f"generation substitution: the draft states {mechanism}",
-            "maintainer ruling 'different'; QA-2026-11-17-13 verb-rows.csv; run.py delivery",
+            (
+                "maintainer ruling 'different'; QA-2026-11-17-13 verb-rows.csv;"
+                " run.py delivery"
+            ),
             "the mechanism label is a classification no person reviewed",
             "a Phase 2 target"
             if mechanism in TARGETED
             else "a second signature; read, not targeted",
         )
-    if verb_row is not None:
+    if cause == "place":
         return (
-            "reference or scorer mismatch: the ruled position is unstated",
-            "QA-2026-11-17-13 verb-rows.csv; run.py delivery",
-            "no ruling can move it on the archive",
+            "unresolved: associated with the generation outcome",
+            "run.py delivery; QA-2026-11-17-12-E4",
+            "a rule led the lane to the place, and the lane filed no draft there",
             "a sweep of today's contract",
         )
-    elevation = row["lane"] == "elevation-of-privilege"
-    return (
-        "unresolved: associated with the generation outcome",
-        "run.py delivery; QA-2026-11-17-12-E4",
-        "the authority facts the row turns on are not traced"
-        if elevation
-        else "the lane had the place and filed no draft there",
-        "authority facts (#2054 group 2)"
-        if elevation
-        else "a sweep of today's contract",
+    if cause == "unled":
+        return (
+            "unresolved: associated with the generation outcome",
+            "run.py delivery; QA-2026-11-17-12-E4",
+            (
+                "no rule led the lane to the place; the facts that would lead it"
+                " are not traced"
+            ),
+            "authority facts (#2054 group 2)"
+            if row["lane"] == "elevation-of-privilege"
+            else "a lead rule for the place, priced offline",
+        )
+    raise ValueError(
+        f"{row['case']} #{row['reference_index']}: no attribution rule for"
+        f" status {row['status']!r}, cause {cause!r}"
     )
 
 

@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "run_dir": "/home/me/katra/evals/runs/20261024T-sonnet-medium-sweep",
+  "run": "20261024T-sonnet-medium-sweep",
   "cases": [
     "02-iot-fleet-telemetry",
     "03-batch-data-pipeline",
