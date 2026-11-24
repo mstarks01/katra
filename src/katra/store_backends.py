@@ -347,25 +347,26 @@ async def store_lifespan(
     always, because an owner delete can also leave an orphan, and the
     retention sweep where a retention period is set. When the app stops, a
     pass that runs ends at its next check of the stop. Then the app closes
-    the store. The store also closes where that wait raises or is cancelled.
+    the store. The store closes on every path: also where the startup fails,
+    and where the wait for the sweep raises or is cancelled.
     """
-    days = retention_days(env)
-    await store.startup_check()
-    # The scan is correct for a single instance only. It fails every queued or
-    # running job in the store, so with a second live instance on one store it
-    # would fail the jobs that instance still runs.
-    failed = await store.fail_in_flight()
-    if failed:
-        logger.warning(
-            "restart scan failed %d job(s) in flight: %s", len(failed), failed
-        )
-    stop = asyncio.Event()
-    sweep = asyncio.create_task(_sweep(store, days, stop))
     try:
-        yield
-    finally:
-        stop.set()
+        days = retention_days(env)
+        await store.startup_check()
+        # The scan is correct for a single instance only. It fails every queued
+        # or running job in the store, so with a second live instance on one
+        # store it would fail the jobs that instance still runs.
+        failed = await store.fail_in_flight()
+        if failed:
+            logger.warning(
+                "restart scan failed %d job(s) in flight: %s", len(failed), failed
+            )
+        stop = asyncio.Event()
+        sweep = asyncio.create_task(_sweep(store, days, stop))
         try:
-            await sweep
+            yield
         finally:
-            await store.close()
+            stop.set()
+            await sweep
+    finally:
+        await store.close()

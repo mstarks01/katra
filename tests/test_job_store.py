@@ -1361,6 +1361,24 @@ class ChangedAfterListing:
         return listed
 
 
+class StopInTheFirstDelete:
+    """A store that sets ``stop`` in each delete of a job, and records the
+    deleted job IDs."""
+
+    def __init__(self, store) -> None:
+        self._store = store
+        self.stop = asyncio.Event()
+        self.deleted: list[str] = []
+
+    def __getattr__(self, name: str):
+        return getattr(self._store, name)
+
+    async def delete(self, job_id: str, owner_id: str, **kwargs):
+        self.deleted.append(job_id)
+        self.stop.set()
+        return await self._store.delete(job_id, owner_id, **kwargs)
+
+
 class TestTheRetentionSweep:
     """#1530: the sweep deletes each terminal job older than the period, through
     the delete of the route."""
@@ -1391,6 +1409,13 @@ class TestTheRetentionSweep:
 
         removed, saved = asyncio.run(race())
         assert isinstance(removed, int) != saved
+
+    def test_a_set_stop_ends_the_sweep_after_the_delete_that_runs(self, store):
+        jobs = [last_updated(store, "completed", days_ago=2) for _ in range(3)]
+        stopping = StopInTheFirstDelete(store)
+        asyncio.run(store_backends.expire_jobs(stopping, 1, stopping.stop))
+        assert len(stopping.deleted) == 1
+        assert sum(asyncio.run(store.get(job)) is not None for job in jobs) == 2
 
     def test_it_keeps_a_job_that_changes_after_the_listing(self, store):
         job = last_updated(store, "completed", days_ago=2)
@@ -1943,6 +1968,13 @@ class SlowRetention(SweepSpy):
         return []
 
 
+class RefusedStartup(CloseSpy):
+    """A store whose startup check refuses the store."""
+
+    async def startup_check(self) -> None:
+        raise StoreConfigError("the schema is old")
+
+
 class StalledSweep(CloseSpy):
     """A store whose orphan sweep never ends."""
 
@@ -1959,8 +1991,9 @@ class StalledSweep(CloseSpy):
 class TestTheStoreClose:
     """The lifespan closes the store when the app stops, after the sweeps stop.
 
-    The sweep stops between two passes, because a cancel that stops an
-    ``aiosqlite`` connect leaves the connection open.
+    No cancel stops the sweep, because a cancel that stops an ``aiosqlite``
+    connect leaves the connection open. A pass ends at its next check of the
+    stop, and the loop checks the stop between its two sweeps.
     """
 
     def test_the_lifespan_closes_the_store_after_the_sweep_stops(self):
@@ -2023,6 +2056,17 @@ class TestTheStoreClose:
 
         asyncio.run(cancel_the_stop())
         assert store.open_at_close is not None
+
+    def test_the_store_closes_where_the_startup_check_fails(self):
+        store = RefusedStartup()
+
+        async def start() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                pass
+
+        with pytest.raises(StoreConfigError, match="the schema is old"):
+            asyncio.run(start())
+        assert store.open_at_close == set()
 
     def test_a_closed_store_serves_its_next_call(self, store):
         """A later app can start over the store that an app closed."""
