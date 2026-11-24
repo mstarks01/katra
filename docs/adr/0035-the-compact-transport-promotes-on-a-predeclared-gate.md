@@ -1,16 +1,19 @@
 # 35. The compact transport promotes on a predeclared gate
 
-- **Status**: accepted; applied four times. **Its per-case veto is unsound and
-  must be replaced before the gate is applied again** — see the fourth
-  application below.
+- **Status**: accepted; applied four times. The per-case veto is a margin of
+  two pooled standard deviations below the full arm's mean — see "A per-case
+  veto" below.
 - **Date**: 2026-09-15
 - **Outcome so far**: applied four times, and the route has not promoted. The
   primary figure passes every time — 4.5%, 4.8%, 3.3%, 3.7% fewer emitted
-  tokens. Versions 1 to 3 paid for it elsewhere; version 4 did not, and fails
-  only a criterion that does not work.
+  tokens. Versions 1 to 3 paid for it elsewhere. Version 4 fails only the
+  per-case veto, on case 10. The pooled margin of that veto was sized on
+  version 4's full arm, so version 4's reading under it is not a predeclared
+  test. The next application is the first that declares this veto before its
+  run.
   - `compact-v1` failed three criteria: `duplicate-ref` 16 against a ceiling of
     0, first-pass validity 0.800 against a floor of 0.927, and the per-case veto
-    on three cases. Every quality margin held.
+    under the lowest-of-five floor on three cases. Every quality margin held.
   - `compact-v2` failed six. It fixed what it aimed at — `duplicate-ref` 16 → 2,
     validity 0.800 → 0.923 — and **caused a failure class neither the full route
     nor version 1 ever produced**: nine `data_classification` inferences written
@@ -21,16 +24,20 @@
     quality margin held and first-pass validity passed for the first time
     (0.954 against a 0.927 floor). It failed on `duplicate-ref` (2, both flow
     refs a model derived from endpoints, so parallel flows collided) and on the
-    per-case veto, which rests on case 11: recall 0.450 against a 0.562 floor,
-    endpoint recall 0.769 against a flat 1.000.
+    per-case veto under the lowest-of-five floor, which rests on case 11: recall
+    0.450 against a 0.562 floor, endpoint recall 0.769 against a flat 1.000.
   - `compact-v4` named what a flow's ref is after — its label, not its
     endpoints — and **failed one criterion of eleven**, the best of the four.
     `duplicate-ref` reached **0 of 65**, the primary figure was the largest yet
     at **−3.7%, 1.44 standard deviations**, every quality margin held, and
     first-pass validity tied the full arm at 0.938. It is the only version whose
-    safety fix *raised* the saving rather than spending it. The one failure was
-    the per-case veto, on 8 cases and 21 shortfalls.
-- **The per-case veto does not work, and the fourth application is what showed
+    safety fix *raised* the saving rather than spending it. The one failure is
+    the per-case veto. Under the lowest-of-five floor it failed on 8 cases and
+    21 shortfalls. Under the pooled margin it fails on case 10 alone, on four
+    figures: recall 0.386 against a 0.400 floor, endpoint recall 0.509 against
+    0.578, interaction recall 0.400 against 0.445 and precision 0.351 against
+    0.366.
+- **The earlier per-case floor did not work, and the fourth application showed
   it.** Every one of those 21 shortfalls ran from 0.004 to 0.075. Measured on
   the full arm alone: dropping one of its five sweeps moves a floor by a mean
   of **0.092**, up to 0.250; and **11% of the full arm's own readings sit below
@@ -39,15 +46,17 @@
   worst shortfall from 0.075 to 0.218 on the same data. So a minimum of five
   runs is too noisy to be a threshold, the criterion cannot tell the compact
   arm from the full route, and it charged all four versions with failures of a
-  size the full route produces against itself. **Replace it with a margin below
-  the full arm's *mean*, sized from the spread** — the shape the six quality
-  margins already use and the only part of this record that held.
-- **What four applications settled.** The primary figure passed every time and
-  shrank every time — 4.5%, 4.8%, then **3.3%** — because each version that made
-  the format safer put identifier text back. The quality cost is element naming,
-  it is caused by dropping the `id` field, and dropping `id` is what the saving
-  *is*. A fourth version could clear `duplicate-ref` with one sentence about flow
-  refs; nothing in reach touches case 11. #938's definition of done covers this
+  size the full route produces against itself. So the veto is now a margin
+  below the full arm's *mean*, sized from the spread — the shape the six
+  quality margins already use.
+- **What four applications settled.** The primary figure passed every time:
+  4.5%, 4.8%, **3.3%** and 3.7%. Version 3 put identifier text back to make the
+  format safer, and the figure fell to 3.3%. The quality cost is
+  element naming, it is caused by dropping the `id` field, and dropping `id` is
+  what the saving *is*. The fourth version cleared `duplicate-ref` with one
+  sentence about flow refs. It still fails the per-case veto: under the
+  lowest-of-five floor on 8 cases, and under the pooled margin, which was not
+  declared before its run, on case 10. #938's definition of done covers this
   case: retain the benchmark findings and do not promote the route.
 - **Effort**: [#938 — stage compact extraction output behind a SystemModel adapter](https://github.com/mstarks01/katra/issues/938),
   stage 4
@@ -157,15 +166,31 @@ may be better by any amount and that buys it nothing, because a transport is
 not supposed to improve extraction and a route that did would be changing
 something this record does not cover.
 
-**A per-case veto.** One case falling below its own baseline spread vetoes the
-change, whatever the corpus mean does, on `evals/TUNING.md` step 5's rule.
+**A per-case veto.** One case that falls more than a margin below its full
+mean vetoes the change, whatever the corpus mean does, on `evals/TUNING.md`
+step 5's rule.
 
-> **This criterion is unsound as written and was applied four times before that
-> was measured.** "Its own baseline spread" was read as the full arm's lowest of
-> five readings, and a minimum of five is not a threshold: 11% of the full arm's
-> own readings fall below a floor built from the other four sweeps of that same
-> arm. A replacement must be a margin below the full arm's **mean**, sized from
-> the spread. Nothing else in this record changes.
+The floor of a case on a figure is the full arm's mean of that case, less two
+standard deviations of the full arm's spread on that figure. The spread pools
+over the cases: it is the root of the mean of each case's variance over its
+five sweeps.
+
+- **Why a pooled spread.** One case's five readings give too noisy a spread.
+  With two standard deviations of a case's own spread, 7% of the full arm's
+  single readings fall under a floor built from the other four sweeps of that
+  case. With the pooled spread, 4% fall under it, and a normal spread predicts
+  3.7%.
+- **Why two.** The gate compares a mean of five with a mean of five. At two
+  pooled standard deviations, a case and figure fails by chance about 0.08% of
+  the time, so 78 cells (13 cases, six figures) fail by chance about 6% of the
+  time.
+- **What the pooling assumes.** Each case varies by a similar amount. A case
+  near 1.0 varies less, so its margin is wider than its own spread would
+  give.
+- **The earlier floor.** The first four applications used the full arm's lowest
+  of five readings. That floor is not a threshold: 11% of the full arm's own
+  readings fall below a floor built from the other four sweeps of that same
+  arm.
 
 ### The failure rates
 

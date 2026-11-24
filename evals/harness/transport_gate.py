@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import statistics
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -32,7 +33,7 @@ from typing import Any
 
 from evals.harness.artifact import load_artifact
 from evals.harness.bundle import finished_file
-from evals.harness.rates import UNAVAILABLE, Presence, mean, presence
+from evals.harness.rates import UNAVAILABLE, Presence, complete_mean, mean, presence
 
 #: Each quality figure against the margin ADR 0035 allows it, in the order the
 #: record tabulates them. A table rather than six comparisons, so a figure added
@@ -52,6 +53,11 @@ QUALITY_MARGINS: Mapping[str, float] = MappingProxyType(
 #: must sit below on the primary figure. A cost claim that cannot clear a whole
 #: one is not worth a second route in the tree.
 PRIMARY_SIGMAS = 1.0
+
+#: The pooled standard deviations of the full arm's spread a case's compact mean
+#: may sit below that case's full mean, on each quality figure, before the case
+#: vetoes the arm.
+VETO_SIGMAS = 2.0
 
 #: The issue codes that are faults of the transport rather than of the model,
 #: and so carry a ceiling of zero: the full route cannot produce either.
@@ -173,33 +179,41 @@ def _margin(figure: str, margin: float) -> Callable[[Arm, Arm], tuple[bool, str]
     return verdict
 
 
-def _veto(full: Arm, compact: Arm) -> tuple[bool, str]:
-    """No case may fall below its own baseline floor on any quality figure.
+def _pooled_spread(cases: Mapping[str, list[float | None]]) -> float | None:
+    """One figure's spread in the full arm: the root of its cases' mean variance.
 
-    The floor is the full arm's **lowest** reading of that case over its five
-    sweeps, which is what ``evals/TUNING.md`` step 5 means by a case's own
-    spread: a compact mean under it is outside anything the baseline did.
-    A corpus mean can hold while one case collapses, and that case is a system
-    somebody would have run.
+    Five readings of one case give too noisy a spread to size a margin, so the
+    variance pools over every case that holds a value in each sweep. ``None``
+    where no case does.
+    """
+    variances = [
+        statistics.variance([run for run in runs if run is not None])
+        for runs in cases.values()
+        if presence(runs) == "every"
+    ]
+    return math.sqrt(statistics.fmean(variances)) if variances else None
+
+
+def _veto(full: Arm, compact: Arm) -> tuple[bool, str]:
+    """No case may fall more than a margin below its full mean on any quality figure.
+
+    The margin is :data:`VETO_SIGMAS` of the full arm's pooled spread on that
+    figure. A corpus mean can hold while one case collapses, and that case is a
+    system somebody would have run.
     """
     fallen: list[str] = []
     for figure in QUALITY_MARGINS:
         full_runs = full.per_case(figure)
-        floors = {
-            case: None
-            if presence(runs) != "every"
-            else min(run for run in runs if run is not None)
-            for case, runs in full_runs.items()
-        }
+        spread = _pooled_spread(full_runs)
         for case, runs in compact.per_case(figure).items():
             if presence(runs) == "none" and presence(full_runs[case]) == "none":
                 # Neither arm has this figure for the case: they are alike.
                 continue
-            floor = floors[case]
-            if floor is None or presence(runs) != "every":
+            base, average = complete_mean(full_runs[case]), complete_mean(runs)
+            if base is None or average is None or spread is None:
                 fallen.append(f"{case}/{figure} {UNAVAILABLE}")
                 continue
-            average = statistics.fmean(run for run in runs if run is not None)
+            floor = base - VETO_SIGMAS * spread
             if average < floor:
                 fallen.append(f"{case}/{figure} {average:.3f}<{floor:.3f}")
     return not fallen, "; ".join(fallen) if fallen else "no case below its floor"
