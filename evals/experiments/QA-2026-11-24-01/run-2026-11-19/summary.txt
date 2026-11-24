@@ -11,6 +11,6 @@ by next action:
     5  rule the reference's position or the draft
     4  a Phase 2 target
     1  lead rule C1a, kept to batch (QA-2026-11-19-01-E5)
-    1  a run of today's contract
+    1  read on the next run
     1  an extraction gap, by the maintainer's decision of 2026-11-19
     1  lead rule C5b, kept to batch (QA-2026-11-19-01-E5)

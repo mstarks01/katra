@@ -30,6 +30,10 @@ from evals.harness.run import scorecard_of
 #: The draft mechanisms that the QA-2026-11-17-13 design targets.
 TARGETED = frozenset({"on-path", "storage-copy"})
 
+#: Every draft mechanism QA-2026-11-17-13 labels a verb row ruled ``different``
+#: with.
+MECHANISMS = TARGETED | {"other"}
+
 #: The six references the QA-2026-11-17-13 design targets, by case ID and
 #: reference index.
 TARGET_REFERENCES = frozenset(
@@ -133,6 +137,11 @@ def attribute(row, verb_row):
         )
     if cause == "verb" and verb_row["ruling"] == "different":
         mechanism = verb_row["draft_mechanism"]
+        if mechanism not in MECHANISMS:
+            raise ValueError(
+                f"{row['case']} #{row['reference_index']}: no rule for the draft"
+                f" mechanism {mechanism!r}"
+            )
         return (
             f"generation substitution: the draft states {mechanism}",
             (
@@ -155,10 +164,10 @@ def attribute(row, verb_row):
         )
     if cause == "place":
         return (
-            "unresolved: the lane had the place and filed no draft there",
+            "unresolved: a rule led the lane to the place, and it filed no draft there",
             "run.py delivery",
-            "a rule led the lane to the place",
-            "a run of today's contract",
+            "why the lane filed no draft is not traced",
+            "read on the next run",
         )
     if cause == "unled":
         uncertainty, action = UNLED_CAUSES.get(

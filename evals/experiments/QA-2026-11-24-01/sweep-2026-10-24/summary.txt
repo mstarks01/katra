@@ -7,10 +7,11 @@ by attribution:
     5  unresolved
 
 by next action:
-   67  a run of today's contract
+   66  a run of today's contract
    21  rule the match by meaning
     6  a Phase 2 target
     2  trace the cause
     2  a second signature; read, not targeted
+    1  read on the next run
     1  an extraction gap, by the maintainer's decision of 2026-11-19
     1  lead rule C5b, kept to batch (QA-2026-11-19-01-E5)
