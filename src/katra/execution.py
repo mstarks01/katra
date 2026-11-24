@@ -464,9 +464,9 @@ class GraphExecutor:
                             node=node,
                             at=observed_at,
                             served_model=getattr(event, "model_version", None),
-                            usage=usage_of(event),
-                            attempts=_attempts_of(event),
-                            reasks=_reasks_of(event),
+                            usage=event_usage(event),
+                            attempts=event_attempts(event),
+                            reasks=event_reasks(event),
                             schema_path=_schema_path_of(event),
                             schema_fallback=_schema_fallback_of(event),
                             answer_unwrapped=_answer_unwrapped_of(event),
@@ -603,7 +603,7 @@ _USAGE_FIELDS: Mapping[str, str] = {
 }
 
 
-def usage_of(event) -> TokenUsage | None:
+def event_usage(event) -> TokenUsage | None:
     """What the provider says this event's call cost, or ``None`` if it said nothing.
 
     A field the provider withheld arrives as ``None`` and is recorded as 0,
@@ -646,7 +646,7 @@ def usage_of(event) -> TokenUsage | None:
     )
 
 
-def _attempts_of(event) -> int:
+def event_attempts(event) -> int:
     """How many provider calls this event's node took, as the retry driver said.
 
     One where the event carries no stamp: a deterministic node makes no call,
@@ -655,7 +655,7 @@ def _attempts_of(event) -> int:
     return (getattr(event, "custom_metadata", None) or {}).get(ATTEMPTS_METADATA_KEY, 1)
 
 
-def _reasks_of(event) -> int:
+def event_reasks(event) -> int:
     """How many schema re-asks this event's node took, as the adapter said.
 
     Zero where the event carries no stamp: a deterministic node makes no call.

@@ -18,7 +18,7 @@ from google.genai import types
 
 from evals.harness.prices import UnitPrices, unit_prices
 from katra.binding import build_tier_adapters
-from katra.execution import usage_of
+from katra.execution import event_usage
 from katra.model_tiers import TierName
 from katra.prompt_cache import (
     BREAKPOINT_FIELD,
@@ -225,7 +225,7 @@ def test_a_model_that_takes_the_breakpoint_gets_it_on_the_wire(vendor, models, t
     assert body["messages"][0] == {"role": "system", "content": MARKED}
     assert body[OPTIONS_FIELD] == EXPLICIT
     assert response.custom_metadata[CACHE_WRITE_METADATA_KEY] == WRITTEN
-    assert usage_of(response).cache_write_tokens == WRITTEN
+    assert event_usage(response).cache_write_tokens == WRITTEN
 
 
 @pytest.mark.parametrize(

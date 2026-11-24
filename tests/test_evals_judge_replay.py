@@ -8,6 +8,7 @@ test where a path must send nothing.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import random
 
@@ -414,7 +415,7 @@ def test_offline_mode_refuses_the_first_call(sweep, tmp_path, capsys):
     assert written["pooled"]["matched"]["of"] == 0
 
 
-def _scripted(usage=None, fail_on=None, sent=None):
+def _scripted(usage=None, fail_on=None, sent=None, attempts=1):
     """A ``tier_call`` stand-in that rejects every finding.
 
     ``usage`` is the token usage each call reports, as ``tier_call`` records
@@ -437,7 +438,15 @@ def _scripted(usage=None, fail_on=None, sent=None):
                 for f in json.loads(text.split("```json\n")[-1].rsplit("```", 1)[0])
             ]
             spent.append(None)
-            seen.append({"text": "", "responses": [], "usage": usage})
+            seen.append(
+                {
+                    "text": "",
+                    "responses": [],
+                    "usage": usage,
+                    "attempts": attempts,
+                    "reasks": 0,
+                }
+            )
             return json.dumps(
                 {
                     "findings": [
@@ -620,3 +629,87 @@ def test_a_model_with_older_flow_ids_reaches_the_signed_facts():
     assert plants.candidates("02", report.system_model, facts, {}) == ()
     assert {fact.element_id for fact in found} <= set(renamed)
     assert found
+
+
+@pytest.mark.parametrize(("attempts", "held"), [(1, False), (3, True)])
+def test_the_hold_prices_each_failed_attempt(
+    sweep, tmp_path, monkeypatch, capsys, attempts, held
+):
+    """400,000 prompt tokens price at about $2 a call on this route. Three
+    attempts are three prompts, about $6, which passes $5.00 and holds the next
+    call; one attempt does not."""
+    usage = TokenUsage(prompt_tokens=400_000, total_tokens=400_000).model_dump()
+    sent = []
+    monkeypatch.setattr(
+        judge_replay, "tier_call", _scripted(usage, sent=sent, attempts=attempts)
+    )
+
+    code = judge_replay.command_judge_replay(
+        _args(sweep, tmp_path / "out.json", accept_cost="5.00")
+    )
+
+    assert (code, len(sent)) == ((1, 1) if held else (0, 2))
+    if held:
+        assert "1 call(s) have not run" in capsys.readouterr().out
+
+
+def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch):
+    """The sweep path builds its node run from the response's stamps through
+    ``event_usage``, ``event_attempts`` and ``event_reasks``; the replay builds
+    it from what ``tier_call`` records. The two price alike."""
+    from types import SimpleNamespace
+
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    from evals.harness import consent
+    from evals.harness import node_call as module
+    from katra.execution import event_attempts, event_reasks, event_usage
+    from katra.report import NodeRun
+    from katra.retry import ATTEMPTS_METADATA_KEY
+
+    response = LlmResponse(
+        content=types.Content(role="model", parts=[types.Part(text="{}")]),
+        usage_metadata=types.GenerateContentResponseUsageMetadata(
+            prompt_token_count=1_000, candidates_token_count=10
+        ),
+        custom_metadata={ATTEMPTS_METADATA_KEY: 3},
+    )
+
+    class Adapter:
+        model = "stub"
+
+        async def generate_content_async(self, request, stream):
+            yield response
+
+    monkeypatch.setattr(
+        module, "build_tier_adapters", lambda *a, **k: {"review": Adapter()}
+    )
+    deployment = SimpleNamespace(
+        tiers=SimpleNamespace(bound_tiers=frozenset({"review"})),
+        resilience=None,
+        env={},
+        sampling=SimpleNamespace(
+            for_tier=lambda tier: SimpleNamespace(
+                to_generate_content_config=types.GenerateContentConfig
+            )
+        ),
+    )
+    seen: list = []
+    call = module.tier_call(deployment, "review", None, [], seen)
+    asyncio.run(call("instruction", types.Content(role="user", parts=[])))
+    route = "anthropic/claude-opus-5"
+    swept = NodeRun(
+        node="judge",
+        model=route,
+        requested_model=route,
+        duration_ms=0,
+        usage=event_usage(response),
+        attempts=event_attempts(response),
+        reasks=event_reasks(response),
+    )
+
+    replayed = judge_replay.measured_run(seen[0], TokenUsage(), route)
+
+    assert replayed.attempts == 3
+    assert consent.spent([replayed]) == consent.spent([swept]) > 0

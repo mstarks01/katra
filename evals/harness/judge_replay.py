@@ -50,9 +50,9 @@ writes the requests and sends nothing. A live run takes consent through
 :func:`~evals.harness.consent.gate`, and ``KATRA_OFFLINE`` refuses its first
 call. Before each call it runs the sweep's hold,
 :func:`~evals.harness.consent.hold`, over the calls made so far: it prices the
-token usage each call reported (a call that reported none counts at its
-estimate), and it stops, or asks again, once the priced usage passes the
-accepted amount. The hold reads the usage after a call, so the last call before
+token usage and the attempts each call reported (a call that reported no usage
+counts at its estimate, and each failed attempt counts as one more prompt),
+and it stops, or asks again, once the priced usage passes the accepted amount. The hold reads the usage after a call, so the last call before
 a stop can take the priced usage past the amount. It writes the output file
 after each answer. A provider failure stops the run, and the output keeps the
 answers so far and names each call that did not run.
@@ -671,8 +671,11 @@ def measured_run(
 ) -> NodeRun:
     """One judge call as a node run that :func:`~evals.harness.consent.hold`
     prices: the usage the provider reported, as ``seen`` records it, or
-    ``fallback``, the call's estimate, where it reported none."""
-    reported = None if entry is None else entry.get("usage")
+    ``fallback``, the call's estimate, where it reported none. The attempts and
+    re-asks the retry driver stamped go on the run too, so the hold prices each
+    failed attempt as a graph run's node run does."""
+    held = entry or {}
+    reported = held.get("usage")
     usage = fallback if reported is None else TokenUsage.model_validate(reported)
     return NodeRun(
         node=JUDGE_NODE,
@@ -680,6 +683,8 @@ def measured_run(
         requested_model=route,
         duration_ms=0,
         usage=usage,
+        attempts=held.get("attempts", 1),
+        reasks=held.get("reasks", 0),
     )
 
 
@@ -911,7 +916,9 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         for index, request in enumerate(requests):
             remaining = [f"{r.case} sample {r.sample}" for r in requests[index:]]
             try:
-                accepted = consent.hold(accepted, runs, remaining, ask, ran=index)
+                accepted = consent.hold(
+                    accepted, runs, remaining, ask, ran=index, unit="call"
+                )
             except consent.Refused as refusal:
                 stopped = (
                     f"stopped before {request.case} sample {request.sample}: {refusal}"

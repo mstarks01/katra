@@ -63,6 +63,9 @@ from katra.report import (
 
 Label = Literal["recorded", "estimated", "unpriced"]
 
+#: What one step of a held run is: a case of a sweep, or a call of a replay.
+HoldUnit = Literal["case", "call"]
+
 #: The word that accepts a cost nobody can state, typed or passed.
 UNKNOWN = "unknown"
 
@@ -602,6 +605,7 @@ def hold(
     ask: Callable[[str], str] | None,
     *,
     ran: int,
+    unit: HoldUnit = "case",
 ) -> float | None:
     """Between cases: is the run still inside what was accepted?
 
@@ -617,6 +621,9 @@ def hold(
     — so one overrun adds one prompt and the next one means the rate moved
     again. ``ran`` is how many cases produced ``executions``, which is what
     turns a total into a rate.
+
+    ``unit`` names what ``ran`` and ``remaining`` count in the messages: a case
+    for a sweep, a call for the judge replay, which holds between calls.
     """
     if accepted is None:
         return None  # accepted ``unknown``: there is nothing to measure against
@@ -625,7 +632,7 @@ def hold(
         return accepted
     print(
         f"\nspent ${so_far:.2f}, which passes the ${accepted:.2f} you accepted."
-        f" {len(remaining)} case(s) have not run: {', '.join(remaining)}"
+        f" {len(remaining)} {unit}(s) have not run: {', '.join(remaining)}"
     )
     if ask is None:
         raise Refused(
@@ -639,7 +646,7 @@ def hold(
             amount_usd=projected,
             lines=(
                 (
-                    f"${so_far:.2f} spent over {ran} case(s), and"
+                    f"${so_far:.2f} spent over {ran} {unit}(s), and"
                     f" {len(remaining)} to run at the same rate"
                 ),
             ),
