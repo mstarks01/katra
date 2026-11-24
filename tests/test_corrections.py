@@ -392,3 +392,11 @@ class TestWhereALineStatesTheAnswer:
             normalize(word) for word in words
         ]
         assert normalize(control_line("Edge", fact)).startswith(line)
+
+    def test_the_line_ends_each_of_the_answer_s_words_with_a_quote_and_a_stop(self):
+        """``stated_spans`` finds the words by how each sentence ends."""
+        fact = ANSWER.model_copy(update={"detail": "behind the edge proxy"})
+        assert fact_line(fact) == (
+            f'The encryption_in_transit of {ASKED.element_id} is "TLS 1.3".'
+            ' The submitter adds: "behind the edge proxy".'
+        )

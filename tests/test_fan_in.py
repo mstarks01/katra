@@ -22,7 +22,7 @@ from katra.claims import (
 )
 from katra.fan_in import DraftJoinError, join_drafts, snap_drafts
 from katra.frameworks import PACKAGES, schemas_for
-from katra.frameworks.asvs.record import RequirementProposal
+from katra.frameworks.asvs.record import RequirementProposal, requirement_of
 from katra.frameworks.stride import STRIDE
 from katra.frameworks.stride.record import MAX_SEQUENCE, DraftThreat
 from katra.sources import CARRIED_EVIDENCE_KINDS, DEFAULT_DESCRIPTION_LABEL
@@ -1283,6 +1283,32 @@ class TestFanIn:
         )
 
         assert merged.deferred_ids == (["v5.0.0-1.2.4"] if needs else [])
+
+    def test_the_fan_in_keeps_one_asvs_draft_for_each_requirement(self, model):
+        """The ASVS rejection rate counts drafts with a verdict, and a draft is
+        one requirement only while the fan-in keeps one draft for each ID
+        (the maintainer's ruling of 2026-11-24 on #2307 N5). Two proposals
+        for one requirement leave one draft."""
+        lane = "encoding-and-sanitization"
+        proposals = [
+            RequirementProposal(
+                title=title,
+                description="d",
+                requirement="2.4",
+                needs_evidence="",
+                direction="gap",
+                quotes=[QuoteCandidate(text="Shoppers sign in", source_label="note")],
+            )
+            for title in ("first", "second")
+        ]
+        stored = {lane: schemas_for("asvs").proposals(claims=proposals)}
+
+        merged = fan_in.fan_in(
+            stored, PACKAGES["asvs"], model, sources={}, assertions=None
+        )
+
+        requirements = [requirement_of(draft.id) for draft in merged.drafts]
+        assert requirements == ["V1.2.4"]
 
     def test_a_lane_with_no_batch_contributes_nothing(self, model):
         merged = fan_in.fan_in(

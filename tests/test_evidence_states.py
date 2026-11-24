@@ -40,7 +40,7 @@ from katra.frameworks import PACKAGES, schemas_for
 from katra.frameworks.stride import STRIDE
 from katra.open_facts import reference_labels
 from katra.sources import ANSWERS_LABEL
-from katra.system_model import DataStore, SystemModel
+from katra.system_model import DataStore, ModelIndex, SystemModel
 from tests import test_assertions
 from tests.factories import sample_draft, sample_ruling, valid_model
 from tests.test_assertions import FLOW, stated
@@ -821,7 +821,7 @@ class TestAnAbsenceUnderAHiddenQualification:
         rendered = render_catalog(evidence_catalog(model, catalog), catalog, model)
 
         (fact,) = view["held_open_facts"]
-        assert fact["says"] == ground_gloss(ground, catalog, model)
+        assert fact["says"] == ground_gloss(ground, catalog, ModelIndex.of(model))
         assert f"| `{self.UNKNOWN_REF}` | {fact['says']} |" in rendered
 
     def test_the_critic_gets_no_words_for_an_unstated_field(self):

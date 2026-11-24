@@ -41,7 +41,7 @@ sources (the maintainer's decision of 2026-09-25 on #1225).
 from __future__ import annotations
 
 import unicodedata
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from functools import lru_cache
 from types import MappingProxyType
 from typing import Annotated, Any, Literal
@@ -75,7 +75,7 @@ from katra.claims import (
     UnknownRef,
 )
 from katra.grounding import normalize
-from katra.open_facts import element_names, label_of
+from katra.open_facts import element_names, label_of, routed
 from katra.parsing import table_entry
 from katra.question_kinds import QUESTION_KINDS, Facet, parse_question_kind
 from katra.sources import ANSWERS_LABEL, FORMATTING_CATEGORIES, plain_name, quotable
@@ -110,6 +110,7 @@ __all__ = [
     "part_answers",
     "quotes_answer",
     "refuse_repeated_facts",
+    "routed_facts",
     "stated_spans",
     "with_element",
 ]
@@ -344,6 +345,12 @@ def fact_label(
     return label_of(key_ref(key), element_names(model), model, catalog)
 
 
+#: How each sentence of an answer's line ends: the closing double quote of
+#: the submitter's words, then a full stop. :func:`stated_spans` finds the
+#: words by it.
+_WORDS_END = '".'
+
+
 def fact_line(fact: FactAnswer) -> str:
     """The answer as its line of the answers Source, which its span quotes.
 
@@ -352,18 +359,18 @@ def fact_line(fact: FactAnswer) -> str:
     ref = key_ref(fact.key)
     if fact.kind == "capability":
         asked = table_entry(CAPABILITIES, ref.capability).question
-        line = f'Asked "{asked}", the answer is "{fact.value}".'
+        head = f'Asked "{asked}", the answer is "'
     elif fact.kind == "question":
         kind = table_entry(QUESTION_KINDS, ref.question)
         asked = kind.template.format(element=ref.element_id)
-        line = f'Asked "{asked}", the answer is "{fact.value}".'
+        head = f'Asked "{asked}", the answer is "'
     elif fact.kind == "attribute":
-        line = f'The {ref.attribute} of {ref.element_id} is "{fact.value}".'
+        head = f'The {ref.attribute} of {ref.element_id} is "'
     elif fact.kind == "assertion":
-        line = f'The open question {ref.assertion} is answered "{fact.value}".'
+        head = f'The open question {ref.assertion} is answered "'
     else:
-        line = f'Asked "{_phrase(ref.subject)}", the answer is "{fact.value}".'
-    return line + detail_note(fact.detail)
+        head = f'Asked "{_phrase(ref.subject)}", the answer is "'
+    return head + fact.value + _WORDS_END + detail_note(fact.detail)
 
 
 def stated_spans(fact: FactAnswer) -> tuple[tuple[int, int], ...]:
@@ -377,10 +384,10 @@ def stated_spans(fact: FactAnswer) -> tuple[tuple[int, int], ...]:
     a double quote normalizes to the head of the normalized line.
     """
     line = fact_line(fact)
-    ends = [len(line) - len(detail_note(fact.detail)) - 2]
+    ends = [len(line) - len(detail_note(fact.detail)) - len(_WORDS_END)]
     words = [fact.value]
     if fact.detail:
-        ends.append(len(line) - 2)
+        ends.append(len(line) - len(_WORDS_END))
         words.append(fact.detail)
     return tuple(
         (len(normalize(line[: end - len(word)])), len(normalize(line[: end + 1])) - 1)
@@ -437,7 +444,7 @@ def detail_note(detail: str) -> str:
     The answers Source and the model's element notes both read it, so the two
     word a detail alike.
     """
-    return f' The submitter adds: "{detail}".' if detail else ""
+    return f' The submitter adds: "{detail}{_WORDS_END}' if detail else ""
 
 
 def answer_facets(key: UnknownKey) -> tuple[Facet, ...]:
@@ -614,6 +621,19 @@ def facts_named(refs: Sequence[UnknownRef]) -> list[UnknownRef]:
     are one fact. A reference here carries no facets.
     """
     return [key_ref(key) for key in needs_of(refs)]
+
+
+def routed_facts(
+    refs: Iterable[UnknownRef], routes: Mapping[str, UnknownRef]
+) -> list[UnknownRef]:
+    """Each fact ``refs`` name, once, with each reference to an open row read
+    as the fact it is asked as.
+
+    ``routes`` is :func:`~katra.open_facts.fact_routes`'s, which
+    :func:`~katra.open_facts.routed` reads; :func:`facts_named` then names
+    each fact once.
+    """
+    return facts_named(routed(refs, routes))
 
 
 def asked_facets(

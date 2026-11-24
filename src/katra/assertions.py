@@ -172,6 +172,7 @@ __all__ = [
     "contradicted_attributes",
     "contradiction_issues",
     "contradictions",
+    "disagree",
     "disputed",
     "graph_subject_type",
     "held_open_attributes",
@@ -193,6 +194,7 @@ __all__ = [
     "spans_for",
     "states_missing",
     "states_present",
+    "states_value",
     "subject_id",
     "support_span",
     "uncontradicted",
@@ -2016,18 +2018,56 @@ def conflicts(catalog: AssertionCatalog) -> tuple[Conflict, ...]:
     )
 
 
+def disagree(first: Assertion, second: Assertion) -> bool:
+    """Whether two rows contradict each other, by :func:`conflicts`'s rule.
+
+    A writer and the answer check ask it of one row against another, so the
+    rows they remove or refuse are the rows :func:`disputed` makes open.
+    """
+    return bool(conflicts(AssertionCatalog(entries=[first, second])))
+
+
 def _value_groups(
     catalog: AssertionCatalog,
 ) -> dict[tuple[str, str, str], dict[str, Assertion]]:
-    """The admissible rows that hold a value, by subject, predicate and scope,
-    one row for each value."""
+    """The rows that state a value (:func:`states_value`), by
+    :func:`_group_key`, one row for each value."""
     groups: dict[tuple[str, str, str], dict[str, Assertion]] = {}
     for entry in catalog.entries:
-        if not admissible(entry) or entry.value == UNKNOWN:
-            continue
-        key = (entry.subject, entry.predicate, _scope_key(entry.scope))
-        groups.setdefault(key, {}).setdefault(entry.value, entry)
+        if states_value(entry):
+            groups.setdefault(_group_key(entry), {}).setdefault(entry.value, entry)
     return groups
+
+
+def states_value(entry: Assertion) -> bool:
+    """Whether a row states a value: it holds one, not :data:`UNKNOWN`, and
+    :func:`admissible` admits it. Only such a row takes part in a conflict or
+    supplies a projected value."""
+    return admissible(entry) and entry.value != UNKNOWN
+
+
+def _group_key(entry: Assertion) -> tuple[str, str, str]:
+    """The subject, predicate and scope that a :class:`Conflict` names."""
+    return (entry.subject, entry.predicate, _scope_key(entry.scope))
+
+
+def _conflict_keys(found: Iterable[Conflict]) -> frozenset[tuple[str, str, str]]:
+    """The :func:`_group_key` of each conflict in ``found``."""
+    return frozenset(
+        (conflict.subject, conflict.predicate, conflict.scope) for conflict in found
+    )
+
+
+def _rows_in(
+    catalog: AssertionCatalog, keys: frozenset[tuple[str, str, str]]
+) -> tuple[Assertion, ...]:
+    """Each row that states a value (:func:`states_value`) at one of
+    ``keys``, in catalog order."""
+    return tuple(
+        entry
+        for entry in catalog.entries
+        if states_value(entry) and _group_key(entry) in keys
+    )
 
 
 def _cross_conflicts(
@@ -2139,21 +2179,7 @@ def disputed(catalog: AssertionCatalog) -> tuple[Assertion, ...]:
     disagreement is itself a question, so the evidence catalog offers each
     side as an open one.
     """
-    keys = _disputed_keys(catalog)
-    return tuple(
-        entry
-        for entry in catalog.entries
-        if admissible(entry)
-        and entry.value != UNKNOWN
-        and (entry.subject, entry.predicate, _scope_key(entry.scope)) in keys
-    )
-
-
-def _disputed_keys(catalog: AssertionCatalog) -> frozenset[tuple[str, str, str]]:
-    return frozenset(
-        (conflict.subject, conflict.predicate, conflict.scope)
-        for conflict in conflicts(catalog)
-    )
+    return _rows_in(catalog, _conflict_keys(conflicts(catalog)))
 
 
 def settled(catalog: AssertionCatalog) -> tuple[Assertion, ...]:
@@ -2176,13 +2202,11 @@ def settled(catalog: AssertionCatalog) -> tuple[Assertion, ...]:
     conclusions rather than the source's, and every reader labels them by
     ``basis`` rather than dropping them, so an inference is visible as one.
     """
-    keys = _disputed_keys(catalog)
+    keys = _conflict_keys(conflicts(catalog))
     return tuple(
         entry
         for entry in catalog.entries
-        if admissible(entry)
-        and entry.value != UNKNOWN
-        and (entry.subject, entry.predicate, _scope_key(entry.scope)) not in keys
+        if states_value(entry) and _group_key(entry) not in keys
     )
 
 
@@ -2223,12 +2247,7 @@ def _drives_value(entry: Assertion) -> bool:
     may state its value at all: admissible, valued and unscoped. An answer a
     reviewer set aside makes no value, so the rows beside it still do.
     """
-    return (
-        answered(entry)
-        and admissible(entry)
-        and entry.value != UNKNOWN
-        and not entry.scope
-    )
+    return answered(entry) and states_value(entry) and not entry.scope
 
 
 def _value_rows(rows: Sequence[Assertion]) -> list[Assertion]:
@@ -2240,7 +2259,7 @@ def _value_rows(rows: Sequence[Assertion]) -> list[Assertion]:
     :func:`project` reads the value from these rows, and
     :func:`contradictions` compares their states with the graph.
     """
-    valued = [entry for entry in rows if entry.value != UNKNOWN and admissible(entry)]
+    valued = [entry for entry in rows if states_value(entry)]
     return [entry for entry in valued if _drives_value(entry)] or valued
 
 
@@ -3200,6 +3219,7 @@ ProjectionReason = Literal[
     "scoped",
     "several-values",
     "several-predicates",
+    "cross-conflict",
     "compatible",
     "unsupported",
 ]
@@ -3269,17 +3289,8 @@ def project(catalog: AssertionCatalog) -> tuple[Projection, ...]:
     order.
     """
     subjects = {subject.id: subject for subject in catalog.subjects}
-    crossed = {
-        (conflict.subject, conflict.predicate, conflict.scope)
-        for conflict in _cross_conflicts(_value_groups(catalog))
-    }
-    open_rows = frozenset(
-        assertion_id(entry)
-        for entry in catalog.entries
-        if admissible(entry)
-        and entry.value != UNKNOWN
-        and (entry.subject, entry.predicate, _scope_key(entry.scope)) in crossed
-    )
+    crossed = _conflict_keys(_cross_conflicts(_value_groups(catalog)))
+    open_rows = frozenset(assertion_id(entry) for entry in _rows_in(catalog, crossed))
     grouped: dict[tuple[str, ProjectedField], list[tuple[str, Assertion]]] = {}
     for entry in catalog.entries:
         attribute = projected_attribute(entry.predicate, entry.subject)
@@ -3610,6 +3621,7 @@ PROJECTION_EFFECT: Mapping[ProjectionReason, Literal["write", "qualify", "leave"
             "scoped": "qualify",
             "several-values": "qualify",
             "several-predicates": "qualify",
+            "cross-conflict": "qualify",
             "compatible": "leave",
             "unsupported": "qualify",
         }
@@ -3649,6 +3661,7 @@ _QUALIFIED_BECAUSE: Mapping[ProjectionReason, str] = MappingProxyType(
         "scoped": "stated only for part of what this carries",
         "several-values": "the sources state values that cannot all hold",
         "several-predicates": "the sources state facts that cannot all hold",
+        "cross-conflict": "the sources state facts that cannot all hold",
         "unsupported": "a reviewer set the stated value aside",
     }
 )
@@ -3951,13 +3964,19 @@ def _projected(
     """One attribute's projected value, and the reason it reads that way.
 
     ``open_rows`` holds the identity of each row that a row of the paired
-    predicate disputes (:data:`CROSS_CONFLICTS`). Where that paired row reaches
-    no field here, the row writes no value: the sources state facts that cannot
-    all hold.
+    predicate disputes (:data:`CROSS_CONFLICTS`). Where a stated row is one
+    of them, the reason is ``cross-conflict`` in two cases: the stated rows
+    hold one value, or they hold values of two predicates that cannot both
+    hold. The paired row can reach this field or no field. The earlier
+    reasons come first: a scoped row reads ``scoped``, values that can all
+    hold read ``compatible``, and two values of one predicate read
+    ``several-values``. Rows of two predicates that cannot both hold, with no
+    disputed row among them, read ``several-predicates``.
     """
     ids = tuple(sorted(identity for identity, _ in rows))
     valued = [entry for _, entry in rows if entry.value != UNKNOWN]
     stated = _value_rows([entry for _, entry in rows])
+    crossed = any(assertion_id(entry) in open_rows for entry in stated)
 
     def projected(value: str, reason: ProjectionReason) -> Projection:
         return Projection(element_id, attribute, value, reason, ids)
@@ -3979,10 +3998,13 @@ def _projected(
         if _compatible(stated):
             return projected(UNKNOWN, "compatible")
         if len({entry.predicate for entry in stated}) > 1:
-            return projected(UNKNOWN, "several-predicates")
+            reason: ProjectionReason = (
+                "cross-conflict" if crossed else "several-predicates"
+            )
+            return projected(UNKNOWN, reason)
         return projected(UNKNOWN, "several-values")
-    if any(assertion_id(entry) in open_rows for entry in stated):
-        return projected(UNKNOWN, "several-predicates")
+    if crossed:
+        return projected(UNKNOWN, "cross-conflict")
     value = _graph_spelling(stated[0], subjects)
     if states_missing(stated[0]):
         return projected(value, "absent")

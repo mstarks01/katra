@@ -3647,23 +3647,45 @@ ROUTED_RECORDED_FACTS: dict[tuple[str, str], str] = {
 
 def test_each_reader_of_waiting_facts_reads_them_as_asked():
     """A reader of the facts a finding waits on reads them through
-    ``open_facts.routed``, so a contradicted or disputed row is the fact an
-    answer settles at every seam (the maintainer's ruling of 2026-11-18 on
-    #2270). ``UNROUTED_FACT_READERS`` gives each other reader its reason, and
+    ``open_facts.routed``, or through ``fact_answers.routed_facts``, which
+    calls it, so a contradicted or disputed row is the fact an answer settles
+    at every seam (the maintainer's ruling of 2026-11-18 on #2270).
+    ``UNROUTED_FACT_READERS`` gives each other reader its reason, and
     ``ROUTED_RECORDED_FACTS`` each router that reads no claim."""
     readers = {
         *_sites(lambda node: _calls(node, "waits_on")),
         *_sites(lambda node: _calls(node, "unknown_grounds")),
     }
+    routers = {
+        *_sites(lambda node: _calls(node, "routed")),
+        *_sites(lambda node: _calls(node, "routed_facts")),
+    } - {("src/katra/fact_answers.py", "routed_facts")}
     assert sorted(
         (readers - set(UNROUTED_FACT_READERS)) | set(ROUTED_RECORDED_FACTS)
-    ) == _sites(lambda node: _calls(node, "routed"))
+    ) == sorted(routers)
     assert _sites(lambda node: _calls(node, "fact_routes")) == [
         ("evals/harness/filler.py", "rows"),
-        ("evals/harness/question_prior.py", "_routes"),
+        ("evals/harness/question_prior.py", "replay_findings"),
+        ("evals/harness/question_prior.py", "report_findings"),
         ("src/katra/questions.py", "follow_up_needs"),
         ("src/katra/report_conditions.py", "conditions"),
         ("src/katra/report_conditions.py", "corrected_findings"),
+    ]
+
+
+def _conflicts_of_a_built_catalog(node: ast.AST) -> bool:
+    """Whether ``node`` calls ``conflicts`` on a catalog it builds in place."""
+    return _calls(node, "conflicts") and any(
+        _calls(argument, "AssertionCatalog") for argument in node.args
+    )
+
+
+def test_only_disagree_asks_whether_two_rows_conflict():
+    """``assertions.disagree`` is the one reader of whether one row
+    contradicts another, so the writer and the answer check remove and refuse
+    the rows ``conflicts`` disputes."""
+    assert _sites(_conflicts_of_a_built_catalog) == [
+        ("src/katra/assertions.py", "disagree"),
     ]
 
 

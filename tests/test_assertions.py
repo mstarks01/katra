@@ -56,6 +56,7 @@ from katra.assertions import (
     conflicts,
     contradiction_issues,
     contradictions,
+    disputed,
     identity_parts,
     offered,
     project,
@@ -1644,10 +1645,11 @@ class TestTheProjection:
             "compatible",
         )
 
-    def test_a_stated_absence_beside_a_presented_credential_is_several_predicates(
+    def test_a_stated_absence_beside_a_presented_credential_is_a_cross_conflict(
         self,
     ):
-        """No mechanism, and a credential presented: the two cannot both hold."""
+        """No mechanism, and a credential presented: ``CROSS_CONFLICTS`` pairs
+        the two, so the rows are disputed and the reason names the pair."""
         mechanism = self.row(predicate="authentication-mechanism", value=ABSENT)
         credential = self.row(
             predicate="credential-presented", value="credential:session-cookie"
@@ -1662,7 +1664,22 @@ class TestTheProjection:
             entries=[mechanism, credential],
         )
         (projected,) = project(held)
+        assert projected.reason == "cross-conflict"
+        assert disputed(held) == (mechanism, credential)
+
+    def test_no_credential_beside_a_stated_mechanism_is_several_predicates(self):
+        """A mechanism, and no credential presented: the two cannot both hold
+        on one field, and no ``CROSS_CONFLICTS`` pair names them that way
+        round, so neither row is disputed."""
+        mechanism = self.row(predicate="authentication-mechanism", value="a password")
+        credential = self.row(predicate="credential-presented", value=ABSENT)
+        held = AssertionCatalog(
+            subjects=list(subjects((FLOW, "interaction", "place order"))),
+            entries=[mechanism, credential],
+        )
+        (projected,) = project(held)
         assert projected.reason == "several-predicates"
+        assert disputed(held) == ()
 
     def test_an_unknown_row_projects_the_sentinel(self):
         silent = self.row(value=UNKNOWN, reason="silent", support=[])
@@ -1791,6 +1808,7 @@ PROJECTIONS: dict[str, str] = {
     "scoped": "a string cannot carry the qualifier the source attached",
     "several-values": "picking between two values would drop one",
     "several-predicates": "two predicates' facts on one field cannot both hold",
+    "cross-conflict": "a row of a stated predicate pair disputes the row here",
     "compatible": "several values that all hold, which one string cannot carry",
     "unsupported": "a row found unsupported, or left unresolved, states nothing",
 }

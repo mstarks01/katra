@@ -63,6 +63,7 @@ from katra.fact_answers import (
 )
 from katra.fact_writes import check_fact_answers
 from katra.frameworks import PACKAGES, FrameworkName, FrameworkPackage
+from katra.links import ControlLines
 from katra.open_facts import open_attribute, prepared_model
 from katra.owner_files import text_lines
 from katra.parsing import Sha256Hex
@@ -895,7 +896,7 @@ def control_answers(entries: Sequence[ControlFacts]) -> AnswerSet:
     return AnswerSet(facts=tuple(facts))
 
 
-def control_lines(entries: Sequence[ControlFacts]) -> list[tuple[str, FactAnswer]]:
+def control_lines(entries: Sequence[ControlFacts]) -> ControlLines:
     """Each fact a Control writes with the Control's name: one line of the
     answers Source each (:func:`~katra.fact_answers.control_line`)."""
     return [(entry.name, fact) for entry in entries for fact in entry.writes()]

@@ -44,6 +44,7 @@ from pydantic import ValidationError
 
 from evals.harness.structural import report_issues
 from katra import FrameworkName
+from katra.assertions import AssertionCatalog, assertion_id
 from katra.claims import (
     FrameworkAnalysis,
     Ground,
@@ -54,12 +55,16 @@ from katra.claims import (
     UnverifiedGround,
     Verdict,
 )
+from katra.fact_answers import routed_facts
 from katra.frameworks import PACKAGES, FrameworkPackage, package_for
 from katra.frameworks.asvs import ASVS
 from katra.frameworks.asvs.record import AsvsAnalysis, RequirementRuling
 from katra.frameworks.stride.record import Threat
+from katra.open_facts import fact_routes
 from katra.report import Report
 from tests.factories import PROJECT_ROOT, sample_analysis, sample_report
+from tests.test_contradicted_answers import CREDENTIAL, SUBJECTS
+from tests.test_cross_predicate_conflicts import MFA, NO_AUTHENTICATION
 
 #: Refused by the shipped validator and by the offline gate.
 BOTH = "both"
@@ -154,6 +159,33 @@ def _dangling_unknown(report: Report) -> None:
     claim.verdict.related_unknowns = [
         UnknownRef(element_id="process:ghost", attribute="authentication")
     ]
+
+
+def test_the_check_reads_the_same_with_raw_or_routed_unknowns():
+    """The gate reads ``verdict.related_unknowns`` as the critic wrote them,
+    not routed (the maintainer's ruling of 2026-11-24 on #2307 A2). A route
+    names the element of the row it routes, so the two readings agree. A
+    route that named another element would fail here."""
+    report = sound_report("stride")
+    held = AssertionCatalog(
+        subjects=SUBJECTS, entries=[NO_AUTHENTICATION, CREDENTIAL, MFA]
+    )
+    block = report.analyses[0]
+    verdict = block.claims[0].verdict
+    verdict.status = "needs-info"
+    verdict.related_unknowns = [
+        UnknownRef(assertion=assertion_id(row))
+        for row in (NO_AUTHENTICATION, CREDENTIAL, MFA)
+    ]
+    block.summary = type(block).summarize(block.claims, block.rejected_claims)
+    raw = report_issues(report)
+
+    verdict.related_unknowns = routed_facts(
+        verdict.related_unknowns, fact_routes(held, report.system_model)
+    )
+
+    assert any(ref.names_an_element for ref in verdict.related_unknowns)
+    assert report_issues(report) == raw == []
 
 
 def _ground_the_model_does_not_derive(report: Report) -> None:

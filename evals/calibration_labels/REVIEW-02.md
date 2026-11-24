@@ -1,7 +1,7 @@
 # Calibration-label review 02 — boundary census and random sample
 
 **Date:** 2026-09-02  
-**Tracking issue:** [#534](https://github.com/mstarks01/work-agent/issues/534)  
+**Tracking issue:** [#534](https://github.com/mstarks01/katra/issues/534)  
 **Machine-readable record:** [`reviews/02.json`](reviews/02.json)
 
 This review had two parts:
