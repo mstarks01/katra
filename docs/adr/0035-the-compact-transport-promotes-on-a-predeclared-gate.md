@@ -54,9 +54,10 @@
   format safer, and the figure fell to 3.3%. The quality cost is
   element naming, it is caused by dropping the `id` field, and dropping `id` is
   what the saving *is*. The fourth version cleared `duplicate-ref` with one
-  sentence about flow refs and still fails the per-case veto, on case 10.
-  #938's definition of done covers this case: retain the benchmark findings and
-  do not promote the route.
+  sentence about flow refs. It still fails the per-case veto: under the
+  lowest-of-five floor on 8 cases, and under the pooled margin, which was not
+  declared before its run, on case 10. #938's definition of done covers this
+  case: retain the benchmark findings and do not promote the route.
 - **Effort**: [#938 — stage compact extraction output behind a SystemModel adapter](https://github.com/mstarks01/katra/issues/938),
   stage 4
 - **Builds on**: [ADR 0016](0016-token-caps-are-drift-alarms.md), which says a
