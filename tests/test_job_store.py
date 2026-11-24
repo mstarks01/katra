@@ -1893,8 +1893,28 @@ class CloseSpy(InMemoryJobStore):
         }
 
 
+class SlowSweep(InMemoryJobStore):
+    """A ``memory`` store whose orphan sweep yields to the event loop before
+    it ends."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.ended = False
+
+    async def sweep_orphans(self, before: datetime) -> int:
+        self.started.set()
+        await asyncio.sleep(0.01)
+        self.ended = True
+        return 0
+
+
 class TestTheStoreClose:
-    """The lifespan closes the store when the app stops, after the sweeps stop."""
+    """The lifespan closes the store when the app stops, after the sweeps stop.
+
+    The sweep stops between two passes, because a cancel that stops an
+    ``aiosqlite`` connect leaves the connection open.
+    """
 
     def test_the_lifespan_closes_the_store_after_the_sweep_stops(self):
         store = CloseSpy()
@@ -1916,6 +1936,16 @@ class TestTheStoreClose:
         with pytest.raises(RuntimeError, match="the app failed"):
             asyncio.run(fail())
         assert store.open_at_close == set()
+
+    def test_the_lifespan_lets_a_running_pass_end(self):
+        store = SlowSweep()
+
+        async def stop_in_a_pass() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                await store.started.wait()
+
+        asyncio.run(stop_in_a_pass())
+        assert store.ended
 
     def test_a_closed_store_serves_its_next_call(self, store):
         """A later app can start over the store that an app closed."""

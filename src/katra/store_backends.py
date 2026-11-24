@@ -302,13 +302,15 @@ async def remove_orphans(store: JobStore) -> None:
 SWEEP_SECONDS = 3600
 
 
-async def _sweep(store: JobStore, days: int | None) -> None:
-    """Run the sweeps now and then each :data:`SWEEP_SECONDS`, until the app
-    stops: the retention sweep where ``days`` is set, then the orphan sweep.
+async def _sweep(store: JobStore, days: int | None, stop: asyncio.Event) -> None:
+    """Run the sweeps now and then each :data:`SWEEP_SECONDS`, until ``stop``
+    is set: the retention sweep where ``days`` is set, then the orphan sweep.
 
-    A failed sweep is logged, and the next sweep runs.
+    A failed sweep is logged, and the next sweep runs. The loop stops between
+    two passes and never in a pass, because a cancel that stops a database
+    call can leave its connection open.
     """
-    while True:
+    while not stop.is_set():
         if days is not None:
             try:
                 await expire_jobs(store, days)
@@ -318,7 +320,8 @@ async def _sweep(store: JobStore, days: int | None) -> None:
             await remove_orphans(store)
         except Exception:
             logger.exception("the orphan sweep failed")
-        await asyncio.sleep(SWEEP_SECONDS)
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), SWEEP_SECONDS)
 
 
 @asynccontextmanager
@@ -335,8 +338,8 @@ async def store_lifespan(
     the object store), the restart scan (#1529), then requests. A failed check stops the startup. The sweeps
     start after the restart scan and stop with the app: the orphan sweep
     always, because an owner delete can also leave an orphan, and the
-    retention sweep where a retention period is set. After the sweeps stop,
-    the app closes the store.
+    retention sweep where a retention period is set. When the app stops, a
+    pass that runs ends first. After the sweeps stop, the app closes the store.
     """
     days = retention_days(env)
     await store.startup_check()
@@ -348,11 +351,11 @@ async def store_lifespan(
         logger.warning(
             "restart scan failed %d job(s) in flight: %s", len(failed), failed
         )
-    sweep = asyncio.create_task(_sweep(store, days))
+    stop = asyncio.Event()
+    sweep = asyncio.create_task(_sweep(store, days, stop))
     try:
         yield
     finally:
-        sweep.cancel()
-        with suppress(asyncio.CancelledError):
-            await sweep
+        stop.set()
+        await sweep
         await store.close()
