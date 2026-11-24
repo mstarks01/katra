@@ -34,7 +34,7 @@ from katra.assertions import (
     admissible,
     answered,
     assertion_id,
-    conflicts,
+    disagree,
     graph_subject_type,
     place_identity,
     projected_attribute,
@@ -555,7 +555,7 @@ def fact_rows(
         written_row = written_here.get(place_identity(entry))
         if written_row is None:
             return any(
-                conflicts(AssertionCatalog(entries=[entry, row]))
+                disagree(entry, row)
                 for row in settling_rows
                 if row.subject == entry.subject
             )
@@ -607,14 +607,14 @@ def _settled_by(entry: Assertion, answer_row: Assertion) -> bool:
 
     The source row goes where it is open, set aside, the answer's own
     identity, or where it disagrees with the answer
-    (:func:`~katra.assertions.conflicts`). A row that can hold beside the
+    (:func:`~katra.assertions.disagree`). A row that can hold beside the
     answer, such as another value of a predicate of many, stays.
     """
     return (
         entry.value == UNKNOWN
         or not admissible(entry)
         or assertion_id(entry) == assertion_id(answer_row)
-        or bool(conflicts(AssertionCatalog(entries=[entry, answer_row])))
+        or disagree(entry, answer_row)
     )
 
 
@@ -682,7 +682,7 @@ def _part_rows(
                 support=[span],
             )
             if not any(
-                conflicts(AssertionCatalog(entries=[row, entry]))
+                disagree(row, entry)
                 for entry in catalog.entries
                 if entry.subject == element_id
                 and entry.predicate != name

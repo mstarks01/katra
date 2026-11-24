@@ -123,7 +123,14 @@ SHAPES: dict[str, tuple[str, list[Assertion]]] = {
             row("transport-encryption", ABSENT, "The order flow is not encrypted"),
         ],
     ),
-    "several-predicates": ("authentication", [mechanism(ABSENT), credential()]),
+    "several-predicates": (
+        "authentication",
+        [
+            mechanism("a password"),
+            row("credential-presented", ABSENT, "present a session cookie"),
+        ],
+    ),
+    "cross-conflict": ("authentication", [mechanism(ABSENT), credential()]),
     "compatible": ("authentication", [mechanism("a password"), credential()]),
     "unsupported": (
         "encryption_in_transit",

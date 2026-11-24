@@ -49,7 +49,7 @@ from katra.assertions import (
     SupportSpan,
     answer,
     answered,
-    conflicts,
+    disagree,
     settled,
     subjects_of,
 )
@@ -544,11 +544,7 @@ def _disagreeing_keys(
     return {
         frozenset((one, other))
         for one, other in combinations(rows, 2)
-        if any(
-            conflicts(AssertionCatalog(entries=[first, second]))
-            for first in rows[one]
-            for second in rows[other]
-        )
+        if any(disagree(first, second) for first in rows[one] for second in rows[other])
     }
 
 

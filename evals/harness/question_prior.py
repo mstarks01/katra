@@ -21,7 +21,7 @@ import argparse
 import json
 import sys
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from evals.harness.artifact import EvalArtifact, ProvenanceError, load_artifact
@@ -41,19 +41,14 @@ from katra.early_questions import (
     element_type,
     load_prior,
 )
-from katra.fact_answers import facts_named
+from katra.fact_answers import routed_facts
 from katra.frameworks import PACKAGES
-from katra.open_facts import fact_routes, routed
+from katra.open_facts import fact_routes
 from katra.report import Report
 from katra.system_model import SystemModel
 
 #: One case's sample: the case, its model and each finding's open facts.
 Sample = tuple[str, SystemModel, list[list[UnknownRef]]]
-
-
-def _routes(report: Report) -> Mapping[str, UnknownRef]:
-    """The fact each open row of ``report``'s catalog is asked as."""
-    return fact_routes(report.assertion_catalog, report.system_model)
 
 
 def report_findings(report: Report, framework: FrameworkName) -> list[list[UnknownRef]]:
@@ -62,13 +57,13 @@ def report_findings(report: Report, framework: FrameworkName) -> list[list[Unkno
     A reference to a row the graph contradicts or another row disputes is the
     fact it is asked as (:func:`~katra.open_facts.fact_routes`).
     """
-    routes = _routes(report)
+    routes = fact_routes(report.assertion_catalog, report.system_model)
     return [
-        facts_named(routed(claim.waits_on(), routes))
+        routed_facts(waits, routes)
         for block in report.analyses
         if block.framework == framework
         for claim in block.all_claims()
-        if claim.waits_on()
+        if (waits := claim.waits_on())
     ]
 
 
@@ -76,9 +71,9 @@ def replay_findings(path: Path, report: Report) -> list[list[UnknownRef]]:
     """Each ruling's open facts, as a critic replay of ``report``'s drafts
     wrote them, each routed as :func:`report_findings` routes it."""
     claims = json.loads(path.read_text(encoding="utf-8"))["claims"]
-    routes = _routes(report)
+    routes = fact_routes(report.assertion_catalog, report.system_model)
     return [
-        facts_named(routed([UnknownRef.model_validate(ref) for ref in refs], routes))
+        routed_facts([UnknownRef.model_validate(ref) for ref in refs], routes)
         for claim in claims
         if (refs := claim["verdict"].get("related_unknowns"))
     ]

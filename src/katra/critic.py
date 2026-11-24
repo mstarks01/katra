@@ -1114,7 +1114,6 @@ def _held_open_rows(draft: Claim, model: SystemModel) -> list[dict]:
     what the lane read. Empty for every ground on a field that reads
     unverified, whose words say nothing the model does not.
     """
-    elements = {element.id: element for element in model.elements()}
     return [
         {
             "element_id": ground.element_id,
@@ -1122,7 +1121,7 @@ def _held_open_rows(draft: Claim, model: SystemModel) -> list[dict]:
             "says": ground_gloss(ground, None, model),
         }
         for ground in draft.grounds
-        if held_value(ground, elements) is not None
+        if held_value(ground, model) is not None
     ]
 
 

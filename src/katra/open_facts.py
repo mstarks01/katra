@@ -125,12 +125,11 @@ def reference_labels(
             labels[f"{name}: {getattr(element, name)}"] = (
                 f"{words}: {getattr(element, name)}"
             )
-    elements = {element.id: element for element in model.elements()}
     for ref, ground in evidence_catalog(model, assertions).items():
         if ground.kind in _GROUND_STATE:
             where = names.get(ground.element_id, ground.element_id)
             attribute = attribute_words(ground.attribute)
-            held = held_value(ground, elements)
+            held = held_value(ground, model)
             state = (
                 _GROUND_STATE[ground.kind]
                 if held is None

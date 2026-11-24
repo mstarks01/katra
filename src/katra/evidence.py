@@ -673,7 +673,6 @@ def render_catalog(
     ``model`` is the model the catalog came from, read for the value a field
     the rows hold open still states (:func:`_held_open_value`).
     """
-    elements = {element.id: element for element in model.elements()}
     rows_by_id = (
         {}
         if assertions is None
@@ -686,7 +685,7 @@ def render_catalog(
     )
     rows = "\n".join(
         f"| `{_cell(ref)}` |"
-        f" {_cell(_gloss(ground, rows_by_id, subjects, held_value(ground, elements)))} |"
+        f" {_cell(_gloss(ground, rows_by_id, subjects, held_value(ground, model)))} |"
         for ref, ground in catalog.items()
     )
     return (
@@ -737,8 +736,7 @@ def ground_gloss(
         if assertions is None
         else {subject.id: subject for subject in assertions.subjects}
     )
-    elements = {element.id: element for element in model.elements()}
-    return _gloss(ground, rows, subjects, held_value(ground, elements))
+    return _gloss(ground, rows, subjects, held_value(ground, model))
 
 
 def _held_open_value(element: Element, attribute: str) -> str | None:
@@ -756,15 +754,18 @@ def _held_open_value(element: Element, attribute: str) -> str | None:
     return None
 
 
-def held_value(ground: Ground, elements: Mapping[str, Element]) -> str | None:
-    """The value an ``unknown-attribute`` entry's field still states, or ``None``
-    for any other entry and for a field that reads unverified.
+def held_value(ground: Ground, model: SystemModel) -> str | None:
+    """The value an ``unknown-attribute`` entry's field still states in
+    ``model``, or ``None`` for any other entry and for a field that reads
+    unverified.
 
     **The one reader of "which held-open value does this entry name"**: the
     catalog table, :func:`ground_gloss`, the critic's view and the report's
     labels all call it."""
-    element = elements.get(ground.element_id)
-    if ground.kind != "unknown-attribute" or element is None:
+    if ground.kind != "unknown-attribute":
+        return None
+    element = model.get(ground.element_id)
+    if element is None:
         return None
     return _held_open_value(element, ground.attribute)
 
