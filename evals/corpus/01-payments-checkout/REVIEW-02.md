@@ -23,7 +23,7 @@ other. Reviewing them apart is what step 6 forbids.
 **Both sets are scored, and neither scoring asks this sitting's question.**
 `evals/harness/instruments.py` maps `asvs` to `applicability.score_case` in
 `PACKAGE_SCORERS`, which closed
-[#200](https://github.com/mstarks01/work-agent/issues/200), so the ASVS half
+[#200](https://github.com/mstarks01/katra/issues/200), so the ASVS half
 comes back as a confusion matrix over the catalog, matched by string. STRIDE's
 half is scored through the identity rule. What neither can do is ask whether a
 set is *exhaustive* — a threat nobody wrote down is one no matrix scores
