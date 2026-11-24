@@ -2,11 +2,12 @@
 
 Usage::
 
-    KATRA_OFFLINE=1 PYTHONPATH=src:. python trace.py <run dir> <corpus> <verb rows csv> <out dir>
+    KATRA_OFFLINE=1 PYTHONPATH=src:. python trace.py <run dir> <corpus> <verb rows csv | -> <out dir>
 
-``<run dir>`` holds the case artifacts of the 2026-10-24 sweep. ``<verb rows
-csv>`` is ``evals/experiments/QA-2026-11-17-13/verb-rows.csv``. The script
-writes ``trace.csv`` and ``summary.txt`` into ``<out dir>``.
+``<run dir>`` holds the case artifacts of one run. ``<verb rows csv>`` is
+``evals/experiments/QA-2026-11-17-13/verb-rows.csv`` for the 2026-10-24 sweep,
+and ``-`` for a run that no verb ruling reads. The script writes ``trace.csv``
+and ``summary.txt`` into ``<out dir>``.
 
 Each row joins two shipped readings, the scorecard and the delivery trace, with
 the verb-row rulings and classification that QA-2026-11-17-13 recorded. The
@@ -29,7 +30,20 @@ from evals.harness.run import scorecard_of
 #: The draft mechanisms that the QA-2026-11-17-13 design targets.
 TARGETED = frozenset({"on-path", "storage-copy"})
 
-#: What the sweep's mode shows for every row: the lanes read the signed model.
+#: The six references the QA-2026-11-17-13 design targets, by case ID and
+#: reference index.
+TARGET_REFERENCES = frozenset(
+    {
+        ("02-iot-fleet-telemetry", 3),
+        ("03-batch-data-pipeline", 8),
+        ("06-cookbook-online-game", 3),
+        ("09-cookbook-sokify-retail", 4),
+        ("10-cookbook-generic-cms", 17),
+        ("13-dispatch-control-plane", 19),
+    }
+)
+
+#: What an analysis-mode run shows for every row: the lanes read the signed model.
 SOURCE = "analysis mode: the lanes read the signed model; extraction is not on the path"
 
 FIELDS = (
@@ -60,34 +74,42 @@ FIELDS = (
 def attribute(row, verb_row):
     """The attribution, evidence, uncertainty and next action of one row.
 
-    A matched row and the causes ``unstated``, ``verb``, ``place`` and ``unled``
-    each have a rule. Any other cause of ``losses.Cause``, and a ``verb`` row
-    that QA-2026-11-17-13 did not read, raise: this audit has no evidence for
-    them.
+    A matched row and the causes ``unstated``, ``verb``, ``position``,
+    ``place`` and ``unled`` each have a rule. A verb ruling is ``different`` or
+    empty. Any other cause of ``losses.Cause``, and any other ruling, raise:
+    this audit has no evidence for them.
     """
     cause = row["cause"]
+    key = (row["case"], row["reference_index"])
     if row["status"] == "matched":
         return (
             "none: a structural match",
             "run.py scorecard",
-            "the meaning is unreviewed, and the archive states no position",
-            "rule the position on a sweep of today's contract",
+            "the meaning is unreviewed",
+            "rule the match by meaning",
         )
     if cause == "unstated":
         return (
             "reference or scorer mismatch: the archive has no position field",
             "run.py scorecard",
             "the earliest loss is unknown",
-            "a sweep of today's contract",
+            "a run of today's contract",
         )
-    if cause == "verb" and verb_row is not None:
-        if verb_row["ruling"] != "different":
-            return (
-                "reference or scorer mismatch: the ruled position is unstated",
-                "QA-2026-11-17-13 verb-rows.csv; run.py delivery",
-                "no ruling can move it on the archive",
-                "a sweep of today's contract",
-            )
+    if cause == "verb" and verb_row is None:
+        return (
+            "generation: another verb at the place",
+            "run.py scorecard; run.py delivery",
+            "the meaning is unruled",
+            "a Phase 2 target" if key in TARGET_REFERENCES else "rule by meaning",
+        )
+    if cause == "verb" and verb_row["ruling"] == "":
+        return (
+            "reference or scorer mismatch: the ruled position is unstated",
+            "QA-2026-11-17-13 verb-rows.csv; run.py delivery",
+            "no ruling can move it on the archive",
+            "a run of today's contract",
+        )
+    if cause == "verb" and verb_row["ruling"] == "different":
         mechanism = verb_row["draft_mechanism"]
         return (
             f"generation substitution: the draft states {mechanism}",
@@ -100,20 +122,29 @@ def attribute(row, verb_row):
             if mechanism in TARGETED
             else "a second signature; read, not targeted",
         )
+    if cause == "position":
+        return (
+            "generation: the draft states another attacker position",
+            "run.py scorecard; run.py delivery",
+            "a corpus ruling on the reference's position is the alternative",
+            "a Phase 2 target"
+            if key in TARGET_REFERENCES
+            else "rule the reference's position or the draft",
+        )
     if cause == "place":
         return (
-            "unresolved: associated with the generation outcome",
-            "run.py delivery; QA-2026-11-17-12-E4",
-            "a rule led the lane to the place, and the lane filed no draft there",
-            "a sweep of today's contract",
+            "unresolved: the lane had the place and filed no draft there",
+            "run.py delivery",
+            "a rule led the lane to the place",
+            "a run of today's contract",
         )
     if cause == "unled":
         return (
-            "unresolved: associated with the generation outcome",
-            "run.py delivery; QA-2026-11-17-12-E4",
+            "unresolved: no lead reached the place",
+            "run.py delivery",
             (
-                "no rule led the lane to the place; the facts that would lead it"
-                " are not traced"
+                "a missing lead (preparation) or the lane's outcome (generation);"
+                " the facts that would lead it are not traced"
             ),
             "authority facts (#2054 group 2)"
             if row["lane"] == "elevation-of-privilege"
@@ -121,7 +152,8 @@ def attribute(row, verb_row):
         )
     raise ValueError(
         f"{row['case']} #{row['reference_index']}: no attribution rule for"
-        f" status {row['status']!r}, cause {cause!r}"
+        f" status {row['status']!r}, cause {cause!r},"
+        f" ruling {None if verb_row is None else verb_row['ruling']!r}"
     )
 
 
@@ -181,11 +213,18 @@ def case_rows(artifact_path, corpus, cases, verb_rows):
         }
 
 
-def main(run_dir, corpus, verb_csv, out_dir):
+def read_verb_rows(verb_csv):
+    """The QA-2026-11-17-13 verb rows by case and reference, or none for ``-``."""
+    if str(verb_csv) == "-":
+        return {}
     with verb_csv.open(encoding="utf-8", newline="") as handle:
-        verb_rows = {
+        return {
             (row["case"], int(row["reference"])): row for row in csv.DictReader(handle)
         }
+
+
+def main(run_dir, corpus, verb_csv, out_dir):
+    verb_rows = read_verb_rows(verb_csv)
     cases = development_cases(load_corpus(corpus))
     rows = sorted(
         (

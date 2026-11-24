@@ -7,8 +7,8 @@ by attribution:
     5  unresolved
 
 by next action:
-   67  a sweep of today's contract
-   21  rule the position on a sweep of today's contract
+   67  a run of today's contract
+   21  rule the match by meaning
     6  a Phase 2 target
     4  authority facts (#2054 group 2)
     2  a second signature; read, not targeted

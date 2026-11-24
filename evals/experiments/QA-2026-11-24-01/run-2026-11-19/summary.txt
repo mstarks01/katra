@@ -1,0 +1,15 @@
+70 must-finds
+
+by attribution:
+   47  none
+   19  generation
+    4  unresolved
+
+by next action:
+   47  rule the match by meaning
+   10  rule by meaning
+    5  rule the reference's position or the draft
+    4  a Phase 2 target
+    2  authority facts (#2054 group 2)
+    1  a lead rule for the place, priced offline
+    1  a run of today's contract

@@ -1,0 +1,110 @@
+{
+  "manifest_version": 1,
+  "run": "2026-11-19-stride-8case-42b63219",
+  "cases": [
+    "01",
+    "06",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13"
+  ],
+  "trusted": [
+    false
+  ],
+  "artifact_version": 7,
+  "mode": "analysis",
+  "frameworks": [
+    "stride"
+  ],
+  "repo_commit": {
+    "commit": "42b6321964aeb05e4f323c058e55c016bbad0e73",
+    "clean": false
+  },
+  "corpus_digest": "b814eb5b59b5ede5211acbb0514d09012d818a0c44d128fc6c4ad9753730dbcd",
+  "flow_identity_version": 2,
+  "models": {
+    "tiers_config_version": 9,
+    "tiers": {
+      "base": {
+        "vendor": "openrouter",
+        "model": "openai/gpt-5.6-luna",
+        "upstreams": [
+          "openai/flex"
+        ]
+      },
+      "strong": {
+        "vendor": "openrouter",
+        "model": "openai/gpt-5.6-terra",
+        "upstreams": [
+          "openai/flex"
+        ]
+      },
+      "review": {
+        "vendor": "openrouter",
+        "model": "openai/gpt-5.6-terra",
+        "upstreams": [
+          "openai/flex"
+        ]
+      }
+    }
+  },
+  "gating": "tier-1-structural-only",
+  "build": {
+    "analysis-service": "0.1.0",
+    "google-adk": "2.5.0",
+    "google-genai": "2.11.0",
+    "litellm": "1.104.0"
+  },
+  "sampling_config_version": 5,
+  "sampling": {
+    "base": {
+      "temperature": null,
+      "top_p": null,
+      "seed": null,
+      "max_output_tokens": 16384,
+      "candidate_count": 1,
+      "presence_penalty": null,
+      "frequency_penalty": null,
+      "thinking": null,
+      "constrain_output": true,
+      "structured_output": "auto"
+    },
+    "strong": {
+      "temperature": null,
+      "top_p": null,
+      "seed": null,
+      "max_output_tokens": 64000,
+      "candidate_count": 1,
+      "presence_penalty": null,
+      "frequency_penalty": null,
+      "thinking": null,
+      "constrain_output": true,
+      "structured_output": "auto"
+    },
+    "review": {
+      "temperature": null,
+      "top_p": null,
+      "seed": null,
+      "max_output_tokens": 64000,
+      "candidate_count": 1,
+      "presence_penalty": null,
+      "frequency_penalty": null,
+      "thinking": null,
+      "constrain_output": true,
+      "structured_output": "auto"
+    }
+  },
+  "instruction": {
+    "analyze_stride_denial_of_service": "d22eb2c234f857b822c0f13e48e5dc02a7f6e99b0e9d1c7928f7aeb5e48250a3",
+    "analyze_stride_elevation_of_privilege": "7a5773c51893d55ddec4e4e006b7ee7f0aca388657f0d23fb0a9d47eaa45a5f5",
+    "analyze_stride_information_disclosure": "ea04fbb4d98c7163acb942be75a443eaef6aa8dc77f1a547a0c11826c40baca7",
+    "analyze_stride_repudiation": "b89f67dcceda9c243094ed5c6832ad6592d643c906948e993847630982d0f5bd",
+    "analyze_stride_spoofing": "fa60bbb0d789fe0fda60442f4720749a6f971086c41b39146e69ac8cb43ecec1",
+    "analyze_stride_tampering": "6ea84e20e66bfe9d3c71220f318afd1b7e2541c9b9753e66acea0c22aff58fb4",
+    "critic_stride": "93e54235f68ab2848a1ecff9a5493abf65994f849de456a202f8126ac7d07e4e",
+    "recritic_stride": "45359b13c386bec4c8a1118e0f19cb583b444b7d0cbd682b3abbb3ca5ed29b26"
+  }
+}
