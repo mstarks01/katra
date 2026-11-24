@@ -80,7 +80,13 @@ costs one judge call for each case and sample (two samples by default). A
 judge on the `review` tier reads each case's STRIDE findings, mixed with
 **Plant**s as known negatives, and answers whether the source supports each
 one. The command refuses a judge whose provider is not distinct from each
-vendor that wrote the sweep. Its verdicts never enter the vote ledger. With
+vendor that wrote the sweep. A gateway route can pick its upstream provider on
+each call, so a sweep written through one has no known provider, and the
+command refuses it. The test runs on the Baseline
+`d4edd64-gpt-5.6-terra-fd1c49af`, whose tiers ran on `openai` directly: its dry
+run estimates $2.16 for 26 calls on `anthropic/claude-opus-5`. The command
+stops before a call that would pass the accepted amount, and it keeps each
+answer as it arrives. Its verdicts never enter the vote ledger. With
 `--dry-run` in place of `--accept-cost` it is free: it writes every request
 and prints the estimate and the batch sizes, and sends nothing.
 

@@ -1,34 +1,37 @@
 """Plants: false findings that code writes from a case's model (#764).
 
-A **Plant** inverts one control that a case's **System Model** states on a
-**Data Flow**: it says that the flow has no authentication, or that the flow
-carries its data in clear text. The source states the opposite, so a judge
-that reads the source must reject the plant. The judge replay
-(``evals/harness/judge_replay.py``) mixes plants into each judge batch as known
-negatives. Plants never go into a **Case Sitting**.
+A **Plant** inverts one control that a case's **System Model** states. It says
+that a **Data Flow** has no authentication, that a flow carries its data in
+clear text, or that a **Data Store** keeps its data unencrypted at rest. The
+source states the opposite, so a judge that reads the source must reject the
+plant. The judge replay (``evals/harness/judge_replay.py``) mixes plants into
+each judge batch as known negatives. Plants never go into a **Case Sitting**.
 
-**A candidate is a control the model states for every caller of the flow, with
-a mechanism the value names.** :func:`plant_reading` decides this from the
-value alone, with two word lists:
+**Two readings must agree before a fact is a candidate.**
 
-* A value that limits the control to some callers is ``limited``. Case 10's
-  "sign-in exists for some readers" is one: a plant against it is true for the
-  other readers.
-* A value that names no mechanism is ``no-mechanism``. Case 08's "vouch for
-  colleague" flow is one: the value describes a trust decision, and a plant
-  against it is a claim about something the source does not state.
+1. :func:`plant_reading` reads the model's value. It refuses a value that
+   :func:`~katra.analysis.control_state` does not read as ``stated``, a value
+   with a negating or limiting word anywhere in it (``no``, ``without``,
+   ``except``, ``only``, ``some`` and the like), and a value that names no
+   mechanism. A word list cannot prove a control. It only removes candidates:
+   "plain HTTP, no TLS" names TLS and still reads ``qualified``.
+2. A signed row of the case's ``facts.json`` must state the control on the same
+   element. The row is ``stated``, has no scope, has a reviewer, reaches the
+   attribute through :func:`~katra.assertions.projected_attribute`, and its
+   value passes :func:`plant_reading` too. A person signed that the source
+   states this value, so the plant contradicts the source and not only the
+   model.
 
-Both lists only remove candidates. A value that the lists do not read
-correctly gives fewer plants, never a plant that the source supports.
-``tests/test_evals_plants.py`` lists each value of the development corpus that
-the reading skips.
+A fact that fails either reading gives no plant. ``tests/test_evals_plants.py``
+lists each stated value of the development cases that the readings skip.
 
 **The frame of a plant must not give it away.** Each attribute has several
 title frames, description frames and closing sentences, and
-:func:`write_plants` chooses one of each at random. A description names the attacker's means, as the real
-findings do, and cites the elements by their IDs. A title names the flow's two
-endpoints as noun phrases. ``tests/test_evals_plants.py`` measures that no
-sequence of five words appears in every plant over the development cases.
+:func:`write_plants` chooses one of each at random. A description names the
+attacker's means, as the real findings do, and cites the elements by their
+IDs. A title names the elements as noun phrases. ``tests/test_evals_plants.py``
+measures that no sequence of five words appears in every plant over the
+development cases.
 
 **The choice is random.** The command passes ``random.SystemRandom()``, so a
 reader of this code cannot compute which facts a run plants. A test passes a
@@ -39,46 +42,85 @@ from __future__ import annotations
 
 import random
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, get_args
 
+from evals.reference_facts import ReferenceFacts
 from katra.analysis import control_state
+from katra.assertions import projected_attribute
 from katra.claims import Ground
 from katra.frameworks.stride.record import StrideCategory
-from katra.system_model import DataFlow, SystemModel
+from katra.system_model import DataFlow, DataStore, Element, SystemModel
 
-#: The flow attributes a plant inverts.
-PlantedAttribute = Literal["authentication", "encryption_in_transit"]
+#: The control attributes a plant inverts: each control attribute of
+#: :data:`~katra.analysis.CONTROL_ATTRIBUTES` whose stated value names a
+#: mechanism. ``exposure`` and ``data_classification`` name no mechanism.
+PlantedAttribute = Literal[
+    "authentication", "encryption_in_transit", "encryption_at_rest"
+]
 PLANTED_ATTRIBUTES: tuple[PlantedAttribute, ...] = get_args(PlantedAttribute)
 
-#: How :func:`plant_reading` reads one stated or unstated control value.
-PlantReading = Literal["plantable", "not-stated", "limited", "no-mechanism"]
+#: How a candidate reads. :func:`plant_reading` gives the first four, and
+#: ``unsigned`` is a plantable value that no signed fact states.
+PlantReading = Literal[
+    "plantable", "not-stated", "qualified", "no-mechanism", "unsigned"
+]
 
 #: The number of plants in one batch, as #764 states it: two or three. A case
 #: with fewer candidates gets all of them.
 PLANTS_PER_BATCH: tuple[int, ...] = (2, 3)
 
-#: Words that limit a stated control to some callers of a flow.
-LIMITING_WORDS: frozenset[str] = frozenset(
+#: Words that negate, limit or qualify a stated control. A value with one of
+#: them anywhere in it gives no plant.
+QUALIFYING_WORDS: frozenset[str] = frozenset(
     {
+        "absent",
+        "anonymous",
+        "but",
         "certain",
+        "disabled",
+        "except",
+        "excluding",
         "few",
+        "lacks",
+        "may",
+        "might",
+        "missing",
         "most",
+        "no",
+        "none",
+        "not",
+        "nothing",
         "only",
         "optional",
         "optionally",
+        "partial",
+        "partially",
+        "plain",
+        "plaintext",
         "selected",
         "some",
         "sometimes",
+        "unauthenticated",
+        "unclear",
+        "unencrypted",
+        "unknown",
+        "unless",
+        "unverified",
+        "without",
     }
 )
 
-#: Words that name an authentication or a transport mechanism.
+#: Words that name an authentication, transport or storage mechanism.
 MECHANISM_WORDS: frozenset[str] = frozenset(
     {
         "account",
+        "aes",
+        "bitlocker",
         "certificate",
         "certificates",
+        "cmk",
         "code",
         "cookie",
         "cookies",
@@ -88,6 +130,8 @@ MECHANISM_WORDS: frozenset[str] = frozenset(
         "jwt",
         "key",
         "keys",
+        "kms",
+        "luks",
         "mfa",
         "mtls",
         "oauth",
@@ -98,6 +142,7 @@ MECHANISM_WORDS: frozenset[str] = frozenset(
         "sftp",
         "ssh",
         "sso",
+        "tde",
         "tls",
         "token",
         "tokens",
@@ -108,10 +153,11 @@ MECHANISM_WORDS: frozenset[str] = frozenset(
 CATEGORY: dict[PlantedAttribute, StrideCategory] = {
     "authentication": "spoofing",
     "encryption_in_transit": "information-disclosure",
+    "encryption_at_rest": "information-disclosure",
 }
 
-#: The title frames of each attribute. ``{source}`` and ``{target}`` are the
-#: flow's endpoints as noun phrases.
+#: The title frames of each attribute. ``{source}`` and ``{target}`` are a
+#: flow's endpoints as noun phrases, and ``{store}`` is a data store.
 TITLES: dict[PlantedAttribute, tuple[str, ...]] = {
     "authentication": (
         "An attacker can act as {source} toward {target} with no credential",
@@ -127,10 +173,18 @@ TITLES: dict[PlantedAttribute, tuple[str, ...]] = {
         "Data that {source} sends to {target} may be captured on the network",
         "An unencrypted link lets an attacker intercept traffic to {target}",
     ),
+    "encryption_at_rest": (
+        "A storage-layer copy of {store} exposes its data in clear text",
+        "Anyone who obtains the disks or backups of {store} can read its contents",
+        "Unencrypted storage lets an attacker read {store} directly",
+        "{Store} keeps its data at rest with no encryption",
+        "A stolen snapshot of {store} discloses everything it holds",
+    ),
 }
 
-#: The description frames of each attribute. ``{flow}``, ``{source_id}`` and
-#: ``{target_id}`` are element IDs, which the frame puts in backticks.
+#: The description frames of each attribute. ``{flow}``, ``{source_id}``,
+#: ``{target_id}`` and ``{store_id}`` are element IDs, which the frame puts in
+#: backticks.
 DESCRIPTIONS: dict[PlantedAttribute, tuple[str, ...]] = {
     "authentication": (
         (
@@ -184,10 +238,32 @@ DESCRIPTIONS: dict[PlantedAttribute, tuple[str, ...]] = {
             " detected."
         ),
     ),
+    "encryption_at_rest": (
+        (
+            "`{store_id}` stores its data without encryption at rest. An attacker"
+            " who obtains a copy of the underlying volume, a backup or a snapshot"
+            " reads every record in it and never goes through an application."
+        ),
+        (
+            "Nothing protects the contents of `{store_id}` at rest. An operator of"
+            " the hosting platform, or an attacker who reaches the storage layer,"
+            " reads the stored data in clear text."
+        ),
+        (
+            "`{store_id}` writes its contents to disk in readable form. A copy"
+            " taken from the storage media or from a backup job is readable as it"
+            " is, with no key to obtain first."
+        ),
+        (
+            "The data in `{store_id}` sits unencrypted on its storage. An attacker"
+            " with access to the media bypasses the access checks of every process"
+            " that reads `{store_id}`."
+        ),
+    ),
 }
 
 #: The closing sentence of a description: what the attack reaches. ``{data}``
-#: is the flow's ``data_description``.
+#: is a flow's ``data_description``.
 CONSEQUENCES: dict[PlantedAttribute, tuple[str, ...]] = {
     "authentication": (
         (
@@ -208,6 +284,14 @@ CONSEQUENCES: dict[PlantedAttribute, tuple[str, ...]] = {
             " `{target_id}` directly."
         ),
     ),
+    "encryption_at_rest": (
+        "Every record that `{store_id}` holds is disclosed in one step.",
+        "The exposure covers backups and snapshots as well as the live store.",
+        (
+            "Second-order, the attacker can use what the copy holds against the"
+            " processes that read `{store_id}`."
+        ),
+    ),
 }
 
 _WORD = re.compile(r"[a-z0-9]+")
@@ -218,8 +302,8 @@ def plant_reading(value: str) -> PlantReading:
     if control_state(value) != "stated":
         return "not-stated"
     words = set(_WORD.findall(value.casefold()))
-    if words & LIMITING_WORDS:
-        return "limited"
+    if words & QUALIFYING_WORDS:
+        return "qualified"
     if not words & MECHANISM_WORDS:
         return "no-mechanism"
     return "plantable"
@@ -230,34 +314,78 @@ class PlantedFact:
     """The stated control a plant inverts, so a reader can check the plant."""
 
     case: str
-    flow_id: str
+    element_id: str
     attribute: PlantedAttribute
     stated: str
 
     def to_json(self) -> dict[str, str]:
         return {
             "case": self.case,
-            "flow_id": self.flow_id,
+            "element_id": self.element_id,
             "attribute": self.attribute,
             "stated": self.stated,
         }
 
 
-def readings(case_id: str, model: SystemModel) -> dict[PlantedFact, PlantReading]:
-    """Each stated control of each flow of ``model``, with its reading."""
+def signed_controls(facts: ReferenceFacts | None) -> set[tuple[str, str]]:
+    """Each ``(element ID, attribute)`` that a signed, stated, unscoped row of
+    ``facts`` states with a plantable value."""
+    if facts is None:
+        return set()
     return {
-        PlantedFact(case_id, flow.id, attribute, value): plant_reading(value)
-        for flow in model.data_flows
-        for attribute in PLANTED_ATTRIBUTES
-        if plant_reading(value := getattr(flow, attribute)) != "not-stated"
+        (row.assertion.subject, attribute)
+        for row in facts.rows
+        if row.reviewed_by is not None
+        and row.assertion.basis == "stated"
+        and not row.assertion.scope
+        and (
+            attribute := projected_attribute(
+                row.assertion.predicate, row.assertion.subject
+            )
+        )
+        and plant_reading(row.assertion.value) == "plantable"
     }
 
 
-def candidates(case_id: str, model: SystemModel) -> tuple[PlantedFact, ...]:
+def readings(
+    case_id: str,
+    model: SystemModel,
+    facts: ReferenceFacts | None,
+    renamed: Mapping[str, str],
+) -> dict[PlantedFact, PlantReading]:
+    """Each stated control of ``model`` that a plant inverts, with its reading.
+
+    ``renamed`` maps an element ID of ``model`` to the ID the signed facts
+    spell, where the two differ: an archived model can spell its flows under an
+    older flow identity version.
+    """
+    signed = signed_controls(facts)
+    found: dict[PlantedFact, PlantReading] = {}
+    for element in model.elements():
+        for attribute in PLANTED_ATTRIBUTES:
+            value = getattr(element, attribute, None)
+            if not isinstance(value, str):
+                continue
+            reading = plant_reading(value)
+            if reading == "not-stated":
+                continue
+            current = renamed.get(element.id, element.id)
+            if reading == "plantable" and (current, attribute) not in signed:
+                reading = "unsigned"
+            found[PlantedFact(case_id, element.id, attribute, value)] = reading
+    return found
+
+
+def candidates(
+    case_id: str,
+    model: SystemModel,
+    facts: ReferenceFacts | None,
+    renamed: Mapping[str, str],
+) -> tuple[PlantedFact, ...]:
     """The facts of ``model`` that a plant may invert, in model order."""
     return tuple(
         fact
-        for fact, reading in readings(case_id, model).items()
+        for fact, reading in readings(case_id, model, facts, renamed).items()
         if reading == "plantable"
     )
 
@@ -307,37 +435,58 @@ def _lower_first(text: str) -> str:
     return f"{first} {rest}".strip()
 
 
-def _plant(
-    fact: PlantedFact, flow: DataFlow, model: SystemModel, rng: random.Random
-) -> Plant:
-    source = model.get(flow.source)
-    target = model.get(flow.destination)
+def _names(element: Element, model: SystemModel) -> dict[str, str]:
+    """The words a frame fills in for ``element``: noun phrases and element IDs."""
+    if isinstance(element, DataStore):
+        store = noun_phrase(element.name)
+        return {"store": store, "Store": _upper_first(store), "store_id": element.id}
+    if not isinstance(element, DataFlow):
+        raise TypeError(f"{element.id} is neither a data flow nor a data store")
+    source = model.get(element.source)
+    target = model.get(element.destination)
     if source is None or target is None:
-        raise ValueError(f"{flow.id} names an endpoint the model does not hold")
-    names = {
+        raise ValueError(f"{element.id} names an endpoint the model does not hold")
+    target_phrase = noun_phrase(target.name)
+    return {
         "source": noun_phrase(source.name),
-        "target": noun_phrase(target.name),
+        "target": target_phrase,
+        "Target": _upper_first(target_phrase),
+        "flow": element.id,
+        "source_id": source.id,
+        "target_id": target.id,
+        "data": _lower_first(element.data_description),
     }
-    names["Target"] = names["target"][:1].upper() + names["target"][1:]
-    ids = {"flow": flow.id, "source_id": source.id, "target_id": target.id}
+
+
+def _upper_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _plant(fact: PlantedFact, model: SystemModel, rng: random.Random) -> Plant:
+    element = model.get(fact.element_id)
+    if element is None:
+        raise ValueError(f"{fact.element_id} is not in the model")
+    names = _names(element, model)
     grounds = [
-        Ground(kind="absent-attribute", element_id=flow.id, attribute=fact.attribute)
+        Ground(kind="absent-attribute", element_id=element.id, attribute=fact.attribute)
     ]
-    if rng.random() < 0.5:
-        grounds.append(Ground(kind="derived-fact", flow_id=flow.id))
-    affected = (
-        (source.id, flow.id, target.id) if rng.random() < 0.5 else (flow.id, target.id)
-    )
+    affected: tuple[str, ...] = (element.id,)
+    if isinstance(element, DataFlow):
+        if rng.random() < 0.5:
+            grounds.append(Ground(kind="derived-fact", flow_id=element.id))
+        affected = (
+            (names["source_id"], element.id, names["target_id"])
+            if rng.random() < 0.5
+            else (element.id, names["target_id"])
+        )
     return Plant(
         fact=fact,
         category=CATEGORY[fact.attribute],
         title=rng.choice(TITLES[fact.attribute]).format(**names),
         description=" ".join(
             (
-                rng.choice(DESCRIPTIONS[fact.attribute]).format(**ids),
-                rng.choice(CONSEQUENCES[fact.attribute]).format(
-                    data=_lower_first(flow.data_description), **ids
-                ),
+                rng.choice(DESCRIPTIONS[fact.attribute]).format(**names),
+                rng.choice(CONSEQUENCES[fact.attribute]).format(**names),
             )
         ),
         affected_element_ids=affected,
@@ -346,14 +495,20 @@ def _plant(
 
 
 def write_plants(
-    case_id: str, model: SystemModel, rng: random.Random
+    case_id: str,
+    model: SystemModel,
+    facts: ReferenceFacts | None,
+    renamed: Mapping[str, str],
+    rng: random.Random,
 ) -> tuple[Plant, ...]:
     """Two or three plants for one batch, chosen with ``rng``.
 
-    A case with fewer candidates than the count gets a plant for each one, and
-    a case with none gets no plant.
+    ``facts`` is the case's signed facts, or ``None`` for a case with none, which
+    gets no plant. ``renamed`` is as :func:`readings` states it. A case with
+    fewer candidates than the count gets a plant for each one.
     """
-    facts = candidates(case_id, model)
-    chosen = rng.sample(facts, min(rng.choice(PLANTS_PER_BATCH), len(facts)))
-    flows = {flow.id: flow for flow in model.data_flows}
-    return tuple(_plant(fact, flows[fact.flow_id], model, rng) for fact in chosen)
+    facts_found = candidates(case_id, model, facts, renamed)
+    chosen = rng.sample(
+        facts_found, min(rng.choice(PLANTS_PER_BATCH), len(facts_found))
+    )
+    return tuple(_plant(fact, model, rng) for fact in chosen)

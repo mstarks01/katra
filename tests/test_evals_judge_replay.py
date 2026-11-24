@@ -13,14 +13,15 @@ import random
 
 import pytest
 
-from evals.harness import judge_replay
-from evals.harness.artifact import CORPUS_DIR, load_artifact
+from evals.harness import judge_replay, plants
+from evals.harness.artifact import CORPUS_DIR, load_artifact, rendered_sources
 from evals.harness.bundle import read_report, stride_threats
 from evals.harness.identity import SubsetVerbIdentity
 from evals.harness.ledger import Ledger
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import flows_by_case, load_case
 from evals.harness.scorer import score_case
+from evals.reference_facts import load_facts
 from katra.claim_identity import report_rows
 from katra.offline import OFFLINE_ENV
 from katra.vendors import vendor_for
@@ -284,7 +285,7 @@ def test_a_label_outside_the_batch_is_stray():
         }
     )
 
-    reading = judge_replay.read_answer(raw, request, [item], {})
+    reading = judge_replay.read_answer(raw, request, [item], ())
 
     assert reading.stray == ("F-01", "F-09")
     assert reading.answers["k"].verdict == "supported"
@@ -403,20 +404,37 @@ def test_offline_mode_refuses_the_first_call(sweep, tmp_path, capsys):
 
     assert code == 1
     assert OFFLINE_ENV in capsys.readouterr().err
-    assert not out.exists()
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert OFFLINE_ENV in written["stopped"]
+    assert written["not_run"] == [
+        {"case": CASE, "sample": 1},
+        {"case": CASE, "sample": 2},
+    ]
+    assert written["pooled"]["matched"]["of"] == 0
 
 
-def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeypatch):
-    sent = []
+def _scripted(spent_per_call=None, fail_on=None, sent=None):
+    """A ``tier_call`` stand-in that rejects every finding.
 
-    def scripted(*_args, **_kwargs):
+    ``spent_per_call`` is the charge each call reports, and ``fail_on`` the
+    number of the call that raises a provider error.
+    """
+
+    def build(_deployment, _tier, _schema, spent, _seen):
+        calls = []
+
         async def call(instruction, turn):
+            calls.append(instruction)
+            if sent is not None:
+                sent.append(instruction)
+            if fail_on is not None and len(calls) == fail_on:
+                raise RuntimeError("the provider failed")
             text = turn.parts[0].text
-            sent.append(instruction)
             labels = [
                 f["label"]
                 for f in json.loads(text.split("```json\n")[-1].rsplit("```", 1)[0])
             ]
+            spent.append(spent_per_call)
             return json.dumps(
                 {
                     "findings": [
@@ -433,7 +451,12 @@ def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeyp
 
         return call
 
-    monkeypatch.setattr(judge_replay, "tier_call", scripted)
+    return build
+
+
+def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeypatch):
+    sent = []
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent))
     out = tmp_path / "out.json"
 
     assert judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100")) == 0
@@ -445,4 +468,127 @@ def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeyp
         written["pooled"]["plants"]["rejected"] == written["pooled"]["plants"]["of"] > 0
     )
     assert written["void_batches"] == []
+    assert written["not_run"] == []
+    assert written["stopped"] is None
     assert written["judge"] == {"tier": "review", "route": "anthropic/claude-opus-5"}
+
+
+def test_the_run_stops_before_a_call_that_would_pass_the_accepted_amount(
+    sweep, tmp_path, monkeypatch, capsys
+):
+    """The first call reports a charge far above its estimate, so the second
+    call's estimate on top of it passes what was accepted."""
+    sent = []
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(5.0, sent=sent))
+    out = tmp_path / "out.json"
+
+    code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="5.00"))
+
+    assert code == 1
+    assert len(sent) == 1
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert "pass the $5.00 accepted" in written["stopped"]
+    assert written["not_run"] == [{"case": CASE, "sample": 2}]
+    assert written["cases"][0]["samples"][0]["sample"] == 1
+    assert "stopped" in capsys.readouterr().err
+
+
+def test_a_provider_error_keeps_the_paid_answers(sweep, tmp_path, monkeypatch):
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(fail_on=2))
+    out = tmp_path / "out.json"
+
+    code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100"))
+
+    assert code == 1
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert "the provider failed" in written["stopped"]
+    assert written["not_run"] == [{"case": CASE, "sample": 2}]
+    assert written["pooled"]["plants"]["of"] > 0
+    assert len(written["answers"]) == 0  # the stand-in records no raw answer
+
+
+def test_each_answer_is_written_as_it_arrives(sweep, tmp_path, monkeypatch):
+    out = tmp_path / "out.json"
+    seen_on_disk = []
+    real = judge_replay.judged
+
+    def judged(inputs, requests, raws):
+        if out.exists():
+            seen_on_disk.append(len(json.loads(out.read_text())["not_run"]))
+        return real(inputs, requests, raws)
+
+    monkeypatch.setattr(judge_replay, "judged", judged)
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted())
+
+    assert judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100")) == 0
+    # The file held one call not run after the first answer.
+    assert 1 in seen_on_disk
+
+
+def test_a_sweep_that_names_no_writer_is_refused():
+    breach = judge_replay.independence_breach([], vendor_for("anthropic"))
+
+    assert breach is not None
+    assert "records no requested model" in breach
+
+
+def test_a_gateway_refusal_names_the_direct_vendor_baseline(
+    sweep, tmp_path, monkeypatch, no_call, capsys
+):
+    monkeypatch.setattr(
+        judge_replay, "writer_vendors", lambda _artifact: (vendor_for("openrouter"),)
+    )
+
+    code = judge_replay.command_judge_replay(
+        _args(sweep, tmp_path / "out.json", accept_cost="100")
+    )
+
+    err = capsys.readouterr().err
+    assert code == 1
+    assert "pick its upstream" in err
+    assert judge_replay.DIRECT_BASELINE in err
+
+
+def test_a_case_whose_sources_moved_is_left_out(tmp_path):
+    document = sweep_document(cases=(CASE,)) | {
+        "mode": "analysis",
+        "rendered_sources": {CASE: "0" * 64},
+    }
+    path = write_report_sweep(
+        tmp_path / "sweep.json", CASE, read_report(REPORT), document
+    )
+
+    assert judge_replay.moved_sources(load_artifact(path), [CASE]) == [CASE]
+
+
+def test_a_case_whose_sources_match_is_kept(tmp_path):
+    case = load_case(CORPUS_DIR / CASE)
+    document = sweep_document(cases=(CASE,)) | {
+        "mode": "analysis",
+        "rendered_sources": rendered_sources([case]),
+    }
+    path = write_report_sweep(
+        tmp_path / "sweep.json", CASE, read_report(REPORT), document
+    )
+
+    assert judge_replay.moved_sources(load_artifact(path), [CASE]) == []
+
+
+def test_a_model_with_older_flow_ids_reaches_the_signed_facts():
+    """d4edd64 spells its flows under flow identity version 1, and the signed
+    facts spell them under the version this code writes."""
+    report = read_report(
+        REPO_ROOT
+        / "evals/baselines/d4edd64-gpt-5.6-terra-fd1c49af"
+        / "mstarks01-ab5d72fb.reports"
+        / "02-iot-fleet-telemetry.report.json"
+    )
+    facts = load_facts(CORPUS_DIR / "02-iot-fleet-telemetry")
+    renamed = judge_replay.current_flow_ids(report.system_model)
+
+    found = plants.candidates("02", report.system_model, facts, renamed)
+
+    assert renamed
+    assert plants.candidates("02", report.system_model, facts, {}) == ()
+    assert {fact.element_id for fact in found} <= set(renamed)
+    assert found

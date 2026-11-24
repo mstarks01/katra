@@ -24,15 +24,35 @@ differently reads ``unsure``, and the output states the agreement rate. A
 sample in which the judge supports a plant is void: its verdicts count for no
 finding, and the output names the batch.
 
+**STRIDE only.** The populations are STRIDE findings at model elements, read
+through :func:`~evals.harness.bundle.stride_threats`. ASVS writes exclusions,
+which are not findings at an element, and #764 names them as a later
+population.
+
 **A different provider.** The judge runs on the ``review`` tier, and the command
 refuses to send when :func:`~katra.model_tiers.provider_breach` finds that tier
-and a vendor that wrote the sweep are not two distinct providers.
+and a vendor that wrote the sweep are not two distinct providers. A gateway
+route can pick its upstream provider on each call, so the provider that wrote
+a sweep through a gateway is not known, and the command refuses that sweep.
+The replay test runs on ``d4edd64-gpt-5.6-terra-fd1c49af``, whose tiers ran on
+``openai`` directly. A sweep whose provenance records no requested model is
+refused too, because its writer is not known.
+
+**Moved sources.** Where the sweep records a digest of each case's rendered
+sources, a case whose sources differ today is left out and named under
+``moved_sources``: its findings were written against other text than the
+judge would read. :func:`~evals.harness.artifact.rendered_sources` computes
+today's digest.
 
 **Paid, with consent.** The command builds every request offline and states an
 estimate through :class:`~evals.harness.consent.Estimate`. ``--dry-run``
 writes the requests and sends nothing. A live run takes consent through
 :func:`~evals.harness.consent.gate`, and ``KATRA_OFFLINE`` refuses its first
-call.
+call. Before each call it adds the charges so far (a call the provider
+reported no charge for counts at its estimate) to the next call's estimate,
+and it stops when the sum passes the accepted amount. It writes the output
+file after each answer. A provider failure stops the run, and the output keeps
+the answers so far and names each call that did not run.
 """
 
 from __future__ import annotations
@@ -59,8 +79,15 @@ from evals.harness.artifact import (
     ProvenanceError,
     corpus_digest,
     load_artifact,
+    recorded_sources,
+    rendered_sources,
 )
 from evals.harness.bundle import check_out, finished_file, read_report, stride_threats
+from evals.harness.flow_ids import (
+    MigrationError,
+    flow_id_version_of_graph,
+    table_between,
+)
 from evals.harness.identity import SubsetVerbIdentity
 from evals.harness.ledger import Ledger
 from evals.harness.modes import EvalRunError
@@ -76,8 +103,8 @@ from evals.harness.reference import (
 )
 from evals.harness.run_record import Selections, run_record_for
 from evals.harness.scorer import score_case
+from evals.reference_facts import facts_path, load_facts
 from katra.claim_identity import report_rows
-from katra.claims import FrameworkName
 from katra.deployment import Deployment
 from katra.execution import seed_state
 from katra.frameworks.stride.record import Threat
@@ -87,13 +114,12 @@ from katra.model_tiers import TierName, TierSelection, provider_breach
 from katra.offline import LiveInferenceRefused
 from katra.report import TokenUsage
 from katra.sources import text_digest
-from katra.system_model import EXCERPT_MAX_CHARS
+from katra.system_model import EXCERPT_MAX_CHARS, FLOW_ID_VERSION, SystemModel
 from katra.vendors import Vendor, vendor_for_route
 
-#: The package whose findings the judge reads. ASVS's population is a list of
-#: exclusions, which are not findings at a model element; #764 names them as a
-#: later population.
-FRAMEWORK: FrameworkName = "stride"
+#: The merged STRIDE Baseline that the replay test runs on, by the maintainer's
+#: ruling of 2026-11-24: its tiers ran on a direct vendor, so its writer is known.
+DIRECT_BASELINE = "d4edd64-gpt-5.6-terra-fd1c49af"
 
 #: The tier the judge runs on.
 JUDGE_TIER: TierName = "review"
@@ -173,7 +199,9 @@ class CaseInput:
 
     case: str
     input_text: str
-    sources: Mapping[str, str]
+    #: Each source's text, folded once by :func:`~katra.grounding.normalize`
+    #: for the quote check.
+    folded_sources: tuple[str, ...]
     model_text: str
     items: tuple[Item, ...]
     plants: tuple[Plant, ...]
@@ -205,6 +233,17 @@ def view(threat: Threat) -> dict[str, Any]:
     return seen
 
 
+def current_flow_ids(model: SystemModel) -> dict[str, str]:
+    """Each flow ID of an archived model against the ID this code writes, where
+    the two differ, through :func:`~evals.harness.flow_ids.table_between`."""
+    raw = model.model_dump(mode="json")
+    try:
+        version = flow_id_version_of_graph(raw)
+    except MigrationError as error:
+        raise EvalRunError(str(error)) from error
+    return table_between(raw, version, FLOW_ID_VERSION)
+
+
 def case_input(artifact: EvalArtifact, case_id: str, rng: random.Random) -> CaseInput:
     """One case's populations, plants and sources, read from the sweep."""
     refuse_holdout(case_id)
@@ -219,7 +258,11 @@ def case_input(artifact: EvalArtifact, case_id: str, rng: random.Random) -> Case
         case, produced, SubsetVerbIdentity(flows), Ledger(), report_rows(report)
     )
     by_id = {threat.id: threat for threat in produced}
-    plants = write_plants(case_id, report.system_model, rng)
+    case_dir = CORPUS_DIR / case_id
+    facts = load_facts(case_dir) if facts_path(case_dir).is_file() else None
+    plants = write_plants(
+        case_id, report.system_model, facts, current_flow_ids(report.system_model), rng
+    )
     items = (
         *(
             Item(pair.threat_id, "matched", view(by_id[pair.threat_id]))
@@ -238,7 +281,9 @@ def case_input(artifact: EvalArtifact, case_id: str, rng: random.Random) -> Case
     return CaseInput(
         case=case_id,
         input_text=seeded[STATE_INPUT_TEXT],
-        sources=seeded[STATE_SOURCE_TEXTS],
+        folded_sources=tuple(
+            normalize(text) for text in seeded[STATE_SOURCE_TEXTS].values()
+        ),
         model_text=render_model(report.system_model.model_dump(mode="json")),
         items=items,
         plants=plants,
@@ -284,6 +329,19 @@ def request_usage(instruction: str, request: Request) -> TokenUsage:
     )
 
 
+def request_costs(
+    instruction: str, requests: Sequence[Request], route: str
+) -> list[float] | None:
+    """Each request's estimated price on ``route``, or ``None`` where the price
+    map holds no rate for it."""
+    if unit_prices(route) is None:
+        return None
+    return [
+        price_calls([(route, route, request_usage(instruction, request))]).total_usd
+        for request in requests
+    ]
+
+
 def estimate(
     instruction: str, requests: Sequence[Request], route: str
 ) -> consent.Estimate:
@@ -301,15 +359,17 @@ def estimate(
             f" {OUTPUT_TOKENS_PER_FINDING} a finding, a figure no paid run measured"
         ),
     ]
-    if unit_prices(route) is None:
+    costs = request_costs(instruction, requests, route)
+    if costs is None:
         lines.append(f"the price map holds no rate for {route}")
         return consent.Estimate(label="unpriced", amount_usd=None, lines=tuple(lines))
     by_case: dict[str, float] = defaultdict(float)
-    for request, usage in zip(requests, usages, strict=True):
-        by_case[request.case] += price_calls([(route, route, usage)]).total_usd
+    for request, cost in zip(requests, costs, strict=True):
+        by_case[request.case] += cost
     lines += [f"{case}: ${amount:.4f}" for case, amount in by_case.items()]
-    total = price_calls((route, route, usage) for usage in usages).total_usd
-    return consent.Estimate(label="estimated", amount_usd=total, lines=tuple(lines))
+    return consent.Estimate(
+        label="estimated", amount_usd=sum(costs), lines=tuple(lines)
+    )
 
 
 def writer_vendors(artifact: EvalArtifact) -> tuple[Vendor, ...]:
@@ -327,7 +387,16 @@ def writer_vendors(artifact: EvalArtifact) -> tuple[Vendor, ...]:
 
 
 def independence_breach(writers: Iterable[Vendor], judge: Vendor) -> str | None:
-    """Why the judge is not a distinct provider from a writer, or ``None``."""
+    """Why the judge is not a distinct provider from a writer, or ``None``.
+
+    A sweep that names no writer fails closed: its writer is not known.
+    """
+    writers = tuple(writers)
+    if not writers:
+        return (
+            "the sweep's provenance records no requested model, so the vendor"
+            " that wrote it is not known"
+        )
     for writer in writers:
         detail = provider_breach(writer, judge)
         if detail is not None:
@@ -345,11 +414,16 @@ class Answered:
     quote_state: QuoteState
 
 
-def quote_state(quote: str, sources: Mapping[str, str]) -> QuoteState:
-    """Whether ``quote`` appears in one of ``sources``, by the fan-in's check."""
+def quote_state(quote: str, folded_sources: Sequence[str]) -> QuoteState:
+    """Whether ``quote`` appears in one of the sources, by the fan-in's check.
+
+    ``folded_sources`` holds each source folded once by
+    :func:`~katra.grounding.normalize`, as :func:`~katra.grounding.verify_quote`
+    asks of a caller that checks many quotes.
+    """
     if not quote.strip():
         return "absent"
-    found = any(verify_normalized(quote, normalize(text)) for text in sources.values())
+    found = any(verify_normalized(quote, folded) for folded in folded_sources)
     return "verified" if found else "unverifiable"
 
 
@@ -400,7 +474,7 @@ class SampleReading:
 
 
 def read_answer(
-    raw: str, request: Request, items: Sequence[Item], sources: Mapping[str, str]
+    raw: str, request: Request, items: Sequence[Item], folded_sources: Sequence[str]
 ) -> SampleReading:
     """One sample's answer, checked against its batch and the sources.
 
@@ -420,7 +494,10 @@ def read_answer(
             stray.append(given.finding)
             continue
         answers[key] = Answered(
-            given.verdict, given.reason, given.quote, quote_state(given.quote, sources)
+            given.verdict,
+            given.reason,
+            given.quote,
+            quote_state(given.quote, folded_sources),
         )
     plants = {item.key for item in items if item.population == "plant"}
     return SampleReading(
@@ -557,6 +634,23 @@ def _cases(artifact: EvalArtifact, named: Sequence[str] | None) -> list[str]:
     return list(named)
 
 
+def moved_sources(artifact: EvalArtifact, cases: Sequence[str]) -> list[str]:
+    """The cases whose sources the sweep recorded under another digest.
+
+    Read as ``fan_in_accounting.py`` reads it: the sweep's own record through
+    :func:`~evals.harness.artifact.recorded_sources`, against today's digest
+    from :func:`~evals.harness.artifact.rendered_sources`. A sweep that records
+    no digest moves no case.
+    """
+    recorded = recorded_sources(artifact) or {}
+    return [
+        case_id
+        for case_id in cases
+        if (digest := recorded.get(case_id)) is not None
+        and digest != rendered_sources([load_case(CORPUS_DIR / case_id)])[case_id]
+    ]
+
+
 def _judge_selection(deployment: Deployment) -> TierSelection:
     selection = deployment.tiers.tiers.get(JUDGE_TIER)
     if selection is None:
@@ -566,10 +660,33 @@ def _judge_selection(deployment: Deployment) -> TierSelection:
     return selection
 
 
-async def _send(
-    call: NodeCall, instruction: str, requests: Sequence[Request]
-) -> list[str]:
-    return [await call(instruction, request.turn()) for request in requests]
+def held_back(
+    accepted: float | None,
+    spent: Sequence[float | None],
+    costs: Sequence[float] | None,
+    index: int,
+) -> str | None:
+    """Why the call at ``index`` must not run, or ``None``.
+
+    ``spent`` holds the charge of each call made so far, or ``None`` where the
+    provider reported none; such a call counts at its estimate.
+    """
+    if accepted is None or costs is None:
+        return None
+    so_far = sum(
+        costs[n] if charge is None else charge for n, charge in enumerate(spent)
+    )
+    if so_far + costs[index] <= accepted:
+        return None
+    return (
+        f"${so_far:.4f} spent and the next call estimated at ${costs[index]:.4f}"
+        f" pass the ${accepted:.2f} accepted"
+    )
+
+
+async def _ask(call: NodeCall, instruction: str, request: Request) -> str:
+    """One judge call, as a coroutine that an event loop runs."""
+    return await call(instruction, request.turn())
 
 
 def estimate_lines(cost: consent.Estimate) -> list[str]:
@@ -606,9 +723,15 @@ def dry_cases(
 
 
 def judged(
-    inputs: Sequence[CaseInput], requests: Sequence[Request], raws: Sequence[str]
+    inputs: Sequence[CaseInput],
+    requests: Sequence[Request],
+    raws: Sequence[str | None],
 ) -> dict[str, Any]:
-    """The verdicts of every batch, and the numbers per case and pooled."""
+    """The verdicts of every batch, and the numbers per case and pooled.
+
+    A ``None`` answer is a call that did not run. It counts for nothing, and the
+    result names it under ``not_run``.
+    """
     pooled = Numbers()
     cases = []
     void: list[dict[str, Any]] = []
@@ -616,10 +739,11 @@ def judged(
         sent = [
             (request, raw)
             for request, raw in zip(requests, raws, strict=True)
-            if request.case == held.case
+            if request.case == held.case and raw is not None
         ]
         readings = [
-            read_answer(raw, request, held.items, held.sources) for request, raw in sent
+            read_answer(raw, request, held.items, held.folded_sources)
+            for request, raw in sent
         ]
         numbers = case_numbers(held.items, readings)
         pooled += numbers
@@ -643,6 +767,11 @@ def judged(
             }
         )
     return {
+        "not_run": [
+            {"case": request.case, "sample": request.sample}
+            for request, raw in zip(requests, raws, strict=True)
+            if raw is None
+        ],
         "void_batches": void,
         "unplanted": [held.case for held in inputs if not held.plants],
         "pooled": pooled.to_json(),
@@ -690,8 +819,10 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         deployment = Deployment.from_env()
         judge = _judge_selection(deployment)
         rng = random.SystemRandom()
+        named = _cases(artifact, args.case)
+        moved = moved_sources(artifact, named)
         inputs = [
-            case_input(artifact, case, rng) for case in _cases(artifact, args.case)
+            case_input(artifact, case, rng) for case in named if case not in moved
         ]
         requests = requests_for(inputs, args.samples, rng)
         report_paths: dict[Path, Selections] = {
@@ -717,6 +848,8 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     writers = writer_vendors(artifact)
     breach = independence_breach(writers, judge.vendor_entry)
     cost = estimate(instruction, requests, judge.route)
+    for case in moved:
+        print(f"{case}: left out; the sweep read other sources than the corpus holds")
     for held in inputs:
         sizes = Counter(item.population for item in held.items)
         print(
@@ -735,6 +868,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         "judge": {"tier": JUDGE_TIER, "route": judge.route},
         "writers": [vendor.name for vendor in writers],
         "independence_breach": breach,
+        "moved_sources": moved,
         "estimate": {
             "label": cost.label,
             "amount_usd": cost.amount_usd,
@@ -749,27 +883,56 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         return 0
     if breach is not None:
         print(
-            f"refused: the judge must run on a distinct provider; {breach}",
+            f"refused: the judge must run on a provider distinct from the one that"
+            f" wrote the sweep; {breach}. A gateway route can pick its upstream"
+            f" provider on each call, so a sweep written through one has no known"
+            f" provider. Run the test on a direct-vendor Baseline, {DIRECT_BASELINE}",
             file=sys.stderr,
         )
         return 1
     try:
-        consent.gate(cost, args.accept_cost, None)
+        accepted = consent.gate(cost, args.accept_cost, None)
     except consent.Refused as refusal:
         print(refusal, file=sys.stderr)
         return 1
     spent: list[float | None] = []
     seen: list[dict[str, Any]] = []
+    raws: list[str | None] = [None] * len(requests)
+    costs = request_costs(instruction, requests, judge.route)
+
     call = tier_call(deployment, JUDGE_TIER, JudgeAnswer, spent, seen)
-    try:
-        raws = asyncio.run(_send(call, instruction, requests))
-    except LiveInferenceRefused as refusal:
-        print(refusal, file=sys.stderr)
-        return 1
+    stopped: str | None = None
+    # One event loop for every call, so each answer is written to the output
+    # file here, as it arrives, before the next call runs.
+    with asyncio.Runner() as runner:
+        for index, request in enumerate(requests):
+            reason = held_back(accepted, spent, costs, index)
+            if reason is not None:
+                stopped = (
+                    f"stopped before {request.case} sample {request.sample}: {reason}"
+                )
+                break
+            try:
+                raws[index] = runner.run(_ask(call, instruction, request))
+            except LiveInferenceRefused as refusal:
+                stopped = str(refusal)
+                break
+            except Exception as error:  # noqa: BLE001 - keep the paid answers so far
+                stopped = (
+                    f"{request.case} sample {request.sample} failed:"
+                    f" {type(error).__name__}: {error}"
+                )
+                break
+            written = head | {"dry_run": False, "stopped": None, "answers": seen}
+            written |= judged(inputs, requests, raws)
+            args.out.write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")
     result = judged(inputs, requests, raws)
-    written = head | {"dry_run": False, "answers": seen, **result}
+    written = head | {"dry_run": False, "stopped": stopped, "answers": seen, **result}
     args.out.write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")
     for line in summary_lines(result):
         print(line)
     print(spent_line(spent))
+    if stopped is not None:
+        print(f"stopped: {stopped}", file=sys.stderr)
+        return 1
     return 0
