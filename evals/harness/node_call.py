@@ -25,6 +25,8 @@ from google.genai import types
 from katra.binding import build_tier_adapters
 from katra.charges import CHARGE_METADATA_KEY
 from katra.deployment import Deployment
+from katra.execution import event_attempts, event_reasks, event_usage
+from katra.model_tiers import TierName
 
 #: One call: the instruction and the user turn in, the model's raw text out.
 NodeCall = Callable[[str, types.Content], Awaitable[str]]
@@ -45,11 +47,44 @@ def node_call(
     call, and its caller states what it spent rather than an estimate.
     ``seen`` receives, for each call, the answer text, why the provider
     stopped and the tokens it counted, so a replay that parses to nothing can
-    be read without a second paid call.
+    be read without a second paid call. Its ``usage`` is the call's
+    :class:`~katra.report.TokenUsage` as :func:`~katra.execution.event_usage`
+    reads it, or ``None`` where the provider reported none. Its ``attempts``
+    and ``reasks`` are the retry driver's stamps, as
+    :func:`~katra.execution.event_attempts` and
+    :func:`~katra.execution.event_reasks` read them for a graph run, so a
+    caller that prices the call prices each failed attempt too.
     """
-    tier = deployment.tier_of(graph_node)
+    return tier_call(deployment, deployment.tier_of(graph_node), schema, spent, seen)
+
+
+def tier_call(
+    deployment: Deployment,
+    tier: TierName,
+    schema: Any,
+    spent: list[float | None] | None,
+    seen: list[dict[str, Any]] | None,
+) -> NodeCall:
+    """One call on ``tier``, on this deployment's route for that tier.
+
+    :func:`node_call` resolves a graph node to its tier and calls this. An
+    eval call that no graph node makes, such as the judge of
+    ``evals/harness/judge_replay.py``, names its tier directly. ``spent`` and
+    ``seen`` are as :func:`node_call` states them.
+
+    The adapter builder builds only the tiers that the node map binds. Where
+    no graph node runs on ``tier``, this call binds it under the node key
+    ``eval/<tier>``, in a copy of the tier config that only this call reads.
+    The builder then checks the tier's selection and credential as it checks
+    any bound tier.
+    """
+    tiers = deployment.tiers
+    if tier not in tiers.bound_tiers:
+        tiers = tiers.model_copy(
+            update={"nodes": {**tiers.nodes, f"eval/{tier}": tier}}
+        )
     adapter = build_tier_adapters(
-        deployment.tiers,
+        tiers,
         deployment.sampling,
         deployment.resilience,
         env=deployment.env,
@@ -64,8 +99,12 @@ def node_call(
         chunks = []
         charge = None
         stops: list[dict[str, Any]] = []
+        measured = None
+        attempts, reasks = 1, 0
         async for response in adapter.generate_content_async(request, False):
             charge = (response.custom_metadata or {}).get(CHARGE_METADATA_KEY, charge)
+            measured = event_usage(response) or measured
+            attempts, reasks = event_attempts(response), event_reasks(response)
             chunks.append(answer_text(response))
             usage = response.usage_metadata
             stops.append(
@@ -85,7 +124,15 @@ def node_call(
         if spent is not None:
             spent.append(charge)
         if seen is not None:
-            seen.append({"text": "".join(chunks), "responses": stops})
+            seen.append(
+                {
+                    "text": "".join(chunks),
+                    "responses": stops,
+                    "usage": None if measured is None else measured.model_dump(),
+                    "attempts": attempts,
+                    "reasks": reasks,
+                }
+            )
         return "".join(chunks)
 
     return call

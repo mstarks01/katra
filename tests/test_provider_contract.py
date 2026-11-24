@@ -58,11 +58,11 @@ from katra.binding import build_tier_adapters
 from katra.charges import CHARGE_METADATA_KEY, UPSTREAM_METADATA_KEY
 from katra.conformance import REFERENCE_MODELS
 from katra.execution import (
-    _attempts_of,
     _reported_charge_of,
     _served_route,
     _served_upstream_of,
-    _usage_of,
+    event_attempts,
+    event_usage,
 )
 from katra.provider import REASKS_METADATA_KEY
 from katra.report import TokenUsage
@@ -299,12 +299,12 @@ class TestWhatTheExecutorReadsOffAnEvent:
         transposed a pair fails here rather than mis-pricing a sweep."""
         (event,) = events_from("openai", answering("openai"))
 
-        assert _usage_of(event) == EXPECTED_USAGE
+        assert event_usage(event) == EXPECTED_USAGE
 
     def test_a_provider_that_meters_nothing_is_recorded_as_a_free_call(self):
         """A limit of the translator, pinned rather than wished away.
 
-        ``_usage_of`` returns ``None`` where every counter is absent, so that an
+        ``event_usage`` returns ``None`` where every counter is absent, so that an
         unmeasured call and a free call stay different facts. **Through LiteLLM
         they do not:** a response body carrying no ``usage`` block at all is
         parsed into ``Usage(prompt_tokens=0, completion_tokens=0,
@@ -320,7 +320,7 @@ class TestWhatTheExecutorReadsOffAnEvent:
         """
         (event,) = events_from("openai", answering("openai", usage=None))
 
-        assert _usage_of(event) == TokenUsage(
+        assert event_usage(event) == TokenUsage(
             prompt_tokens=0,
             cached_prompt_tokens=0,
             completion_tokens=0,
@@ -333,7 +333,7 @@ class TestWhatTheExecutorReadsOffAnEvent:
         docstring makes about ADK carrying it onto the event."""
         (event,) = events_from("openai", answering("openai"))
 
-        assert _attempts_of(event) == 1
+        assert event_attempts(event) == 1
 
     def test_a_direct_vendor_names_no_upstream_and_reports_no_charge(self):
         """Never invented: a direct route records ``None`` rather than its own
