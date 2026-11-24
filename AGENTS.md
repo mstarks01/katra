@@ -91,6 +91,14 @@ is unavoidable, test the two against each other. Before you change any slug,
 identity or digest rule, run `uv run python -m evals.harness.run replay` over
 `evals/emissions/`. See `docs/agents/one-rule-one-reader.md`.
 
+### Code decides first
+
+Before a model decides anything, ask whether code can decide it. If a fixed
+rule over known facts gives the answer, write the rule in code and give the
+model only the judgement that remains. When you design or change a node, a
+prompt or a check, sort each decision into one of the two kinds and say so in
+the pull request body. See `docs/agents/code-decides-first.md`.
+
 ### Name the shapes before you read the value
 
 Write down every shape the producer can emit, then handle each one. Where a
