@@ -603,6 +603,8 @@ async def _run_mode(
             # scored nothing are different facts.
             skipped.append(case.id)
     ran = 0
+    # The node runs of each batch, which the hold reads for its bound.
+    steps: list[list[NodeRun]] = []
     for batch in _batches(attempted, in_flight):
         if ran and accepted is not None:
             # From this batch's first case to the end of the corpus, skipped
@@ -611,7 +613,7 @@ async def _run_mode(
             # to.
             remaining = [later.id for later in cases[batch[0][0] :]]
             try:
-                accepted = consent.hold(accepted, executions, remaining, ask, ran=ran)
+                accepted = consent.hold(accepted, steps, remaining, ask, ran=ran)
             except consent.Refused as refusal:
                 # Not an exception out of the sweep: everything already run is
                 # paid for, so the caller still writes the artifact and the
@@ -628,6 +630,7 @@ async def _run_mode(
         outcomes = await asyncio.gather(
             *(run_one(case, pipeline) for case, pipeline in built)
         )
+        steps.append([run for outcome in outcomes for run in outcome.executions])
         # Every case in the batch ran and was billed, so every outcome is
         # folded even when an earlier one stops the sweep. What stops is the
         # batch after this one.
@@ -1142,6 +1145,9 @@ def command_run(args: argparse.Namespace) -> int:
         {node: deployment.tier_of(node) for node in deployment.tier_nodes},
         REPO_ROOT,
         cases=len(cases),
+    )
+    estimate = consent.charged(
+        estimate, list(deployment.tiers.tiers.values()), deployment.tiers
     )
     estimate = replace(estimate, lines=(*estimate.lines, *_contribution_note(commit)))
     try:

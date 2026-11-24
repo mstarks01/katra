@@ -29,14 +29,14 @@ through :func:`~evals.harness.bundle.stride_threats`. ASVS writes exclusions,
 which are not findings at an element, and #764 names them as a later
 population.
 
-**A different provider.** The judge runs on the ``review`` tier, and the command
-refuses to send when :func:`~katra.model_tiers.provider_breach` finds that tier
-and a vendor that wrote the sweep are not two distinct providers. A gateway
-route can pick its upstream provider on each call, so the provider that wrote
-a sweep through a gateway is not known, and the command refuses that sweep.
-The replay test runs on ``d4edd64-gpt-5.6-terra-fd1c49af``, whose tiers ran on
-``openai`` directly. A sweep whose provenance records no requested model is
-refused too, because its writer is not known.
+**A different source vendor.** The judge runs on the ``review`` tier, and the
+command refuses to send when :func:`~katra.model_tiers.source_vendor_breach`
+finds that the judge's model and a model that wrote the sweep come from one
+**Source Vendor**. The writers are the routes that the sweep's provenance
+records as requested. The vendor that serves each model does not matter, so a
+judge or a writer through an aggregator passes when the source vendors differ.
+A sweep whose provenance records no requested model is refused, because its
+writer is not known. The replay test runs on ``d4edd64-gpt-5.6-terra-fd1c49af``.
 
 **Moved sources.** Where the sweep records a digest of each case's rendered
 sources, a case whose sources differ today is left out and named under
@@ -48,13 +48,17 @@ today's digest.
 estimate through :class:`~evals.harness.consent.Estimate`. ``--dry-run``
 writes the requests and sends nothing. A live run takes consent through
 :func:`~evals.harness.consent.gate`, and ``KATRA_OFFLINE`` refuses its first
-call. Before each call it runs the sweep's hold,
+call. A judge route with no price, such as one through ``openrouter``, has
+no estimate. Where its vendor reports the whole charge of each call,
+:func:`~evals.harness.consent.charged` labels the estimate ``charged``, and an
+accepted amount caps the run. Before each call it runs the sweep's hold,
 :func:`~evals.harness.consent.hold`, over the calls made so far: it prices the
 token usage and the attempts each call reported (a call that reported no usage
-counts at its estimate, and each failed attempt counts as one more prompt),
-and it stops, or asks again, once the priced usage passes the accepted amount.
-The hold reads the usage after a call, so the last call before a stop can take
-the priced usage past the amount. It writes the output file
+counts at its estimate, and each failed attempt counts as one more prompt), or
+on a route with no price it counts the reported charge once for each attempt.
+It stops, or asks again, when the spend so far plus the dearest call so far
+passes the accepted amount. The first call runs with no bound, and a call on a
+route with no price that reports no charge stops the run. It writes the output file
 after each answer. A provider failure stops the run, and the output keeps the
 answers so far and names each call that did not run.
 """
@@ -114,16 +118,11 @@ from katra.execution import seed_state
 from katra.frameworks.stride.record import Threat
 from katra.graph import STATE_INPUT_TEXT, STATE_SOURCE_TEXTS, render_model
 from katra.grounding import normalize, verify_normalized
-from katra.model_tiers import TierName, TierSelection, provider_breach
+from katra.model_tiers import TierName, TierSelection, source_vendor_breach
 from katra.offline import LiveInferenceRefused
 from katra.report import NodeRun, TokenUsage
 from katra.sources import text_digest
 from katra.system_model import EXCERPT_MAX_CHARS, FLOW_ID_VERSION, SystemModel
-from katra.vendors import Vendor, vendor_for_route
-
-#: The merged STRIDE Baseline that the replay test runs on, by the maintainer's
-#: ruling of 2026-11-24: its tiers ran on a direct vendor, so its writer is known.
-DIRECT_BASELINE = "d4edd64-gpt-5.6-terra-fd1c49af"
 
 #: The node name a judge call takes in the node runs the spend hold prices.
 JUDGE_NODE = "judge"
@@ -379,33 +378,32 @@ def estimate(
     )
 
 
-def writer_vendors(artifact: EvalArtifact) -> tuple[Vendor, ...]:
-    """Each vendor the sweep's nodes requested, from its provenance."""
-    routes = {
-        route
-        for identity in artifact.provenance.tier_identities().values()
-        for route in identity.requested_models
-    }
+def writer_routes(artifact: EvalArtifact) -> tuple[str, ...]:
+    """Each route the sweep's nodes requested, from its provenance."""
     return tuple(
-        {
-            vendor.name: vendor for vendor in map(vendor_for_route, sorted(routes))
-        }.values()
+        sorted(
+            {
+                route
+                for identity in artifact.provenance.tier_identities().values()
+                for route in identity.requested_models
+            }
+        )
     )
 
 
-def independence_breach(writers: Iterable[Vendor], judge: Vendor) -> str | None:
-    """Why the judge is not a distinct provider from a writer, or ``None``.
+def independence_breach(writers: Iterable[str], judge: str) -> str | None:
+    """Why the judge's route shares a source vendor with a writer's, or ``None``.
 
     A sweep that names no writer fails closed: its writer is not known.
     """
     writers = tuple(writers)
     if not writers:
         return (
-            "the sweep's provenance records no requested model, so the vendor"
+            "the sweep's provenance records no requested model, so the model"
             " that wrote it is not known"
         )
     for writer in writers:
-        detail = provider_breach(writer, judge)
+        detail = source_vendor_breach(writer, judge)
         if detail is not None:
             return detail
     return None
@@ -674,13 +672,16 @@ def measured_run(
     prices: the usage the provider reported, as ``seen`` records it, or
     ``fallback``, the call's estimate, where it reported none. The attempts and
     re-asks the retry driver stamped go on the run too, so the hold prices each
-    failed attempt as a graph run's node run does."""
+    failed attempt as a graph run's node run does. The charge the provider
+    reported goes on the run as ``reported_charge_usd``, which the hold counts
+    where the price map holds no rate for the route."""
     if entry is None:
-        usage, attempts, reasks = fallback, 1, 0
+        usage, attempts, reasks, charge = fallback, 1, 0, None
     else:
         reported = entry["usage"]
         usage = fallback if reported is None else TokenUsage.model_validate(reported)
         attempts, reasks = entry["attempts"], entry["reasks"]
+        charge = entry["reported_charge_usd"]
     return NodeRun(
         node=JUDGE_NODE,
         model=route,
@@ -689,6 +690,7 @@ def measured_run(
         usage=usage,
         attempts=attempts,
         reasks=reasks,
+        reported_charge_usd=charge,
     )
 
 
@@ -853,9 +855,11 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     except (CorpusError, EvalRunError, ProvenanceError) as error:
         print(error, file=sys.stderr)
         return 1
-    writers = writer_vendors(artifact)
-    breach = independence_breach(writers, judge.vendor_entry)
-    cost = estimate(instruction, requests, judge.route)
+    writers = writer_routes(artifact)
+    breach = independence_breach(writers, judge.route)
+    cost = consent.charged(
+        estimate(instruction, requests, judge.route), [judge], deployment.tiers
+    )
     for case in moved:
         print(f"{case}: left out; the sweep read other sources than the corpus holds")
     for held in inputs:
@@ -867,14 +871,14 @@ def command_judge_replay(args: argparse.Namespace) -> int:
             )
         )
     print(
-        f"judge {judge.route}; writers {', '.join(v.name for v in writers)};"
-        f" independence {'refused: ' + breach if breach else 'distinct providers'}"
+        f"judge {judge.route}; writers {', '.join(writers)};"
+        f" independence {'refused: ' + breach if breach else 'distinct source vendors'}"
     )
     head = {
         "record": record,
         "instruction_sha256": text_digest(instruction),
         "judge": {"tier": JUDGE_TIER, "route": judge.route},
-        "writers": [vendor.name for vendor in writers],
+        "writers": list(writers),
         "independence_breach": breach,
         "moved_sources": moved,
         "estimate": {
@@ -891,10 +895,10 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         return 0
     if breach is not None:
         print(
-            f"refused: the judge must run on a provider distinct from the one that"
-            f" wrote the sweep; {breach}. A gateway route can pick its upstream"
-            f" provider on each call, so a sweep written through one has no known"
-            f" provider. Run the test on a direct-vendor Baseline, {DIRECT_BASELINE}",
+            f"refused: the judge must run a model from a source vendor other than"
+            f" the source vendor of each model that wrote the sweep; {breach}."
+            f" Point the {JUDGE_TIER!r} tier at a model from another source"
+            f" vendor",
             file=sys.stderr,
         )
         return 1
@@ -912,7 +916,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     # the usage each call reported, and it asks again by typing, or stops where
     # --accept-cost leaves no hand to ask.
     ask = None if args.accept_cost is not None else input
-    runs: list[NodeRun] = []
+    steps: list[list[NodeRun]] = []
     stopped: str | None = None
     # One event loop for every call, so each answer is written to the output
     # file here, as it arrives, before the next call runs.
@@ -921,7 +925,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
             remaining = [f"{r.case} sample {r.sample}" for r in requests[index:]]
             try:
                 accepted = consent.hold(
-                    accepted, runs, remaining, ask, ran=index, unit="call"
+                    accepted, steps, remaining, ask, ran=index, unit="call"
                 )
             except consent.Refused as refusal:
                 stopped = (
@@ -941,8 +945,8 @@ def command_judge_replay(args: argparse.Namespace) -> int:
                 )
                 break
             entry = seen[answered] if len(seen) > answered else None
-            runs.append(
-                measured_run(entry, request_usage(instruction, request), judge.route)
+            steps.append(
+                [measured_run(entry, request_usage(instruction, request), judge.route)]
             )
             written = head | {"dry_run": False, "stopped": None, "answers": seen}
             written |= judged(inputs, requests, raws)

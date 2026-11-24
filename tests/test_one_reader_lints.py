@@ -2845,6 +2845,12 @@ ONE_READERS: dict[str, _OneReader] = {
         {},
         "",
     ),
+    "whether two routes share a source vendor": _OneReader(
+        lambda node: _calls(node, "source_vendor_for_route"),
+        ("src/katra/model_tiers.py", "source_vendor_breach"),
+        {},
+        "",
+    ),
     "a model's family past its gateways": _OneReader(
         lambda node: _loads(node, "_GATEWAY_PREFIX"),
         ("src/katra/vendors.py", "family_identifier"),

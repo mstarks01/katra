@@ -57,6 +57,7 @@ from katra.vendors import (
     Vendor,
     VendorName,
     family_identifier,
+    source_vendor_for_route,
     vendor_for,
 )
 
@@ -91,18 +92,18 @@ TIER_NAMES: tuple[TierName, ...] = ("base", "strong", "review")
 #   which is the shipped configuration: a critic on one model still catches
 #   inconsistency and unsupported claims, and it needs one tier rather than two.
 # * ``distinct_model`` requires a different model. It removes a single build's
-#   blind spots, and leaves the provider's. Compared by the identifier with any
-#   gateway segment stripped, because a slug pins the build whichever route
-#   carries it.
-# * ``distinct_provider`` requires a different serving organisation. It removes
-#   a provider's blind spots too, but it needs a second credential and a
-#   second quota — and it cannot be satisfied by a gateway route at all, since
-#   an aggregator picks the upstream per call.
+#   blind spots, and leaves those of the company that made it. Compared by the
+#   identifier with any gateway segment stripped, because a slug pins the build
+#   whichever route carries it.
+# * ``distinct_source_vendor`` requires a model from a different **Source
+#   Vendor**: the company that made the model, whichever vendor serves it. It
+#   removes that company's blind spots too. :func:`source_vendor_breach` is the
+#   rule.
 #
 # **None of these makes a review more accurate.** Independence bounds correlated
 # failure; it does not make a second opinion a better one, and a deployment that
-# reads ``distinct_provider`` as "more correct" has read it wrong.
-ReviewIndependence = Literal["shared", "distinct_model", "distinct_provider"]
+# reads ``distinct_source_vendor`` as "more correct" has read it wrong.
+ReviewIndependence = Literal["shared", "distinct_model", "distinct_source_vendor"]
 
 
 # The graph's LLM nodes. Deterministic FunctionNodes (validate, prepare, join,
@@ -615,14 +616,11 @@ class ModelTierConfig(BaseModel):
         own analysis rather than of some other package's.
 
         **A label is not the thing it names**, which is what a gateway makes
-        true. Neither policy compares what a deployment *wrote* — the vendor
-        key, and the ``(vendor, model)`` pair — because an aggregator's vendor
-        key says nothing about which provider or which build answered.
-        ``openai`` beside ``openrouter`` is two keys and may be one upstream;
-        ``gpt-5.6`` beside ``openai/gpt-5.6`` is two strings and is one model.
-        So each policy reads the thing rather than the label, and they read
-        different things because the two facts are knowable to different
-        degrees. See :meth:`_independence_detail`.
+        true. Neither policy compares the vendor key that a deployment wrote,
+        because an aggregator's vendor key says nothing about which model
+        answered. ``gpt-5.6`` beside ``openai/gpt-5.6`` is two strings and one
+        model, and ``openai`` beside ``openrouter`` can be one source vendor.
+        So each policy reads the model ID. See :meth:`_independence_detail`.
         """
         if self.review_independence == "shared":
             return []
@@ -652,9 +650,6 @@ class ModelTierConfig(BaseModel):
     ) -> str | None:
         """Why these two are not independent under the policy, or ``None``.
 
-        **The model is knowable and the upstream provider is not**, which is why
-        one policy compares and the other refuses.
-
         ``distinct_model`` compares the model identifiers with any gateway
         segment stripped, through the one reader of that rule
         (:func:`~katra.vendors.family_identifier`). A slug pins the
@@ -671,20 +666,12 @@ class ModelTierConfig(BaseModel):
         and a comparison that guessed at one would be the label problem again
         one level down.
 
-        ``distinct_provider`` cannot be satisfied at all where either side is a
-        gateway route. The policy names the *serving organisation*, an
-        aggregator chooses one per call, and which one it chose is not knowable
-        before the call — so a deployment that asked for a distinct provider
-        cannot be told it has one. Refused rather than approximated: unknown
-        routing silently satisfying a strict policy is the failure this whole
-        rule exists to prevent, and it is the one case a comparison of written
-        keys answers confidently and wrongly.
-
-        Read off ``routes_to_one_provider`` rather than a vendor's name, so the
-        next aggregator is covered the day its row lands.
+        ``distinct_source_vendor`` compares the **Source Vendor** of each
+        model through :func:`source_vendor_breach`, which the eval judge
+        replay calls too.
         """
-        if self.review_independence == "distinct_provider":
-            return provider_breach(analyze.vendor_entry, critic.vendor_entry)
+        if self.review_independence == "distinct_source_vendor":
+            return source_vendor_breach(analyze.route, critic.route)
         shared_model = family_identifier(analyze.model)
         if shared_model == family_identifier(critic.model):
             return "both run one model"
@@ -709,23 +696,28 @@ class ModelTierConfig(BaseModel):
         return self.tiers[self.resolve_tier(node)]
 
 
-def provider_breach(first: Vendor, second: Vendor) -> str | None:
-    """Why ``first`` and ``second`` are not two distinct providers, or ``None``.
+def source_vendor_breach(first: str, second: str) -> str | None:
+    """Why the models on routes ``first`` and ``second`` share a **Source
+    Vendor**, or ``None``.
 
-    The ``distinct_provider`` rule for two vendors. A gateway route on either
-    side fails it, because a gateway chooses its upstream provider per call.
-    Two routes on one vendor fail it too. The critic policy above and the eval
-    judge replay (``evals/harness/judge_replay.py``) both apply it.
+    The ``distinct_source_vendor`` rule. The vendors that serve the two models
+    do not matter: one source vendor through two vendors fails, and two source
+    vendors through one aggregator pass. A model ID whose source vendor
+    :func:`~katra.vendors.source_vendor_for_route` cannot read fails, because
+    its maker is not known. The critic policy above and the eval judge replay
+    (``evals/harness/judge_replay.py``) both apply it.
     """
-    for vendor in (first, second):
-        if not vendor.routes_to_one_provider:
+    makers = []
+    for route in (first, second):
+        maker = source_vendor_for_route(route)
+        if maker is None:
             return (
-                f"{vendor.name!r} routes one slug to more than one"
-                " upstream provider and chooses per call, so nothing"
-                " here can say the two ran on different providers"
+                f"the source vendor of {route!r} is not known: its model ID"
+                " names no source vendor that its vendor row reads"
             )
-    if first.name == second.name:
-        return f"both run vendor {first.name!r}"
+        makers.append(maker)
+    if makers[0] == makers[1]:
+        return f"both run models from source vendor {makers[0]!r}"
     return None
 
 

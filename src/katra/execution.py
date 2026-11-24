@@ -470,7 +470,7 @@ class GraphExecutor:
                             schema_path=_schema_path_of(event),
                             schema_fallback=_schema_fallback_of(event),
                             answer_unwrapped=_answer_unwrapped_of(event),
-                            reported_charge_usd=_reported_charge_of(event),
+                            reported_charge_usd=event_reported_charge(event),
                             served_upstream=_served_upstream_of(event),
                         )
                     )
@@ -686,7 +686,7 @@ def _answer_unwrapped_of(event) -> bool:
     )
 
 
-def _reported_charge_of(event) -> float | None:
+def event_reported_charge(event) -> float | None:
     """What the provider said it charged for this event's call, if it said.
 
     Read off the same ``custom_metadata`` stamp ``attempts`` travels in, and

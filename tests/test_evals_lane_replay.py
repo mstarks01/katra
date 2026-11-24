@@ -467,6 +467,7 @@ def test_a_node_call_keeps_what_the_provider_returned(monkeypatch):
             "usage": TokenUsage(completion_tokens=7, reasoning_tokens=11).model_dump(),
             "attempts": 1,
             "reasks": 0,
+            "reported_charge_usd": None,
         }
     ]
 

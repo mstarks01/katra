@@ -79,16 +79,18 @@ that remain and each ruling it changed that no problem named.
 costs one judge call for each case and sample (two samples by default). A
 judge on the `review` tier reads each case's STRIDE findings, mixed with
 **Plant**s as known negatives, and answers whether the source supports each
-one. The command refuses a judge whose provider is not distinct from each
-vendor that wrote the sweep. A gateway route can pick its upstream provider on
-each call, so a sweep written through one has no known provider, and the
-command refuses it. The test runs on the Baseline
-`d4edd64-gpt-5.6-terra-fd1c49af`, whose tiers ran on `openai` directly: its dry
-run estimates $2.08 to $2.10 for 26 calls on `anthropic/claude-opus-5`. The
+one. The command refuses a judge whose model comes from the source vendor of a
+model that wrote the sweep. The source vendor is the company that made the
+model, so a judge or a writer through `openrouter` is read by its slug. The
+test runs on the Baseline `d4edd64-gpt-5.6-terra-fd1c49af`, whose tiers ran
+OpenAI models: its dry run estimates $2.08 to $2.10 for 26 calls on `anthropic/claude-opus-5`. The
 figure moves because case 01 has four plant candidates and each run chooses two
-or three of them at random. Between calls it runs the sweep's hold,
-`consent.hold`, over the token usage and the attempts each call reported, and it
-stops once the priced usage passes the accepted amount. It keeps each answer as
+or three of them at random. A judge through `openrouter` has no price: its
+estimate is `charged`, and `--accept-cost <amount>` caps the run on the charge
+that OpenRouter reports after each call. Before each call it runs the sweep's
+hold, `consent.hold`. The hold stops when the spend so far plus the dearest call
+so far passes the accepted amount. The first call runs with no bound, and a
+call on a route with no price that reports no charge stops the run. It keeps each answer as
 it arrives. Its verdicts never enter the vote ledger. With
 `--dry-run` in place of `--accept-cost` it is free: it writes every request
 and prints the estimate and the batch sizes, and sends nothing.
