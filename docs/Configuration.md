@@ -135,8 +135,10 @@ tier and two endpoints of one provider name two Baselines.
 It also stops an estimate. Those backends charge different rates — one slug
 lists 1.0e-07 per input token and reaches an endpoint charging 1.04e-06 — so
 the route has no one rate, and `evals/harness/prices.py` reports it as
-`unpriced` rather than stating the cheapest endpoint as a price. Accept such a
-sweep by typing `unknown`, or pass `--accept-cost unknown`. The measurement is
+`unpriced` rather than stating the cheapest endpoint as a price. OpenRouter
+reports the charge of each call after it, so under the `direct` charge
+arrangement the gate labels the estimate `charged`. Accept such a sweep with a
+dollar amount, which caps the run, or with `unknown`, which runs with no cap. The measurement is
 [`docs/research/openrouter-pricing.md`](../docs/research/openrouter-pricing.md).
 
 An ARN is refused for every vendor. It hides which model answers, so a blessed

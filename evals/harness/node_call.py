@@ -23,9 +23,13 @@ from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
 from katra.binding import build_tier_adapters
-from katra.charges import CHARGE_METADATA_KEY
 from katra.deployment import Deployment
-from katra.execution import event_attempts, event_reasks, event_usage
+from katra.execution import (
+    event_attempts,
+    event_reasks,
+    event_reported_charge,
+    event_usage,
+)
 from katra.model_tiers import TierName
 
 #: One call: the instruction and the user turn in, the model's raw text out.
@@ -53,7 +57,9 @@ def node_call(
     and ``reasks`` are the retry driver's stamps, as
     :func:`~katra.execution.event_attempts` and
     :func:`~katra.execution.event_reasks` read them for a graph run, so a
-    caller that prices the call prices each failed attempt too.
+    caller that prices the call prices each failed attempt too. Its
+    ``reported_charge_usd`` is the charge in ``spent``, as
+    :func:`~katra.execution.event_reported_charge` reads it for a graph run.
     """
     return tier_call(deployment, deployment.tier_of(graph_node), schema, spent, seen)
 
@@ -102,7 +108,8 @@ def tier_call(
         measured = None
         attempts, reasks = 1, 0
         async for response in adapter.generate_content_async(request, False):
-            charge = (response.custom_metadata or {}).get(CHARGE_METADATA_KEY, charge)
+            reported = event_reported_charge(response)
+            charge = charge if reported is None else reported
             measured = event_usage(response) or measured
             attempts, reasks = event_attempts(response), event_reasks(response)
             chunks.append(answer_text(response))
@@ -131,6 +138,7 @@ def tier_call(
                     "usage": None if measured is None else measured.model_dump(),
                     "attempts": attempts,
                     "reasks": reasks,
+                    "reported_charge_usd": charge,
                 }
             )
         return "".join(chunks)

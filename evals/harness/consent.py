@@ -4,7 +4,7 @@ There is no spend ceiling (#334). A contributor may spend any amount. The gate's
 job is to make sure they know what they are accepting, know how good that number
 is, and accept it in a way a rote hand cannot.
 
-Every amount carries one of three labels, always.
+Every amount carries one of four labels, always.
 
 ``recorded``
     A merged Baseline with this exact configuration recorded this actual. It is
@@ -16,6 +16,11 @@ Every amount carries one of three labels, always.
     No number exists. A tier's model is absent from the price map, or its
     vendor is a gateway in front of many providers and so has no one rate, or
     no merged Baseline exists to calibrate from. It is never a zero.
+``charged``
+    No number exists before the calls, as for ``unpriced``, but each route
+    without a price reports the whole charge of each call after the call
+    (:func:`katra.charges.records_reported_charge`). A typed amount then
+    caps the run. :func:`charged` makes this label from an ``unpriced`` one.
 
 The estimate says which Baseline it read, and what it does not know. A borrowed
 number rests on somebody else's token counts, so the lender is chosen for what
@@ -31,14 +36,20 @@ mechanism is rote-proof because the number changes with the configuration. A
 script states its own number with ``--accept-cost <usd>``, and the run refuses
 when the estimate exceeds it. ``--accept-cost unknown`` is how a script accepts
 a cost nobody can state. The kinds must match: a number does not answer an
-unpriced estimate, and ``unknown`` does not answer a stated one.
+unpriced estimate, and ``unknown`` does not answer a stated one. A ``charged``
+estimate takes either: a number is a cap on the reported charges, and
+``unknown`` runs with no cap.
 
-The run holds the contributor to what they accepted. Between cases, and never
-inside one, :func:`hold` compares the spend so far to the accepted amount. A
-terminal re-prompts with the new number, and the sweep continues on a fresh
-typed acceptance. Under ``--accept-cost`` no hand is present, so the run stops.
-This is not a ceiling by the back door: the number is the contributor's own, and
-the stop only holds them to it.
+The run holds the contributor to what they accepted. Before each step (a case
+or a batch of cases of a sweep, a call of a replay), and never inside one,
+:func:`hold` adds the spend so far to the dearest step so far. When the sum
+passes the accepted amount, a terminal re-prompts with the new number, and the
+run continues on a fresh typed acceptance. Under ``--accept-cost`` no hand is
+present, so the run stops. The dearest step so far is the bound for the next
+step, because no step's cost is known before it runs. The first step has no
+bound: it runs when the accepted amount is not negative. This is not a ceiling
+by the back door: the number is the contributor's own, and the stop only holds
+them to it.
 """
 
 from __future__ import annotations
@@ -48,20 +59,25 @@ import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from evals.harness import baseline
 from evals.harness.artifact import load_artifact
 from evals.harness.prices import UnitPrices, price_calls, unit_prices
 from evals.harness.rates import mean
 from katra.budgets import retried_prompt_tokens
+from katra.charges import records_reported_charge
 from katra.markdown_loader import RESOLVE_ERRORS
+from katra.model_tiers import ModelTierConfig, TierSelection
 from katra.report import (
     NodeRun,
     TokenUsage,
 )
 
-Label = Literal["recorded", "estimated", "unpriced"]
+#: The labels that state no amount.
+NoAmountLabel = Literal["unpriced", "charged"]
+
+Label = Literal["recorded", "estimated", NoAmountLabel]
 
 #: What one step of a held run is: a case of a sweep, or a call of a replay.
 HoldUnit = Literal["case", "call"]
@@ -86,7 +102,7 @@ class Estimate:
         # The invariant the whole gate rests on: an amount exists exactly when
         # one can be stated. A zero standing in for "no idea" is the one
         # outcome #334 forbids outright.
-        if (self.amount_usd is None) != (self.label == "unpriced"):
+        if (self.amount_usd is None) != (self.label in get_args(NoAmountLabel)):
             raise ValueError(
                 f"label {self.label!r} and amount {self.amount_usd!r} disagree"
                 " about whether a number exists"
@@ -131,8 +147,63 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
 
 
 def spent(executions: Sequence[NodeRun]) -> float:
-    """What the sweep has spent so far, priced against the live map."""
-    return price_calls(_calls_of(executions)).total_usd
+    """What the run has spent so far.
+
+    A node run on a route the price map holds is priced from its token usage.
+    A node run on a route the map does not hold counts its reported charge,
+    times its attempts: each failed attempt counts as one more call at the
+    answering call's charge, which over-counts as
+    :func:`~katra.budgets.retried_prompt_tokens` does. Such a run that
+    reports no charge raises :class:`Refused`, because its spend is not known.
+    """
+    total = price_calls(_calls_of(executions)).total_usd
+    for run in executions:
+        if run.model is None or _priced(run):
+            continue
+        if run.reported_charge_usd is None:
+            raise Refused(
+                f"stopping: a call on {run.requested_model or run.model} reported"
+                " no charge, and the price map holds no rate for it, so the"
+                " spend so far is not known"
+            )
+        total += run.reported_charge_usd * run.attempts
+    return total
+
+
+def _priced(run: NodeRun) -> bool:
+    """Whether the price map holds a rate for the run's served or requested model."""
+    return any(
+        unit_prices(model) is not None
+        for model in (run.model, run.requested_model)
+        if model is not None
+    )
+
+
+def charged(
+    estimate: Estimate,
+    selections: Sequence[TierSelection],
+    tiers: ModelTierConfig,
+) -> Estimate:
+    """``estimate`` with the label ``charged`` where a typed amount can cap the run.
+
+    That is an ``unpriced`` estimate where at least one route of ``selections``
+    has no price, and each such route reports the whole charge of each call.
+    Any other estimate comes back unchanged.
+    """
+    unpriced = [s for s in selections if unit_prices(s.route) is None]
+    capped = estimate.label == "unpriced" and all(
+        records_reported_charge(s.vendor_entry, tiers.charge_mode(s.vendor))
+        for s in unpriced
+    )
+    if not (unpriced and capped):
+        return estimate
+    note = (
+        "no estimate exists before the calls; each call on "
+        + ", ".join(s.route for s in unpriced)
+        + " reports its charge after the call, so an amount you accept caps"
+        " the run"
+    )
+    return Estimate(label="charged", amount_usd=None, lines=(*estimate.lines, note))
 
 
 def _merged_baselines(root: Path) -> list[tuple[Path, dict[str, Any]]]:
@@ -550,23 +621,9 @@ def _accept_from_flag(estimate: Estimate, accept_cost: str) -> float | None:
             )
         print(f"accepted {UNKNOWN}: no amount could be stated, and you said so")
         return None
-    try:
-        accepted = float(accept_cost)
-    except ValueError as exc:
-        raise Refused(
-            f"--accept-cost {accept_cost!r} is neither a number of dollars nor"
-            f" the word {UNKNOWN!r}"
-        ) from exc
-    # `float()` takes "inf" and "nan", and neither is a number of dollars.
-    # Both satisfy any stated estimate, because `x > inf` and `x > nan` are
-    # False -- so either one turns this gate off and, passed to `hold`, turns
-    # it off for every case boundary the sweep has left. A negative one accepts
-    # a spend by claiming to accept less than nothing.
-    if not math.isfinite(accepted) or accepted < 0:
-        raise Refused(
-            f"--accept-cost {accept_cost!r} is not an amount of money;"
-            " state the dollars you accept"
-        )
+    accepted = _dollars(accept_cost, f"--accept-cost {accept_cost!r}")
+    if estimate.label == "charged":
+        return _cap(accepted)
     if estimate.amount_usd is None:
         raise Refused(
             f"no amount can be stated, so ${accepted:.2f} answers nothing;"
@@ -581,8 +638,47 @@ def _accept_from_flag(estimate: Estimate, accept_cost: str) -> float | None:
     return accepted
 
 
+def _dollars(text: str, source: str) -> float:
+    """``text`` as an amount of dollars, or raise :class:`Refused`."""
+    try:
+        amount = float(text)
+    except ValueError as exc:
+        raise Refused(
+            f"{source} is neither a number of dollars nor the word {UNKNOWN!r}"
+        ) from exc
+    # `float()` takes "inf" and "nan", and neither is a number of dollars.
+    # Both satisfy any stated estimate, because `x > inf` and `x > nan` are
+    # False -- so either one turns this gate off and, passed to `hold`, turns
+    # it off for every step the run has left. A negative one accepts a spend
+    # by claiming to accept less than nothing.
+    if not math.isfinite(amount) or amount < 0:
+        raise Refused(
+            f"{source} is not an amount of money; state the dollars you accept"
+        )
+    return amount
+
+
+def _cap(accepted: float) -> float:
+    """Accept ``accepted`` as a cap on a ``charged`` run, and say what it means."""
+    print(
+        f"accepted ${accepted:.2f} as a cap. No estimate exists before the"
+        " calls. The run stops before a step when the reported charges so far"
+        " plus the dearest step so far pass the cap. The first step runs"
+        " with no bound, because no charge is known before it"
+    )
+    return accepted
+
+
 def _accept_by_typing(estimate: Estimate, ask: Callable[[str], str]) -> float | None:
     """Type the amount back. An enter or a ``y`` never proceeds."""
+    if estimate.label == "charged":
+        typed = ask(
+            f"\ntype a dollar amount to cap the run, or {UNKNOWN!r} to run with"
+            " no cap, or anything else to stop: "
+        ).strip()
+        if typed == UNKNOWN:
+            return None
+        return _cap(_dollars(typed.lstrip("$"), repr(typed)))
     prompt = (
         f"\ntype {estimate.offer!r} to accept, or anything else to stop: "
         if estimate.amount_usd is None
@@ -600,19 +696,25 @@ def _accept_by_typing(estimate: Estimate, ask: Callable[[str], str]) -> float | 
 
 def hold(
     accepted: float | None,
-    executions: Sequence[NodeRun],
+    steps: Sequence[Sequence[NodeRun]],
     remaining: Sequence[str],
     ask: Callable[[str], str] | None,
     *,
     ran: int,
     unit: HoldUnit = "case",
 ) -> float | None:
-    """Between steps (a case or a call, as ``unit`` names): is the run still
-    inside what was accepted?
+    """Before the next step: does the spend so far plus a bound for the next
+    step stay inside what was accepted?
+
+    ``steps`` holds the node runs of each step that ran: a batch of cases of a
+    sweep, or one call of a replay. The bound for the next step is the
+    dearest step so far, through :func:`spent`, because no step's cost is
+    known before it runs. Before the first step the bound is zero.
 
     Returns the amount now in force — the same one, or a freshly accepted
-    larger one. Raises :class:`Refused` to stop the sweep, which the caller
-    turns into a written artifact rather than a lost one.
+    larger one. Raises :class:`Refused` to stop the run, which the caller
+    turns into a written artifact rather than a lost one. :func:`spent` raises
+    it too, where a call on a route with no price reported no charge.
 
     **The re-prompt offers the whole sweep, never the sunk spend.** Accepting
     what is already spent would put the run over its own figure again on the
@@ -628,17 +730,21 @@ def hold(
     """
     if accepted is None:
         return None  # accepted ``unknown``: there is nothing to measure against
-    so_far = spent(executions)
-    if so_far <= accepted:
+    so_far = spent([run for step in steps for run in step])
+    bound = max((spent(step) for step in steps), default=0.0)
+    if so_far + bound <= accepted:
         return accepted
     print(
-        f"\nspent ${so_far:.2f}, which passes the ${accepted:.2f} you accepted."
-        f" {len(remaining)} {unit}(s) have not run: {', '.join(remaining)}"
+        f"\nspent ${so_far:.2f}, and the next step may cost ${bound:.2f}, the"
+        f" dearest step so far. Together they pass the ${accepted:.2f} you"
+        f" accepted. {len(remaining)} {unit}(s) have not run:"
+        f" {', '.join(remaining)}"
     )
     if ask is None:
         raise Refused(
-            f"stopping: ${so_far:.2f} spent against ${accepted:.2f} accepted,"
-            " and --accept-cost leaves no hand here to accept more"
+            f"stopping: ${so_far:.2f} spent and up to ${bound:.2f} for the next"
+            f" step pass ${accepted:.2f} accepted, and --accept-cost leaves no"
+            " hand here to accept more"
         )
     projected = so_far + (so_far / ran) * len(remaining) if ran > 0 else so_far
     return _accept_by_typing(

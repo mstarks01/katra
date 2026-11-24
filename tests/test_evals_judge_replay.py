@@ -449,12 +449,13 @@ def test_offline_mode_refuses_the_first_call(sweep, tmp_path, capsys):
     assert written["pooled"]["matched"]["of"] == 0
 
 
-def _scripted(usage=None, fail_on=None, sent=None, attempts=1):
+def _scripted(usage=None, fail_on=None, sent=None, attempts=1, charge=None):
     """A ``tier_call`` stand-in that rejects every finding.
 
     ``usage`` is the token usage each call reports, as ``tier_call`` records
     it in ``seen``, and ``fail_on`` the number of the call that raises a
-    provider error. No call reports a charge, as on a direct vendor.
+    provider error. ``charge`` is the charge each call reports, or ``None``
+    for no charge, as on a direct vendor.
     """
 
     def build(_deployment, _tier, _schema, spent, seen):
@@ -471,7 +472,7 @@ def _scripted(usage=None, fail_on=None, sent=None, attempts=1):
                 f["label"]
                 for f in json.loads(text.split("```json\n")[-1].rsplit("```", 1)[0])
             ]
-            spent.append(None)
+            spent.append(charge)
             seen.append(
                 {
                     "text": "",
@@ -479,6 +480,7 @@ def _scripted(usage=None, fail_on=None, sent=None, attempts=1):
                     "usage": usage,
                     "attempts": attempts,
                     "reasks": 0,
+                    "reported_charge_usd": charge,
                 }
             )
             return json.dumps(
@@ -533,10 +535,63 @@ def test_the_measured_usage_holds_the_next_call(sweep, tmp_path, monkeypatch, ca
     assert code == 1
     assert len(sent) == 1
     written = json.loads(out.read_text(encoding="utf-8"))
-    assert "against $5.00 accepted" in written["stopped"]
+    assert "pass $5.00 accepted" in written["stopped"]
     assert written["not_run"] == [{"case": CASE, "sample": 2}]
     assert written["cases"][0]["samples"][0]["sample"] == 1
     assert "stopped" in capsys.readouterr().err
+
+
+@pytest.fixture
+def openrouter_judge(monkeypatch):
+    """A judge through an aggregator: a route with no price whose vendor
+    reports the whole charge of each call."""
+    monkeypatch.setenv("KATRA_MODEL_REVIEW_VENDOR", "openrouter")
+    monkeypatch.setenv("KATRA_MODEL_REVIEW_MODEL", "anthropic/claude-opus-5")
+    monkeypatch.setenv(charges_env_var_for("openrouter"), "direct")
+
+
+def test_a_charged_judge_stops_at_the_cap(
+    sweep, tmp_path, monkeypatch, openrouter_judge
+):
+    """The first call reports $0.60. Before the second, $0.60 spent and up to
+    $0.60 for the next call pass the $1.00 cap, so the hold stops it."""
+    sent = []
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent, charge=0.60))
+    out = tmp_path / "out.json"
+
+    code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="1.00"))
+
+    assert code == 1
+    assert len(sent) == 1
+    written = json.loads(out.read_text(encoding="utf-8"))
+    assert "pass $1.00 accepted" in written["stopped"]
+    assert written["not_run"] == [{"case": CASE, "sample": 2}]
+
+
+def test_a_charged_judge_inside_the_cap_runs_every_call(
+    sweep, tmp_path, monkeypatch, openrouter_judge
+):
+    sent = []
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent, charge=0.40))
+
+    code = judge_replay.command_judge_replay(
+        _args(sweep, tmp_path / "out.json", accept_cost="1.00")
+    )
+
+    assert (code, len(sent)) == (0, 2)
+
+
+def test_a_charged_judge_call_that_reports_no_charge_stops_the_run(
+    sweep, tmp_path, monkeypatch, openrouter_judge
+):
+    sent = []
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent, charge=None))
+    out = tmp_path / "out.json"
+
+    code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100"))
+
+    assert (code, len(sent)) == (1, 1)
+    assert "reported no charge" in json.loads(out.read_text())["stopped"]
 
 
 def test_a_call_that_reports_no_usage_counts_at_its_estimate():
@@ -545,7 +600,7 @@ def test_a_call_that_reports_no_usage_counts_at_its_estimate():
 
     run = judge_replay.measured_run(None, fallback, "anthropic/claude-opus-5")
     reported = judge_replay.measured_run(
-        {"usage": None, "attempts": 1, "reasks": 0},
+        {"usage": None, "attempts": 1, "reasks": 0, "reported_charge_usd": None},
         fallback,
         "anthropic/claude-opus-5",
     )

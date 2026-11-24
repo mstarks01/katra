@@ -58,10 +58,10 @@ from katra.binding import build_tier_adapters
 from katra.charges import CHARGE_METADATA_KEY, UPSTREAM_METADATA_KEY
 from katra.conformance import REFERENCE_MODELS
 from katra.execution import (
-    _reported_charge_of,
     _served_route,
     _served_upstream_of,
     event_attempts,
+    event_reported_charge,
     event_usage,
 )
 from katra.provider import REASKS_METADATA_KEY
@@ -341,7 +341,7 @@ class TestWhatTheExecutorReadsOffAnEvent:
         (event,) = events_from("openai", answering("openai"))
 
         assert _served_upstream_of(event) is None
-        assert _reported_charge_of(event) is None
+        assert event_reported_charge(event) is None
 
     def test_a_gateway_names_its_upstream_and_its_charge_on_the_event(self):
         """The two facts only a gateway has, from the fields the live
@@ -349,7 +349,7 @@ class TestWhatTheExecutorReadsOffAnEvent:
         (event,) = events_from("openrouter", answering("openrouter"))
 
         assert _served_upstream_of(event) == UPSTREAM
-        assert _reported_charge_of(event) == CHARGE
+        assert event_reported_charge(event) == CHARGE
 
 
 class TestWhatTheRetryDriverReadsOffAResponse:

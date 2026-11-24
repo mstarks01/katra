@@ -24,11 +24,13 @@ from evals.harness.prices import UnitPrices
 from evals.harness.provenance import RunProvenance
 from katra.budgets import measured_tokens
 from katra.identity import IDENTITY_VERSION, build_identity
+from katra.model_tiers import TierSelection
 from katra.report import (
     NodeRun,
     TokenUsage,
 )
 from katra.sampling import TierSampling
+from katra.vendors import ChargeMode, vendor_for
 from tests.factories import SAMPLE_INSTRUCTIONS, sample_fingerprint
 
 ARTIFACT_COMMIT = RepoCommit(commit="c" * 40, clean=True)
@@ -610,15 +612,15 @@ class TestTheScriptFlag:
 
 class TestTheHold:
     def test_a_run_inside_what_was_accepted_continues(self, priced):
-        assert hold(10.0, [node(completion=1000)], ["02"], None, ran=1) == 10.0
+        assert hold(10.0, [[node(completion=1000)]], ["02"], None, ran=1) == 10.0
 
     def test_a_script_that_outspends_its_acceptance_stops(self, priced):
         with pytest.raises(Refused, match="no hand here"):
-            hold(0.001, [node(completion=1_000_000)], ["02", "03"], None, ran=1)
+            hold(0.001, [[node(completion=1_000_000)]], ["02", "03"], None, ran=1)
 
     def test_the_stop_names_the_spend_and_the_cases_not_run(self, priced, capsys):
         with pytest.raises(Refused):
-            hold(0.001, [node(completion=1_000_000)], ["02", "03"], None, ran=1)
+            hold(0.001, [[node(completion=1_000_000)]], ["02", "03"], None, ran=1)
         printed = capsys.readouterr().out
         assert "02, 03" in printed
         assert "2 case(s) have not run" in printed
@@ -627,16 +629,18 @@ class TestTheHold:
         executions = [node(completion=1_000_000)]
         so_far = consent.spent(executions)
         projected = so_far * 2  # one case ran, one remains, at the same rate
-        accepted = hold(0.001, executions, ["02"], lambda _: f"{projected:.2f}", ran=1)
+        accepted = hold(
+            0.001, [executions], ["02"], lambda _: f"{projected:.2f}", ran=1
+        )
         assert accepted == pytest.approx(projected)
 
     def test_a_person_who_declines_stops_the_sweep(self, priced):
         with pytest.raises(Refused):
-            hold(0.001, [node(completion=1_000_000)], ["02"], lambda _: "", ran=1)
+            hold(0.001, [[node(completion=1_000_000)]], ["02"], lambda _: "", ran=1)
 
     def test_an_accepted_unknown_has_nothing_to_measure_against(self, priced):
         """Accepting ``unknown`` is a real acceptance, so the hold never fires."""
-        assert hold(None, [node(completion=1_000_000)], ["02"], None, ran=1) is None
+        assert hold(None, [[node(completion=1_000_000)]], ["02"], None, ran=1) is None
 
     def test_the_re_prompt_offers_the_whole_sweep_and_not_the_sunk_spend(self, priced):
         """One overrun adds one prompt, not one at every case that follows.
@@ -653,12 +657,15 @@ class TestTheHold:
             offered.append(prompt)
             return prompt.split("(")[1].split(")")[0]
 
-        accepted = hold(0.001, executions, ["02", "03", "04"], answer, ran=1)
+        accepted = hold(0.001, [executions], ["02", "03", "04"], answer, ran=1)
 
         assert accepted == pytest.approx(so_far * 4)
         assert accepted is not None and accepted > so_far
         # The next boundary, at the same rate, is inside the new figure.
-        assert hold(accepted, executions * 2, ["03", "04"], None, ran=2) == accepted
+        assert (
+            hold(accepted, [executions, executions], ["03", "04"], None, ran=2)
+            == accepted
+        )
 
     def test_a_bigger_denominator_projects_a_smaller_amount(self, priced):
         """Why a skipped case must never count toward ``ran``.
@@ -676,8 +683,8 @@ class TestTheHold:
             offered.append(float(typed))
             return typed
 
-        hold(0.001, executions, ["02", "03"], answer, ran=1)
-        hold(0.001, executions, ["02", "03"], answer, ran=2)
+        hold(0.001, [executions], ["02", "03"], answer, ran=1)
+        hold(0.001, [executions], ["02", "03"], answer, ran=2)
 
         assert offered[0] > offered[1]
 
@@ -685,7 +692,7 @@ class TestTheHold:
         """``ran`` at zero has no rate to project from, so the spend stands."""
         executions = [node(completion=1_000_000)]
         so_far = consent.spent(executions)
-        accepted = hold(0.001, executions, ["02"], lambda _: f"{so_far:.2f}", ran=0)
+        accepted = hold(0.001, [executions], ["02"], lambda _: f"{so_far:.2f}", ran=0)
         assert accepted == pytest.approx(so_far)
 
 
@@ -1094,3 +1101,102 @@ class TestASweepNamesTheCorpusItRead:
             run.main(["run", "--mode", "extraction", "--corpus", str(corpus)])
 
         assert digested == [corpus]
+
+
+#: A gateway route the test price map does not hold, whose vendor reports
+#: the whole charge of each call under the ``direct`` arrangement.
+GATEWAY = TierSelection(vendor="openrouter", model="anthropic/claude-opus-5")
+
+#: A direct route the test price map does not hold, whose vendor reports no
+#: charge.
+UNPRICED_DIRECT = TierSelection(vendor="openai", model="gpt-5.6-luna")
+
+
+def tiers_charged_directly() -> SimpleNamespace:
+    """The one method of the tier config that :func:`consent.charged` reads."""
+    return SimpleNamespace(
+        charge_mode=lambda vendor: (
+            ChargeMode.DIRECT if vendor_for(vendor).reports_charge else None
+        )
+    )
+
+
+def unpriced() -> Estimate:
+    return Estimate(label="unpriced", amount_usd=None, lines=())
+
+
+def charged_node(charge, attempts=1):
+    return NodeRun(
+        node="judge",
+        model=GATEWAY.route,
+        requested_model=GATEWAY.route,
+        duration_ms=10,
+        attempts=attempts,
+        reported_charge_usd=charge,
+    )
+
+
+class TestAChargedRoute:
+    """A route with no price whose vendor reports each call's charge (#764)."""
+
+    def test_a_route_that_reports_its_charge_makes_a_charged_estimate(self, priced):
+        estimate = consent.charged(unpriced(), [GATEWAY], tiers_charged_directly())
+
+        assert estimate.label == "charged"
+        assert "no estimate exists before the calls" in estimate.lines[-1]
+
+    def test_a_route_that_reports_no_charge_stays_unpriced(self, priced):
+        selections = [GATEWAY, UNPRICED_DIRECT]
+
+        estimate = consent.charged(unpriced(), selections, tiers_charged_directly())
+
+        assert estimate.label == "unpriced"
+
+    def test_an_estimate_with_every_route_priced_stays_as_it_is(self, priced):
+        priced_only = [TierSelection(vendor="openai", model="gpt-5.6")]
+
+        estimate = consent.charged(unpriced(), priced_only, tiers_charged_directly())
+
+        assert estimate.label == "unpriced"
+
+    def test_the_gate_takes_a_number_as_a_cap(self, priced, capsys):
+        estimate = consent.charged(unpriced(), [GATEWAY], tiers_charged_directly())
+
+        assert gate(estimate, "1.50", ask=None) == pytest.approx(1.50)
+        assert "No estimate exists before the calls" in capsys.readouterr().out
+        assert gate(estimate, UNKNOWN, ask=None) is None
+        assert gate(estimate, None, lambda _: "$2.00") == pytest.approx(2.00)
+
+    @pytest.mark.parametrize("amount", ["inf", "nan", "-1"])
+    def test_the_gate_refuses_a_cap_that_is_not_money(self, priced, amount):
+        estimate = consent.charged(unpriced(), [GATEWAY], tiers_charged_directly())
+
+        with pytest.raises(Refused, match="not an amount of money"):
+            gate(estimate, amount, ask=None)
+
+    def test_the_gate_refuses_a_number_for_a_route_that_reports_no_charge(self, priced):
+        estimate = consent.charged(
+            unpriced(), [UNPRICED_DIRECT], tiers_charged_directly()
+        )
+
+        with pytest.raises(Refused, match="answers nothing"):
+            gate(estimate, "1.50", ask=None)
+
+    def test_the_first_step_runs_on_the_cap_alone(self, priced):
+        assert hold(1.0, [], ["c 1"], None, ran=0, unit="call") == 1.0
+
+    def test_the_hold_stops_before_a_step_the_dearest_step_would_take_past_the_cap(
+        self, priced
+    ):
+        steps = [[charged_node(0.30)], [charged_node(0.50)]]
+
+        assert hold(1.30, steps, ["c 3"], None, ran=2, unit="call") == 1.30
+        with pytest.raises(Refused, match="up to \\$0.50 for the next step"):
+            hold(1.29, steps, ["c 3"], None, ran=2, unit="call")
+
+    def test_a_retried_call_counts_its_charge_for_each_attempt(self, priced):
+        assert consent.spent([charged_node(0.25, attempts=3)]) == pytest.approx(0.75)
+
+    def test_a_call_that_reports_no_charge_stops_the_run(self, priced):
+        with pytest.raises(Refused, match="reported no charge"):
+            hold(5.0, [[charged_node(None)]], ["c 2"], None, ran=1, unit="call")

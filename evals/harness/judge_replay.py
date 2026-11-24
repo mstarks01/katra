@@ -48,13 +48,17 @@ today's digest.
 estimate through :class:`~evals.harness.consent.Estimate`. ``--dry-run``
 writes the requests and sends nothing. A live run takes consent through
 :func:`~evals.harness.consent.gate`, and ``KATRA_OFFLINE`` refuses its first
-call. Before each call it runs the sweep's hold,
+call. A judge route with no price, such as one through ``openrouter``, has
+no estimate. Where its vendor reports the whole charge of each call,
+:func:`~evals.harness.consent.charged` labels the estimate ``charged``, and an
+accepted amount caps the run. Before each call it runs the sweep's hold,
 :func:`~evals.harness.consent.hold`, over the calls made so far: it prices the
 token usage and the attempts each call reported (a call that reported no usage
-counts at its estimate, and each failed attempt counts as one more prompt),
-and it stops, or asks again, once the priced usage passes the accepted amount.
-The hold reads the usage after a call, so the last call before a stop can take
-the priced usage past the amount. It writes the output file
+counts at its estimate, and each failed attempt counts as one more prompt), or
+on a route with no price it counts the reported charge once for each attempt.
+It stops, or asks again, when the spend so far plus the dearest call so far
+passes the accepted amount. The first call runs with no bound, and a call on a
+route with no price that reports no charge stops the run. It writes the output file
 after each answer. A provider failure stops the run, and the output keeps the
 answers so far and names each call that did not run.
 """
@@ -668,13 +672,16 @@ def measured_run(
     prices: the usage the provider reported, as ``seen`` records it, or
     ``fallback``, the call's estimate, where it reported none. The attempts and
     re-asks the retry driver stamped go on the run too, so the hold prices each
-    failed attempt as a graph run's node run does."""
+    failed attempt as a graph run's node run does. The charge the provider
+    reported goes on the run as ``reported_charge_usd``, which the hold counts
+    where the price map holds no rate for the route."""
     if entry is None:
-        usage, attempts, reasks = fallback, 1, 0
+        usage, attempts, reasks, charge = fallback, 1, 0, None
     else:
         reported = entry["usage"]
         usage = fallback if reported is None else TokenUsage.model_validate(reported)
         attempts, reasks = entry["attempts"], entry["reasks"]
+        charge = entry["reported_charge_usd"]
     return NodeRun(
         node=JUDGE_NODE,
         model=route,
@@ -683,6 +690,7 @@ def measured_run(
         usage=usage,
         attempts=attempts,
         reasks=reasks,
+        reported_charge_usd=charge,
     )
 
 
@@ -849,7 +857,9 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         return 1
     writers = writer_routes(artifact)
     breach = independence_breach(writers, judge.route)
-    cost = estimate(instruction, requests, judge.route)
+    cost = consent.charged(
+        estimate(instruction, requests, judge.route), [judge], deployment.tiers
+    )
     for case in moved:
         print(f"{case}: left out; the sweep read other sources than the corpus holds")
     for held in inputs:
@@ -906,7 +916,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     # the usage each call reported, and it asks again by typing, or stops where
     # --accept-cost leaves no hand to ask.
     ask = None if args.accept_cost is not None else input
-    runs: list[NodeRun] = []
+    steps: list[list[NodeRun]] = []
     stopped: str | None = None
     # One event loop for every call, so each answer is written to the output
     # file here, as it arrives, before the next call runs.
@@ -915,7 +925,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
             remaining = [f"{r.case} sample {r.sample}" for r in requests[index:]]
             try:
                 accepted = consent.hold(
-                    accepted, runs, remaining, ask, ran=index, unit="call"
+                    accepted, steps, remaining, ask, ran=index, unit="call"
                 )
             except consent.Refused as refusal:
                 stopped = (
@@ -935,8 +945,8 @@ def command_judge_replay(args: argparse.Namespace) -> int:
                 )
                 break
             entry = seen[answered] if len(seen) > answered else None
-            runs.append(
-                measured_run(entry, request_usage(instruction, request), judge.route)
+            steps.append(
+                [measured_run(entry, request_usage(instruction, request), judge.route)]
             )
             written = head | {"dry_run": False, "stopped": None, "answers": seen}
             written |= judged(inputs, requests, raws)

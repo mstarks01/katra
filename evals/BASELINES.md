@@ -54,10 +54,10 @@ provider rather than a second Baseline.
 before the first request. **There is no ceiling** — you may accept any amount.
 The gate exists so you know what you are accepting and how good the number is,
 not to cap it. [TUNING.md](TUNING.md#the-money-what-run-asks-before-it-spends)
-describes the three labels, the typed acceptance, `--accept-cost` for scripts,
+describes the four labels, the typed acceptance, `--accept-cost` for scripts,
 and what happens when a run outspends what you accepted.
 
-Which of the three labels you get depends on what `evals/baselines/` already
+Which of the four labels you get depends on what `evals/baselines/` already
 holds. A merged Baseline of your exact configuration gives you a `recorded`
 figure: a real number, not a guess. Otherwise the gate borrows another
 Baseline's token counts, reprices them for your models, and labels the result
@@ -65,7 +65,8 @@ Baseline's token counts, reprices them for your models, and labels the result
 run. When there is nothing to borrow, when a tier's model is absent from the
 price map, or when its vendor is a gateway that fronts many providers at many
 rates, the gate does not invent a number. It says `unpriced`, and you
-accept that by typing `unknown`. Your sweep is what turns a guess into a
+accept that by typing `unknown`. Where each route with no price reports the
+charge of each call, it says `charged`, and a number you accept caps the run. Your sweep is what turns a guess into a
 recorded number for the next contributor.
 
 ## Running and submitting
