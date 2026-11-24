@@ -745,29 +745,14 @@ def test_the_hold_prices_each_failed_attempt(
         assert "1 call(s) have not run" in capsys.readouterr().out
 
 
-def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch):
-    """The sweep path builds its node run from the response's stamps through
-    ``event_usage``, ``event_attempts`` and ``event_reasks``; the replay builds
-    it from what ``tier_call`` records. The two price alike."""
+def _tier_call_on(monkeypatch, response):
+    """Run one ``tier_call`` whose adapter yields ``response``; return what it
+    recorded in ``seen`` and ``spent``."""
     from types import SimpleNamespace
 
-    from google.adk.models.llm_response import LlmResponse
     from google.genai import types
 
-    from evals.harness import consent
     from evals.harness import node_call as module
-    from katra.execution import event_attempts, event_reasks, event_usage
-    from katra.provider import REASKS_METADATA_KEY
-    from katra.report import NodeRun
-    from katra.retry import ATTEMPTS_METADATA_KEY
-
-    response = LlmResponse(
-        content=types.Content(role="model", parts=[types.Part(text="{}")]),
-        usage_metadata=types.GenerateContentResponseUsageMetadata(
-            prompt_token_count=1_000, candidates_token_count=10
-        ),
-        custom_metadata={ATTEMPTS_METADATA_KEY: 3, REASKS_METADATA_KEY: 1},
-    )
 
     class Adapter:
         model = "stub"
@@ -789,8 +774,33 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
         ),
     )
     seen: list = []
-    call = module.tier_call(deployment, "review", None, [], seen)
+    spent: list = []
+    call = module.tier_call(deployment, "review", None, spent, seen)
     asyncio.run(call("instruction", types.Content(role="user", parts=[])))
+    return seen, spent
+
+
+def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch):
+    """The sweep path builds its node run from the response's stamps through
+    ``event_usage``, ``event_attempts`` and ``event_reasks``; the replay builds
+    it from what ``tier_call`` records. The two price alike."""
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    from evals.harness import consent
+    from katra.execution import event_attempts, event_reasks, event_usage
+    from katra.provider import REASKS_METADATA_KEY
+    from katra.report import NodeRun
+    from katra.retry import ATTEMPTS_METADATA_KEY
+
+    response = LlmResponse(
+        content=types.Content(role="model", parts=[types.Part(text="{}")]),
+        usage_metadata=types.GenerateContentResponseUsageMetadata(
+            prompt_token_count=1_000, candidates_token_count=10
+        ),
+        custom_metadata={ATTEMPTS_METADATA_KEY: 3, REASKS_METADATA_KEY: 1},
+    )
+    seen, _ = _tier_call_on(monkeypatch, response)
     route = "anthropic/claude-opus-5"
     swept = NodeRun(
         node="judge",
@@ -806,3 +816,21 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
 
     assert (replayed.attempts, replayed.reasks) == (3, 1)
     assert consent.spent([replayed]) == consent.spent([swept]) > 0
+
+
+def test_a_reported_charge_of_zero_stays_zero(monkeypatch):
+    """A free or cached call reports 0.0, and 0.0 is a charge, not a missing one."""
+    from google.adk.models.llm_response import LlmResponse
+    from google.genai import types
+
+    from katra.charges import CHARGE_METADATA_KEY
+
+    response = LlmResponse(
+        content=types.Content(role="model", parts=[types.Part(text="{}")]),
+        custom_metadata={CHARGE_METADATA_KEY: 0.0},
+    )
+
+    seen, spent = _tier_call_on(monkeypatch, response)
+
+    assert seen[0]["reported_charge_usd"] == 0.0
+    assert spent == [0.0]

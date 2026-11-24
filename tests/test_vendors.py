@@ -1176,6 +1176,8 @@ SOURCE_VENDOR_READINGS: dict[str, tuple[tuple[str, SourceVendor | None], ...]] =
         ("amazon.nova-pro-v1:0", "amazon"),
         ("meta.llama3-1-70b-instruct-v1:0", "meta"),
         ("mistral.mistral-large-2407-v1:0", "mistral"),
+        ("deepseek.r1-v1:0", "deepseek"),
+        ("openai.gpt-oss-120b-1:0", "openai"),
         ("cohere.command-r-v1:0", None),
     ),
     "gemini": (("gemini-2.5-pro", "google"),),
@@ -1184,6 +1186,9 @@ SOURCE_VENDOR_READINGS: dict[str, tuple[tuple[str, SourceVendor | None], ...]] =
         ("openai/gpt-5.6", "openai"),
         ("google/gemini-2.5-pro", "google"),
         ("meta-llama/llama-4-maverick", "meta"),
+        ("mistralai/mistral-large-2411", "mistral"),
+        ("amazon/nova-pro-v1", "amazon"),
+        ("deepseek/deepseek-r1", "deepseek"),
         ("x-ai/grok-4", "xai"),
         ("unknown-lab/model-1", None),
         ("claude-opus-5", None),
@@ -1208,6 +1213,17 @@ class TestSourceVendor:
 
         assert vendor.source_vendor_of(model) == expected
         assert source_vendor_for_route(vendor.route(model)) == expected
+
+    @pytest.mark.parametrize("name", VENDOR_NAMES)
+    def test_every_maker_key_has_a_reading(self, name):
+        """A key with no reading could be renamed and no test would fail."""
+        rule = vendor_for(name).source_vendor_rule
+        keys = rule.makers if isinstance(rule, _SourceSegment) else {}
+        read = {model for model, _ in SOURCE_VENDOR_READINGS[name]}
+
+        unread = [key for key in keys if not any(key in model for model in read)]
+
+        assert unread == []
 
     @pytest.mark.parametrize("name", VENDOR_NAMES)
     def test_every_value_a_row_can_read_is_in_the_closed_set(self, name):

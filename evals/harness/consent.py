@@ -158,7 +158,7 @@ def spent(executions: Sequence[NodeRun]) -> float:
     """
     total = price_calls(_calls_of(executions)).total_usd
     for run in executions:
-        if run.model is None or _priced(run):
+        if run.model is None or _priced(run.model, run.requested_model or run.model):
             continue
         if run.reported_charge_usd is None:
             raise Refused(
@@ -170,13 +170,10 @@ def spent(executions: Sequence[NodeRun]) -> float:
     return total
 
 
-def _priced(run: NodeRun) -> bool:
-    """Whether the price map holds a rate for the run's served or requested model."""
-    return any(
-        unit_prices(model) is not None
-        for model in (run.model, run.requested_model)
-        if model is not None
-    )
+def _priced(served: str, requested: str) -> bool:
+    """Whether :func:`~evals.harness.prices.price_calls` finds a rate for a
+    call: on the served build first, then on the requested route."""
+    return not price_calls([(served, requested, TokenUsage())]).unpriced
 
 
 def charged(

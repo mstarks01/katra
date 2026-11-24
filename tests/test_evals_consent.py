@@ -24,7 +24,7 @@ from evals.harness.prices import UnitPrices
 from evals.harness.provenance import RunProvenance
 from katra.budgets import measured_tokens
 from katra.identity import IDENTITY_VERSION, build_identity
-from katra.model_tiers import TierSelection
+from katra.model_tiers import TierSelection, charges_env_var_for
 from katra.report import (
     NodeRun,
     TokenUsage,
@@ -1194,9 +1194,61 @@ class TestAChargedRoute:
         with pytest.raises(Refused, match="up to \\$0.50 for the next step"):
             hold(1.29, steps, ["c 3"], None, ran=2, unit="call")
 
+    def test_a_served_build_with_no_price_is_priced_at_its_requested_route(
+        self, priced
+    ):
+        """``price_calls`` falls back to the requested route, so such a run is
+        priced from its tokens and needs no reported charge."""
+        run = NodeRun(
+            node="critic",
+            model="openai/gpt-5.6-luna",
+            requested_model="openai/gpt-5.6",
+            duration_ms=10,
+            usage=TokenUsage(prompt_tokens=0, completion_tokens=1000),
+        )
+
+        assert consent.spent([run]) > 0
+
     def test_a_retried_call_counts_its_charge_for_each_attempt(self, priced):
         assert consent.spent([charged_node(0.25, attempts=3)]) == pytest.approx(0.75)
 
     def test_a_call_that_reports_no_charge_stops_the_run(self, priced):
         with pytest.raises(Refused, match="reported no charge"):
             hold(5.0, [[charged_node(None)]], ["c 2"], None, ran=1, unit="call")
+
+
+class TestASweepOnAChargedRoute:
+    """The sweep's own gate, through ``command_run``, with no provider."""
+
+    class Stop(Exception):
+        """Ends the sweep after the gate; the run is not what this tests."""
+
+    def test_a_charged_sweep_prints_its_label_and_takes_a_number(
+        self, monkeypatch, capsys, tmp_path
+    ):
+        monkeypatch.setenv("KATRA_MODEL_STRONG_VENDOR", "openrouter")
+        monkeypatch.setenv("KATRA_MODEL_STRONG_MODEL", "anthropic/claude-opus-4.7")
+        monkeypatch.setenv(charges_env_var_for("openrouter"), "direct")
+
+        def stop(*_args, **_kwargs):
+            raise self.Stop
+
+        monkeypatch.setattr(run, "_run_mode", stop)
+        argv = [
+            "run",
+            "--mode",
+            "analysis",
+            "--case",
+            "01-payments-checkout",
+            "--accept-cost",
+            "1.00",
+            "--out",
+            str(tmp_path / "sweep.json"),
+        ]
+
+        with pytest.raises(self.Stop):
+            run.main(argv)
+
+        printed = capsys.readouterr().out
+        assert "[charged]" in printed
+        assert "accepted $1.00 as a cap" in printed

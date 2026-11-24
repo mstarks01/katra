@@ -54,5 +54,5 @@ of a call has the label `charged`, and a typed amount caps it.**
 
 A run through OpenRouter can be approved by a dollar amount. A step dearer than
 every earlier step can still take the run past the amount, and the first step
-always runs. A priced sweep now stops one batch earlier than a comparison of the
+always runs. A priced sweep can stop one batch earlier than a comparison of the
 spend alone would stop it.
