@@ -1,4 +1,4 @@
-"""The baseline manifest of QA-2026-11-24-01: what the 2026-10-24 sweep ran on.
+"""The baseline manifest of QA-2026-11-24-01: what one archived run ran on.
 
 Usage::
 

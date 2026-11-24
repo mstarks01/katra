@@ -43,8 +43,25 @@ TARGET_REFERENCES = frozenset(
     }
 )
 
-#: What an analysis-mode run shows for every row: the lanes read the signed model.
-SOURCE = "analysis mode: the lanes read the signed model; extraction is not on the path"
+#: The causes QA-2026-11-19-01-E4 found for the ``unled`` references it traced,
+#: with the maintainer's decision of 2026-11-19, by case ID and reference index.
+UNLED_CAUSES = {
+    ("06-cookbook-online-game", 15): (
+        "the fact is present and no rule leads it (QA-2026-11-19-01-E4)",
+        "lead rule C1a, kept to batch (QA-2026-11-19-01-E5)",
+    ),
+    ("09-cookbook-sokify-retail", 18): (
+        "the fact is present and no rule leads it (QA-2026-11-19-01-E4)",
+        "lead rule C5b, kept to batch (QA-2026-11-19-01-E5)",
+    ),
+    ("08-sso-identity-broker", 19): (
+        "the extraction did not produce the credential placement (QA-2026-11-19-01-E4)",
+        "an extraction gap, by the maintainer's decision of 2026-11-19",
+    ),
+}
+
+#: What each run mode shows for every row of its run.
+SOURCES = {"analysis": "analysis mode: the lanes read the case's blessed model"}
 
 FIELDS = (
     "case",
@@ -81,6 +98,11 @@ def attribute(row, verb_row):
     """
     cause = row["cause"]
     key = (row["case"], row["reference_index"])
+    if verb_row is not None and cause != "verb":
+        raise ValueError(
+            f"{row['case']} #{row['reference_index']}: a verb ruling on a row"
+            f" charged to {cause!r}"
+        )
     if row["status"] == "matched":
         return (
             "none: a structural match",
@@ -139,16 +161,20 @@ def attribute(row, verb_row):
             "a run of today's contract",
         )
     if cause == "unled":
+        uncertainty, action = UNLED_CAUSES.get(
+            key,
+            (
+                "no traced cause: QA-2026-11-19-01-E4 did not read this reference",
+                "authority facts (#2054 group 2)"
+                if row["lane"] == "elevation-of-privilege"
+                else "a lead rule for the place, priced offline",
+            ),
+        )
         return (
             "unresolved: no lead reached the place",
             "run.py delivery",
-            (
-                "a missing lead (preparation) or the lane's outcome (generation);"
-                " the facts that would lead it are not traced"
-            ),
-            "authority facts (#2054 group 2)"
-            if row["lane"] == "elevation-of-privilege"
-            else "a lead rule for the place, priced offline",
+            uncertainty,
+            action,
         )
     raise ValueError(
         f"{row['case']} #{row['reference_index']}: no attribution rule for"
@@ -177,7 +203,9 @@ def downstream(card):
 def case_rows(artifact_path, corpus, cases, verb_rows):
     """Every must-find row of one case artifact."""
     card = scorecard_of(artifact_path, corpus, ledger.Ledger())
-    traced = delivery.trace(card, load_artifact(artifact_path), cases, corpus)
+    artifact = load_artifact(artifact_path)
+    source = SOURCES[artifact.mode]
+    traced = delivery.trace(card, artifact, cases, corpus)
     by_key = {
         (row.reference.case, row.reference.reference_index): delivered(row)
         for row in traced.rows
@@ -198,7 +226,7 @@ def case_rows(artifact_path, corpus, cases, verb_rows):
             "status": row["status"],
             "cause": row["cause"] or "",
             "lead_rules": " | ".join(row["lead_rules"]),
-            "source": SOURCE,
+            "source": source,
             "delivery": by_key.get(key, "not a charged miss"),
             "drafted": row["stages"]["drafted"],
             "reported": row["stages"]["reported"],
