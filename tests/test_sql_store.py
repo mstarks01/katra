@@ -15,7 +15,6 @@ import json
 import logging
 import os
 import re
-import sqlite3
 import stat
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -73,7 +72,7 @@ from tests.factories import (
     sample_selection,
     valid_model,
 )
-from tests.sql_stores import database_of, migrate, sql_env, sqlite_url
+from tests.sql_stores import database_of, migrate, sql_env, sqlite_file, sqlite_url
 from tests.test_api import (
     TEST_DEADLINE_SECONDS,
     TEST_LIMITS,
@@ -631,7 +630,7 @@ def of_another_version(env: dict[str, str], store: JobStore, record: JobRecord) 
     sources = b'[{"x": 1}]'
     report_file(env, record).with_name("sources.json").write_bytes(sources)
     database = env["KATRA_DATABASE_URL"].partition(":///")[2]
-    with sqlite3.connect(database) as connection:
+    with sqlite_file(database) as connection:
         connection.execute(
             "UPDATE jobs SET sources_sha256 = ? WHERE id = ?",
             (hashlib.sha256(sources).hexdigest(), record.id),
@@ -773,7 +772,7 @@ UNLISTED: dict[str, tuple[str, str]] = {
 def store_unlisted(database: str, job_id: str, case: str) -> None:
     """Write the value of ``case`` into the stored job ``job_id``."""
     statement, value = UNLISTED[case]
-    with sqlite3.connect(database) as connection:
+    with sqlite_file(database) as connection:
         assert connection.execute(statement, (value, job_id)).rowcount == 1
 
 
@@ -896,14 +895,14 @@ class TestAStoredValueThisServiceDoesNotList:
         store = build_store(env)
         job = in_flight(store, status, days_ago=30)
         store_unlisted(database_of(env), job, case)
-        with sqlite3.connect(database_of(env)) as connection:
+        with sqlite_file(database_of(env)) as connection:
             (stored,) = connection.execute(
                 "SELECT status FROM jobs WHERE id = ?", (job,)
             ).fetchone()
         assert asyncio.run(store.expired(datetime.now(UTC))) == [(job, "alice")]
-        asyncio.run(store_backends.expire_jobs(store, 1))
+        asyncio.run(store_backends.expire_jobs(store, 1, asyncio.Event()))
         assert asyncio.run(store.owned(job, "alice")) is None
-        with sqlite3.connect(database_of(env)) as connection:
+        with sqlite_file(database_of(env)) as connection:
             (kept,) = connection.execute(
                 "SELECT status FROM usage_rows WHERE job_id = ?", (job,)
             ).fetchone()
@@ -936,7 +935,7 @@ class TestAStoredValueThisServiceDoesNotList:
         record = completed_job(store)
         with TestClient(app_over(store)) as client:
             served = client.get(f"/v1/jobs/{record.id}/report", headers=auth())
-            with sqlite3.connect(database_of(env)) as connection:
+            with sqlite_file(database_of(env)) as connection:
                 connection.execute(
                     "UPDATE jobs SET certification = ? WHERE id = ?",
                     (certification, record.id),
@@ -950,7 +949,7 @@ class TestAStoredValueThisServiceDoesNotList:
         record = completed_job(store)
         sources = b'[{"x": 1}]'
         report_file(env, record).with_name("sources.json").write_bytes(sources)
-        with sqlite3.connect(database_of(env)) as connection:
+        with sqlite_file(database_of(env)) as connection:
             connection.execute(
                 "UPDATE jobs SET sources_sha256 = ? WHERE id = ?",
                 (hashlib.sha256(sources).hexdigest(), record.id),
@@ -999,7 +998,7 @@ class TestAStoredValueThisServiceDoesNotList:
         with caplog.at_level(logging.ERROR, "katra.sql_store"):
             assert asyncio.run(store.fail_in_flight()) == []
         assert job in caplog.text
-        with sqlite3.connect(database_of(env)) as connection:
+        with sqlite_file(database_of(env)) as connection:
             (status,) = connection.execute(
                 "SELECT status FROM jobs WHERE id = ?", (job,)
             ).fetchone()
@@ -1150,7 +1149,7 @@ class TestAStoreFailureAsARunStartsOrEnds:
         assert stored.measured_tokens == METERED
         assert statuses(stored)[-2:] == ["running", "failed"]
         later = datetime.now(UTC) + timedelta(days=2)
-        assert asyncio.run(store.sweep_orphans(later)) == 1
+        assert asyncio.run(store.sweep_orphans(later, asyncio.Event())) == 1
 
     def test_a_report_put_that_hangs(self, env, monkeypatch):
         # The bound covers every store call, so it leaves room for an SQLite

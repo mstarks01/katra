@@ -1277,6 +1277,10 @@ class SqlJobStore:
             )
         await self._objects.check()
 
+    async def close(self) -> None:
+        """Close each connection that the pool of the engine holds."""
+        await self._engine.dispose()
+
     async def _object(self, row: Row[Any], name: ObjectName) -> bytes | None:
         """The object ``name`` of the job ``row`` names, checked against the
         digest the row holds in :data:`DIGEST_COLUMNS`.
@@ -1959,7 +1963,7 @@ class SqlJobStore:
                     kept.update(_object_keys(row, include_unnamed=in_flight))
         return kept
 
-    async def sweep_orphans(self, before: datetime) -> int:
+    async def sweep_orphans(self, before: datetime, stop: asyncio.Event) -> int:
         """Delete each object last written before ``before`` that no job row
         keeps, and return how many the store removed.
 
@@ -1970,7 +1974,7 @@ class SqlJobStore:
         IDs keep (:meth:`_kept_file_keys`) and the keys that the rows of the
         listed Control IDs keep (:meth:`_kept_evidence_keys`). A row keeps a
         key only under its own owner ID. The sweep deletes each other listed
-        key.
+        key, one at a time, until ``stop`` is set.
         """
         listed = []
         async for key, modified in self._objects.list():
@@ -1985,7 +1989,14 @@ class SqlJobStore:
         kept = await self._kept_keys(sorted(job_ids))
         kept |= await self._kept_file_keys(sorted(file_ids))
         kept |= await self._kept_evidence_keys(sorted(control_ids))
-        return await self._remove([key for key, _ in listed if key not in kept])
+        removed = 0
+        for key, _ in listed:
+            if key in kept:
+                continue
+            if stop.is_set():
+                break
+            removed += await self._remove([key])
+        return removed
 
     async def _kept_evidence_keys(self, control_ids: Sequence[str]) -> set[str]:
         """The key of each evidence object that a row of ``control_ids`` lists,

@@ -13,7 +13,6 @@ import hashlib
 import json
 import logging
 import re
-import sqlite3
 import stat
 import time
 from pathlib import Path
@@ -32,7 +31,13 @@ from katra.store_backends import build_store
 from katra.store_settings import StoreConfigError
 from tests import test_webapp
 from tests.factories import SEEDING_BUDGET, sample_selection, valid_model
-from tests.sql_stores import database_of, filesystem_env, sql_env, sqlite_url
+from tests.sql_stores import (
+    database_of,
+    filesystem_env,
+    sql_env,
+    sqlite_file,
+    sqlite_url,
+)
 from tests.test_api import completed_days_ago
 from tests.test_sql_store import UNLISTED, store_unlisted
 from tests.test_webapp import (
@@ -315,7 +320,7 @@ class TestTheFirstRunMigration:
     ):
         """The app migrates its own SQLite file, so the remedy names no
         command line: delete the file and start the app again."""
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(change)
         with (
             pytest.raises(error, match=refused) as stopped,
@@ -445,7 +450,7 @@ class TestARecordOfAnotherSchemaVersion:
     ):
         with app(tiers) as client:
             run = completed(client)
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(
                 "UPDATE jobs SET schema_version = '0.1' WHERE id = ?", (run,)
             )
@@ -459,7 +464,7 @@ class TestARecordOfAnotherSchemaVersion:
     def test_the_stream_of_such_a_record_ends_with_no_node_frame(self, tiers, durable):
         with app(tiers) as client:
             run = completed(client)
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(
                 "UPDATE jobs SET schema_version = '0.1' WHERE id = ?", (run,)
             )
@@ -477,7 +482,7 @@ class TestARecordOfAnotherSchemaVersion:
                 headers=SAME_ORIGIN,
             ).json()["run"]
             assert ran(client, child) == "completed"
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(
                 "UPDATE jobs SET schema_version = '0.1', resumption = '{\"x\": 1}'"
                 " WHERE id = ?",
@@ -489,7 +494,7 @@ class TestARecordOfAnotherSchemaVersion:
         with app(tiers) as client:
             run = completed(client)
         sources = b'[{"x": 1}]'
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             (owner_id,) = connection.execute(
                 "SELECT owner_id FROM jobs WHERE id = ?", (run,)
             ).fetchone()
@@ -518,7 +523,7 @@ class TestARecordOfAnotherSchemaVersion:
     def test_an_unparsable_json_column_is_never_parsed(self, tiers, durable, column):
         with app(tiers) as client:
             run = completed(client)
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(
                 f"UPDATE jobs SET schema_version = '0.1', {column} = '[{{\"x\": 1}}]'"
                 " WHERE id = ?",
@@ -537,7 +542,7 @@ class TestAStoredFacetAnswer:
         stored = FactAnswer(key=key, facets={"rate": "yes"}).model_dump(mode="json")
         stored["value"] = "An earlier wording of the rate facet? yes"
         held = json.dumps({"links": [], "facts": [stored]})
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(
                 "UPDATE jobs SET answers = ?, corrections = ? WHERE id = ?",
                 (held, json.dumps([stored]), run),
@@ -556,7 +561,7 @@ class TestAStoredFacetAnswer:
         key = ["", "", "", 'who signs the "release" builds?', "", ""]
         stored = {"key": key, "value": "ops", "facets": None, "detail": ""}
         held = json.dumps({"links": [], "facts": [stored]})
-        with sqlite3.connect(database_of(durable)) as connection:
+        with sqlite_file(database_of(durable)) as connection:
             connection.execute(
                 "UPDATE jobs SET answers = ?, corrections = ? WHERE id = ?",
                 (held, json.dumps([stored]), run),

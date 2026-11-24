@@ -261,17 +261,20 @@ def env_variables() -> tuple[str, ...]:
     return tuple(dict.fromkeys(names))
 
 
-async def expire_jobs(store: JobStore, days: int) -> None:
+async def expire_jobs(store: JobStore, days: int, stop: asyncio.Event) -> None:
     """Delete each terminal job whose last update is more than ``days`` days old.
 
     One pass of the retention sweep (#1530). Each delete goes through
     :func:`audited_delete` with the cause ``retention``, so the job keeps its
     usage row and the log gets the line of the delete route. A ``queued`` or
     ``running`` job is never expired. Each delete carries the cutoff, so a
-    job that its owner changed after the listing stays.
+    job that its owner changed after the listing stays. The pass reads
+    ``stop`` before each delete, and ends when it is set.
     """
     before = datetime.now(UTC) - timedelta(days=days)
     for job_id, owner_id in await store.expired(before):
+        if stop.is_set():
+            break
         await audited_delete(
             store, job_id, owner_id, "retention", updated_before=before
         )
@@ -290,10 +293,11 @@ async def expire_jobs(store: JobStore, days: int) -> None:
 ORPHAN_GRACE = timedelta(days=1)
 
 
-async def remove_orphans(store: JobStore) -> None:
+async def remove_orphans(store: JobStore, stop: asyncio.Event) -> None:
     """One pass of the orphan sweep: delete each object older than
-    :data:`ORPHAN_GRACE` that no row names, and log the count."""
-    removed = await store.sweep_orphans(datetime.now(UTC) - ORPHAN_GRACE)
+    :data:`ORPHAN_GRACE` that no row names, until ``stop`` is set, and log
+    the count."""
+    removed = await store.sweep_orphans(datetime.now(UTC) - ORPHAN_GRACE, stop)
     logger.info("the orphan sweep removed %d object(s)", removed)
 
 
@@ -302,23 +306,29 @@ async def remove_orphans(store: JobStore) -> None:
 SWEEP_SECONDS = 3600
 
 
-async def _sweep(store: JobStore, days: int | None) -> None:
-    """Run the sweeps now and then each :data:`SWEEP_SECONDS`, until the app
-    stops: the retention sweep where ``days`` is set, then the orphan sweep.
+async def _sweep(store: JobStore, days: int | None, stop: asyncio.Event) -> None:
+    """Run the sweeps now and then each :data:`SWEEP_SECONDS`, until ``stop``
+    is set: the retention sweep where ``days`` is set, then the orphan sweep.
 
-    A failed sweep is logged, and the next sweep runs.
+    A failed sweep is logged, and the next sweep runs. The loop reads ``stop``
+    before each sweep, and each sweep reads it before each delete. So a pass
+    ends at its next check, and no cancel stops a database call, which can
+    leave its connection open.
     """
-    while True:
+    while not stop.is_set():
         if days is not None:
             try:
-                await expire_jobs(store, days)
+                await expire_jobs(store, days, stop)
             except Exception:
                 logger.exception("the retention sweep failed")
+        if stop.is_set():
+            break
         try:
-            await remove_orphans(store)
+            await remove_orphans(store, stop)
         except Exception:
             logger.exception("the orphan sweep failed")
-        await asyncio.sleep(SWEEP_SECONDS)
+        with suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), SWEEP_SECONDS)
 
 
 @asynccontextmanager
@@ -335,22 +345,28 @@ async def store_lifespan(
     the object store), the restart scan (#1529), then requests. A failed check stops the startup. The sweeps
     start after the restart scan and stop with the app: the orphan sweep
     always, because an owner delete can also leave an orphan, and the
-    retention sweep where a retention period is set.
+    retention sweep where a retention period is set. When the app stops, a
+    pass that runs ends at its next check of the stop. Then the app closes
+    the store. The store closes on every path: also where the startup fails,
+    and where the wait for the sweep raises or is cancelled.
     """
-    days = retention_days(env)
-    await store.startup_check()
-    # The scan is correct for a single instance only. It fails every queued or
-    # running job in the store, so with a second live instance on one store it
-    # would fail the jobs that instance still runs.
-    failed = await store.fail_in_flight()
-    if failed:
-        logger.warning(
-            "restart scan failed %d job(s) in flight: %s", len(failed), failed
-        )
-    sweep = asyncio.create_task(_sweep(store, days))
     try:
-        yield
-    finally:
-        sweep.cancel()
-        with suppress(asyncio.CancelledError):
+        days = retention_days(env)
+        await store.startup_check()
+        # The scan is correct for a single instance only. It fails every queued
+        # or running job in the store, so with a second live instance on one
+        # store it would fail the jobs that instance still runs.
+        failed = await store.fail_in_flight()
+        if failed:
+            logger.warning(
+                "restart scan failed %d job(s) in flight: %s", len(failed), failed
+            )
+        stop = asyncio.Event()
+        sweep = asyncio.create_task(_sweep(store, days, stop))
+        try:
+            yield
+        finally:
+            stop.set()
             await sweep
+    finally:
+        await store.close()
