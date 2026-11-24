@@ -112,7 +112,7 @@ def attribute(row, verb_row):
         )
     if cause == "unstated":
         return (
-            "reference or scorer mismatch: the archive has no position field",
+            "reference or scorer mismatch: the draft states no attacker position",
             "run.py scorecard",
             "the earliest loss is unknown",
             "a run of today's contract",
@@ -126,7 +126,7 @@ def attribute(row, verb_row):
         )
     if cause == "verb" and verb_row["ruling"] == "":
         return (
-            "reference or scorer mismatch: the ruled position is unstated",
+            "reference or scorer mismatch: the draft at the place states no attacker position",
             "QA-2026-11-17-13 verb-rows.csv; run.py delivery",
             "no ruling can move it on the archive",
             "a run of today's contract",
@@ -165,9 +165,7 @@ def attribute(row, verb_row):
             key,
             (
                 "no traced cause: QA-2026-11-19-01-E4 did not read this reference",
-                "authority facts (#2054 group 2)"
-                if row["lane"] == "elevation-of-privilege"
-                else "a lead rule for the place, priced offline",
+                "trace the cause",
             ),
         )
         return (
