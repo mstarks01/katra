@@ -1361,7 +1361,7 @@ class ChangedAfterListing:
         return listed
 
 
-class StopInTheFirstDelete:
+class StopInEachDelete:
     """A store that sets ``stop`` in each delete of a job, and records the
     deleted job IDs."""
 
@@ -1412,7 +1412,7 @@ class TestTheRetentionSweep:
 
     def test_a_set_stop_ends_the_sweep_after_the_delete_that_runs(self, store):
         jobs = [last_updated(store, "completed", days_ago=2) for _ in range(3)]
-        stopping = StopInTheFirstDelete(store)
+        stopping = StopInEachDelete(store)
         asyncio.run(store_backends.expire_jobs(stopping, 1, stopping.stop))
         assert len(stopping.deleted) == 1
         assert sum(asyncio.run(store.get(job)) is not None for job in jobs) == 2

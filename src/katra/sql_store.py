@@ -1991,10 +1991,11 @@ class SqlJobStore:
         kept |= await self._kept_evidence_keys(sorted(control_ids))
         removed = 0
         for key, _ in listed:
+            if key in kept:
+                continue
             if stop.is_set():
                 break
-            if key not in kept:
-                removed += await self._remove([key])
+            removed += await self._remove([key])
         return removed
 
     async def _kept_evidence_keys(self, control_ids: Sequence[str]) -> set[str]:
