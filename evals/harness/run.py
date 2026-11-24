@@ -86,6 +86,7 @@ from evals.harness import (
     schema_paths,
     scorecard,
     shared_answers,
+    sitting_ballot,
     standings,
     submit,
     verb_pricing,
@@ -2962,6 +2963,18 @@ COMMANDS: dict[str, Command] = {
         help="apply one offline sitting envelope to this tree (no credentials)",
         run=envelope.command_import,
         arguments=envelope.import_arguments,
+    ),
+    "sitting-ballot": Command(
+        help="write one case's sitting ballot CSV with plants mixed in, and its"
+        " key (no credentials)",
+        run=sitting_ballot.command_ballot,
+        arguments=sitting_ballot.ballot_arguments,
+    ),
+    "sitting-ballot-read": Command(
+        help="read a filled sitting ballot against its key: the real marks and"
+        " the plant marks apart (no credentials)",
+        run=sitting_ballot.command_ballot_read,
+        arguments=sitting_ballot.ballot_read_arguments,
     ),
     "submit": Command(
         help="open a contribution PR through gh, after running its CI checks locally",

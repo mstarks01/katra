@@ -774,6 +774,44 @@ Merge checklist:
 - [ ] no ASVS entry asserts a requirement is satisfied — the package never reports a pass
 - [ ] every `match` pair's candidate element IDs read against the candidate's own words
 
+### A sitting held as a CSV ballot, with plants
+
+A reader can mark a case in a CSV file, for example on a phone. Plants go into
+that ballot. A plant is a false STRIDE claim that code writes: it says that a
+flow carries no authentication or no encryption in transit, and the case's
+**System Model** states that control. A reader who tests each claim against
+the model marks a plant `reject`. A plant marked `agree` shows that the marks
+of that sitting carry less information than they appear to.
+
+1. Write the ballot and its key:
+
+   ```sh
+   uv run python -m evals.harness.run sitting-ballot evals/corpus/<case> --out ballot.csv --key key.json
+   ```
+
+   The ballot holds one row for each recorded finding and up to three plants,
+   in a random order. `--no-plants` writes the recorded findings only. Keep
+   the key file yourself: it says which rows are plants, so never show it to the
+   reader.
+2. Ask the reader to write their own list first, before they open the ballot.
+3. Send the ballot. The reader fills the `mark` column with `agree`,
+   `reject`, `duplicate` or `unsure` on each row, and sends the file back.
+4. Read the ballot back:
+
+   ```sh
+   uv run python -m evals.harness.run sitting-ballot-read evals/corpus/<case> ballot.csv --key key.json --out marks.json
+   ```
+
+   The command refuses a changed row, a missing or extra row, a mark outside
+   the four and a case file that changed after you wrote the ballot. It
+   prints one line: the number of plants, and how many the reader marked
+   `reject`, `agree`, or something else or nothing.
+5. Put the `marks` object of the output file into the submission, as for each
+   other sitting. The `plants` object never goes into a submission.
+6. Record the plant result as a ledger row
+   (`.claude/skills/quality-audit/templates/experiment-record.md`), in a
+   pull request of its own.
+
 ## Growing a case from real runs
 
 Reference sets aren't meant to be exhaustive up front — they converge from real
