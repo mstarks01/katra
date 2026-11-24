@@ -72,7 +72,7 @@ from katra.job_controls import (
 from katra.question_kinds import parse_question_kind
 from katra.references import snap
 from katra.sources import quotable
-from katra.system_model import SystemModel, attribute_names
+from katra.system_model import ModelIndex, SystemModel, attribute_names
 
 # Most severe first — the order a graded framework's ``claims`` array carries.
 # The service holds the order because it holds
@@ -1017,6 +1017,7 @@ def _ruling_view(
         )
     views = []
     excerpted: set[str] = set()
+    index = ModelIndex.of(model)
     for draft in drafts:
         view = draft.model_dump(
             mode="json",
@@ -1043,12 +1044,12 @@ def _ruling_view(
         # the identity is a digest of the value and the scope, so a critic
         # asked whether the argument follows from the facts could not read the
         # facts (#1082).
-        if rows := _assertion_rows(draft, assertions, model):
+        if rows := _assertion_rows(draft, assertions, index):
             view["assertion_facts"] = rows
         # Computed: each cited field the model shows a value for while the
         # assertion rows hold it open. The model alone reads as a stated
         # fact, and the evidence table told the lane otherwise.
-        if held := _held_open_rows(draft, model):
+        if held := _held_open_rows(draft, index):
             view["held_open_facts"] = held
         # Also computed: the package's own table says this draft's action is not
         # one its lane files. The ruling is settled in code; the key tells the
@@ -1106,7 +1107,7 @@ def _evidence_entry(file: CopiedEvidence, excerpted: set[str]) -> dict:
     return entry
 
 
-def _held_open_rows(draft: Claim, model: SystemModel) -> list[dict]:
+def _held_open_rows(draft: Claim, index: ModelIndex) -> list[dict]:
     """One draft's ``unknown-attribute`` grounds on a field that still states
     a value, each with the words the evidence table gave it.
 
@@ -1118,15 +1119,15 @@ def _held_open_rows(draft: Claim, model: SystemModel) -> list[dict]:
         {
             "element_id": ground.element_id,
             "attribute": ground.attribute,
-            "says": ground_gloss(ground, None, model),
+            "says": ground_gloss(ground, None, index),
         }
         for ground in draft.grounds
-        if held_value(ground, model) is not None
+        if held_value(ground, index) is not None
     ]
 
 
 def _assertion_rows(
-    draft: Claim, assertions: AssertionCatalog | None, model: SystemModel
+    draft: Claim, assertions: AssertionCatalog | None, index: ModelIndex
 ) -> list[dict]:
     """One draft's assertion grounds, resolved to the words the row states.
 
@@ -1142,7 +1143,7 @@ def _assertion_rows(
     return [
         {
             "assertion": ground.assertion,
-            "says": ground_gloss(ground, assertions, model),
+            "says": ground_gloss(ground, assertions, index),
         }
         for ground in draft.grounds
         if ground.kind in ASSERTION_GROUNDS

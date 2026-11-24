@@ -46,6 +46,7 @@ from katra.system_model import (
     UNKNOWN,
     ZONE_ATTRIBUTE,
     DataFlow,
+    ModelIndex,
     SystemModel,
     assumable_attribute_names,
     attribute_names,
@@ -125,11 +126,12 @@ def reference_labels(
             labels[f"{name}: {getattr(element, name)}"] = (
                 f"{words}: {getattr(element, name)}"
             )
+    index = ModelIndex.of(model)
     for ref, ground in evidence_catalog(model, assertions).items():
         if ground.kind in _GROUND_STATE:
             where = names.get(ground.element_id, ground.element_id)
             attribute = attribute_words(ground.attribute)
-            held = held_value(ground, model)
+            held = held_value(ground, index)
             state = (
                 _GROUND_STATE[ground.kind]
                 if held is None

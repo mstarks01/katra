@@ -194,6 +194,7 @@ __all__ = [
     "spans_for",
     "states_missing",
     "states_present",
+    "states_value",
     "subject_id",
     "support_span",
     "uncontradicted",
@@ -2029,16 +2030,16 @@ def disagree(first: Assertion, second: Assertion) -> bool:
 def _value_groups(
     catalog: AssertionCatalog,
 ) -> dict[tuple[str, str, str], dict[str, Assertion]]:
-    """The rows that state a value (:func:`_states_value`), by
+    """The rows that state a value (:func:`states_value`), by
     :func:`_group_key`, one row for each value."""
     groups: dict[tuple[str, str, str], dict[str, Assertion]] = {}
     for entry in catalog.entries:
-        if _states_value(entry):
+        if states_value(entry):
             groups.setdefault(_group_key(entry), {}).setdefault(entry.value, entry)
     return groups
 
 
-def _states_value(entry: Assertion) -> bool:
+def states_value(entry: Assertion) -> bool:
     """Whether a row states a value: it holds one, not :data:`UNKNOWN`, and
     :func:`admissible` admits it. Only such a row takes part in a conflict or
     supplies a projected value."""
@@ -2060,12 +2061,12 @@ def _conflict_keys(found: Iterable[Conflict]) -> frozenset[tuple[str, str, str]]
 def _rows_in(
     catalog: AssertionCatalog, keys: frozenset[tuple[str, str, str]]
 ) -> tuple[Assertion, ...]:
-    """Each row that states a value (:func:`_states_value`) at one of
+    """Each row that states a value (:func:`states_value`) at one of
     ``keys``, in catalog order."""
     return tuple(
         entry
         for entry in catalog.entries
-        if _states_value(entry) and _group_key(entry) in keys
+        if states_value(entry) and _group_key(entry) in keys
     )
 
 
@@ -2205,7 +2206,7 @@ def settled(catalog: AssertionCatalog) -> tuple[Assertion, ...]:
     return tuple(
         entry
         for entry in catalog.entries
-        if _states_value(entry) and _group_key(entry) not in keys
+        if states_value(entry) and _group_key(entry) not in keys
     )
 
 
@@ -2246,7 +2247,7 @@ def _drives_value(entry: Assertion) -> bool:
     may state its value at all: admissible, valued and unscoped. An answer a
     reviewer set aside makes no value, so the rows beside it still do.
     """
-    return answered(entry) and _states_value(entry) and not entry.scope
+    return answered(entry) and states_value(entry) and not entry.scope
 
 
 def _value_rows(rows: Sequence[Assertion]) -> list[Assertion]:
@@ -2258,7 +2259,7 @@ def _value_rows(rows: Sequence[Assertion]) -> list[Assertion]:
     :func:`project` reads the value from these rows, and
     :func:`contradictions` compares their states with the graph.
     """
-    valued = [entry for entry in rows if _states_value(entry)]
+    valued = [entry for entry in rows if states_value(entry)]
     return [entry for entry in valued if _drives_value(entry)] or valued
 
 
@@ -3963,10 +3964,14 @@ def _projected(
     """One attribute's projected value, and the reason it reads that way.
 
     ``open_rows`` holds the identity of each row that a row of the paired
-    predicate disputes (:data:`CROSS_CONFLICTS`). Such a row writes no value,
-    whether or not the paired row reaches this field: the reason is
-    ``cross-conflict``. Unscoped rows of two predicates that cannot both hold
-    and that no pair names read ``several-predicates``.
+    predicate disputes (:data:`CROSS_CONFLICTS`). Where a stated row is one
+    of them, the reason is ``cross-conflict`` in two cases: the stated rows
+    hold one value, or they hold values of two predicates that cannot both
+    hold. The paired row can reach this field or no field. The earlier
+    reasons come first: a scoped row reads ``scoped``, values that can all
+    hold read ``compatible``, and two values of one predicate read
+    ``several-values``. Rows of two predicates that cannot both hold, with no
+    disputed row among them, read ``several-predicates``.
     """
     ids = tuple(sorted(identity for identity, _ in rows))
     valued = [entry for _, entry in rows if entry.value != UNKNOWN]

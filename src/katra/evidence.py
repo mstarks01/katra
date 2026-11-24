@@ -140,6 +140,7 @@ from katra.system_model import (
     UNKNOWN,
     DataFlow,
     Element,
+    ModelIndex,
     SystemModel,
     TrustBoundary,
     attribute_names,
@@ -673,6 +674,7 @@ def render_catalog(
     ``model`` is the model the catalog came from, read for the value a field
     the rows hold open still states (:func:`_held_open_value`).
     """
+    index = ModelIndex.of(model)
     rows_by_id = (
         {}
         if assertions is None
@@ -685,7 +687,7 @@ def render_catalog(
     )
     rows = "\n".join(
         f"| `{_cell(ref)}` |"
-        f" {_cell(_gloss(ground, rows_by_id, subjects, held_value(ground, model)))} |"
+        f" {_cell(_gloss(ground, rows_by_id, subjects, held_value(ground, index)))} |"
         for ref, ground in catalog.items()
     )
     return (
@@ -710,7 +712,7 @@ def catalog_refs(table: str) -> frozenset[str]:
 
 
 def ground_gloss(
-    ground: Ground, assertions: AssertionCatalog | None, model: SystemModel
+    ground: Ground, assertions: AssertionCatalog | None, index: ModelIndex
 ) -> str:
     """What one ground asserts, in the words the evidence table already uses.
 
@@ -725,6 +727,9 @@ def ground_gloss(
     Raises for an assertion ground with no catalog behind it, exactly as
     :func:`render_catalog` does: a bare identity says nothing, and answering
     with one would be the failure this exists to prevent.
+
+    ``index`` indexes the model the catalog came from. A caller that glosses
+    several grounds builds it once.
     """
     rows = (
         {}
@@ -736,7 +741,7 @@ def ground_gloss(
         if assertions is None
         else {subject.id: subject for subject in assertions.subjects}
     )
-    return _gloss(ground, rows, subjects, held_value(ground, model))
+    return _gloss(ground, rows, subjects, held_value(ground, index))
 
 
 def _held_open_value(element: Element, attribute: str) -> str | None:
@@ -754,17 +759,18 @@ def _held_open_value(element: Element, attribute: str) -> str | None:
     return None
 
 
-def held_value(ground: Ground, model: SystemModel) -> str | None:
-    """The value an ``unknown-attribute`` entry's field still states in
-    ``model``, or ``None`` for any other entry and for a field that reads
-    unverified.
+def held_value(ground: Ground, index: ModelIndex) -> str | None:
+    """The value an ``unknown-attribute`` entry's field still states in the
+    model that ``index`` indexes, or ``None`` for any other entry and for a
+    field that reads unverified. A caller that asks of several entries builds
+    the index once.
 
     **The one reader of "which held-open value does this entry name"**: the
     catalog table, :func:`ground_gloss`, the critic's view and the report's
     labels all call it."""
     if ground.kind != "unknown-attribute":
         return None
-    element = model.get(ground.element_id)
+    element = index.get(ground.element_id)
     if element is None:
         return None
     return _held_open_value(element, ground.attribute)

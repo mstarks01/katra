@@ -54,7 +54,7 @@ from katra.frameworks.stride.record import (
     ThreatProposal,
     ThreatProposals,
 )
-from katra.system_model import UNKNOWN, DataStore, SystemModel
+from katra.system_model import UNKNOWN, DataStore, ModelIndex, SystemModel
 from tests.factories import (
     sample_draft,
     sample_proposal,
@@ -472,7 +472,7 @@ class TestEvidenceCatalog:
         assert "the sources disagree; this row states `required`" in ground_gloss(
             catalog[assertion_id(required)],
             held,
-            valid_model(),
+            ModelIndex.of(valid_model()),
         )
 
     def test_a_scoped_row_is_offered_with_its_scope_and_answers_nothing_wider(self):
@@ -736,7 +736,7 @@ class TestTheCriticReadsTheRowItIsAskedToRuleOn:
             valid_model(),
         )
         assert view["assertion_facts"][0]["says"] == ground_gloss(
-            ground, held, valid_model()
+            ground, held, ModelIndex.of(valid_model())
         )
 
     def test_a_job_that_ran_no_catalog_carries_no_key(self):

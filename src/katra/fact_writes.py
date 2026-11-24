@@ -31,13 +31,13 @@ from katra.assertions import (
     CatalogIssue,
     Subject,
     SupportSpan,
-    admissible,
     answered,
     assertion_id,
     disagree,
     graph_subject_type,
     place_identity,
     projected_attribute,
+    states_value,
     subjects_of,
 )
 from katra.capabilities import lineage, parse_capability_key
@@ -611,8 +611,7 @@ def _settled_by(entry: Assertion, answer_row: Assertion) -> bool:
     answer, such as another value of a predicate of many, stays.
     """
     return (
-        entry.value == UNKNOWN
-        or not admissible(entry)
+        not states_value(entry)
         or assertion_id(entry) == assertion_id(answer_row)
         or disagree(entry, answer_row)
     )
