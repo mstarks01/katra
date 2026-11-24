@@ -25,6 +25,7 @@ from google.genai import types
 from katra.binding import build_tier_adapters
 from katra.charges import CHARGE_METADATA_KEY
 from katra.deployment import Deployment
+from katra.model_tiers import TierName
 
 #: One call: the instruction and the user turn in, the model's raw text out.
 NodeCall = Callable[[str, types.Content], Awaitable[str]]
@@ -47,9 +48,36 @@ def node_call(
     stopped and the tokens it counted, so a replay that parses to nothing can
     be read without a second paid call.
     """
-    tier = deployment.tier_of(graph_node)
+    return tier_call(deployment, deployment.tier_of(graph_node), schema, spent, seen)
+
+
+def tier_call(
+    deployment: Deployment,
+    tier: TierName,
+    schema: Any,
+    spent: list[float | None] | None,
+    seen: list[dict[str, Any]] | None,
+) -> NodeCall:
+    """One call on ``tier``, on this deployment's route for that tier.
+
+    :func:`node_call` resolves a graph node to its tier and calls this. An
+    eval call that no graph node makes, such as the judge of
+    ``evals/harness/judge_replay.py``, names its tier directly. ``spent`` and
+    ``seen`` are as :func:`node_call` states them.
+
+    The adapter builder builds only the tiers that the node map binds. Where
+    no graph node runs on ``tier``, this call binds it under the node key
+    ``eval/<tier>``, in a copy of the tier config that only this call reads.
+    The builder then checks the tier's selection and credential as it checks
+    any bound tier.
+    """
+    tiers = deployment.tiers
+    if tier not in tiers.bound_tiers:
+        tiers = tiers.model_copy(
+            update={"nodes": {**tiers.nodes, f"eval/{tier}": tier}}
+        )
     adapter = build_tier_adapters(
-        deployment.tiers,
+        tiers,
         deployment.sampling,
         deployment.resilience,
         env=deployment.env,

@@ -374,6 +374,21 @@ DECLARED: dict[str, str] = {
         " whose lane agents propose an open claim set has; a package whose"
         " claims carry a catalog identifier scores by applicability instead."
     ),
+    "evals/harness/judge_replay.py": (
+        "This code is STRIDE's, through `Threat` and the STRIDE scorer. It asks"
+        " a judge whether each finding at a model element is supported, and"
+        " reads its populations from a scorer that matches by an action and a"
+        " place. A package whose claims carry a catalog identifier writes"
+        " exclusions, which are not findings at an element, and #764 names them"
+        " as a later population with a reader of its own."
+    ),
+    "evals/harness/plants.py": (
+        "This code is STRIDE's, through `StrideCategory`. A plant inverts a"
+        " control that a flow states and files the finding under the category"
+        " of that threat, which only a package whose claims name a threat at an"
+        " element has. A package whose claims carry a catalog identifier would"
+        " plant a false exclusion instead."
+    ),
     "evals/harness/fan_in_accounting.py": (
         "A table keyed by framework: `ARCHIVED_BATCHES` holds each package's"
         " type for a stored lane batch, and"

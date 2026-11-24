@@ -75,8 +75,18 @@ gives the shape, or the command refuses the view before the call. With `--out
 <file>` it writes the problems the re-ask was sent, its answer, the problems
 that remain and each ruling it changed that no problem named.
 
-The three replays send a live request, so `KATRA_OFFLINE` refuses them. Their
-names say "replay"; their cost says paid. `replay` and `score` above re-read an
+`python -m evals.harness.run judge-replay <artifact> --out <file> --accept-cost <amount>`
+costs one judge call for each case and sample (two samples by default). A
+judge on the `review` tier reads each case's STRIDE findings, mixed with
+**Plant**s as known negatives, and answers whether the source supports each
+one. The command refuses a judge whose provider is not distinct from each
+vendor that wrote the sweep. Its verdicts never enter the vote ledger. With
+`--dry-run` in place of `--accept-cost` it is free: it writes every request
+and prints the estimate and the batch sizes, and sends nothing.
+
+The four replays send a live request, so `KATRA_OFFLINE` refuses them. Only
+`judge-replay --dry-run` sends none. Their names say "replay"; their cost says
+paid. `replay` and `score` above re-read an
 archive and are free.
 
 Narrow it as far as the question allows: `--case` for one case, `--framework`

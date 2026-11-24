@@ -67,6 +67,7 @@ from evals.harness import (
     guard_cost,
     instruction,
     instruction_delta,
+    judge_replay,
     lane_replay,
     ledger,
     losses,
@@ -3081,6 +3082,13 @@ COMMANDS: dict[str, Command] = {
         " injected fault, and check what it repaired (one paid call)",
         run=recritic_replay.command_recritic_replay,
         arguments=recritic_replay.arguments,
+    ),
+    "judge-replay": Command(
+        help="ask a model judge on the review tier whether a sweep's STRIDE"
+        " findings are supported, with plants as known negatives (#764, one"
+        " paid call per case and sample; --dry-run is free)",
+        run=judge_replay.command_judge_replay,
+        arguments=judge_replay.arguments,
     ),
     "descendants": Command(
         help="run a sweep's fan-in again over its archived proposals, with"

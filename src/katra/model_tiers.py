@@ -684,16 +684,7 @@ class ModelTierConfig(BaseModel):
         next aggregator is covered the day its row lands.
         """
         if self.review_independence == "distinct_provider":
-            for selection in (analyze, critic):
-                if not selection.vendor_entry.routes_to_one_provider:
-                    return (
-                        f"{selection.vendor!r} routes one slug to more than one"
-                        " upstream provider and chooses per call, so nothing"
-                        " here can say the two ran on different providers"
-                    )
-            if analyze.vendor == critic.vendor:
-                return f"both run vendor {analyze.vendor!r}"
-            return None
+            return provider_breach(analyze.vendor_entry, critic.vendor_entry)
         shared_model = family_identifier(analyze.model)
         if shared_model == family_identifier(critic.model):
             return "both run one model"
@@ -716,6 +707,26 @@ class ModelTierConfig(BaseModel):
     def resolve_model(self, node: str) -> TierSelection:
         """The ``(vendor, model)`` pair the named LLM node runs on."""
         return self.tiers[self.resolve_tier(node)]
+
+
+def provider_breach(first: Vendor, second: Vendor) -> str | None:
+    """Why ``first`` and ``second`` are not two distinct providers, or ``None``.
+
+    The ``distinct_provider`` rule for two vendors. A gateway route on either
+    side fails it, because a gateway chooses its upstream provider per call.
+    Two routes on one vendor fail it too. The critic policy above and the eval
+    judge replay (``evals/harness/judge_replay.py``) both apply it.
+    """
+    for vendor in (first, second):
+        if not vendor.routes_to_one_provider:
+            return (
+                f"{vendor.name!r} routes one slug to more than one"
+                " upstream provider and chooses per call, so nothing"
+                " here can say the two ran on different providers"
+            )
+    if first.name == second.name:
+        return f"both run vendor {first.name!r}"
+    return None
 
 
 def env_variables() -> tuple[str, ...]:

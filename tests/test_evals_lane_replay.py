@@ -438,7 +438,7 @@ def test_a_node_call_keeps_what_the_provider_returned(monkeypatch):
     )
     deployment = SimpleNamespace(
         tier_of=lambda node: "strong",
-        tiers=None,
+        tiers=SimpleNamespace(bound_tiers=frozenset({"strong"})),
         resilience=None,
         env={},
         sampling=SimpleNamespace(

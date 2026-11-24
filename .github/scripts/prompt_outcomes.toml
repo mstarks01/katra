@@ -254,6 +254,11 @@ check = "an_evidence_entry_with_no_excerpt_names_an_earlier_entry"
 # --- Modules with no pinned sentence yet ---------------------------------------
 
 [[reader]]
+module = "evals/harness/judge_replay.py"
+prompts = ["evals/prompts/judge.md"]
+reason = "the verdict set and the answer shape the judge instruction names"
+
+[[reader]]
 module = "src/katra/actions.py"
 prompts = ["frameworks/*/output.md", "frameworks/*/lanes/*/skill.md"]
 reason = "the verb vocabulary a contract lists and a lane skill names"
