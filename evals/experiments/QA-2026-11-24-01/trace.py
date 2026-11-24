@@ -99,7 +99,8 @@ def attribute(row, verb_row):
     ``place`` and ``unled`` each have a rule. A verb ruling is ``different`` or
     empty, and a ``different`` row's draft mechanism is one of
     :data:`MECHANISMS`. Any other cause of ``losses.Cause``, ruling or
-    mechanism raises: this audit has no evidence for it.
+    mechanism raises, and so does a verb ruling on a row of another cause:
+    this audit has no evidence for it.
     """
     cause = row["cause"]
     key = (row["case"], row["reference_index"])
