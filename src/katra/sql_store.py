@@ -1277,6 +1277,10 @@ class SqlJobStore:
             )
         await self._objects.check()
 
+    async def close(self) -> None:
+        """Close each connection that the pool of the engine holds."""
+        await self._engine.dispose()
+
     async def _object(self, row: Row[Any], name: ObjectName) -> bytes | None:
         """The object ``name`` of the job ``row`` names, checked against the
         digest the row holds in :data:`DIGEST_COLUMNS`.

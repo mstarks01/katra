@@ -91,7 +91,8 @@ def without(model: SystemModel, element_id: str) -> SystemModel:
 
 class TestEveryBlessedElementTakesOneFate:
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     def test_the_blessed_model_against_itself_is_found_throughout(self, golden):
@@ -443,11 +444,13 @@ def test_the_preference_order_answers_for_every_answered_fate():
 
 class TestEveryReferenceRowTakesOneFate:
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     @pytest.fixture(scope="class")
-    def reference(self, golden):
+    @classmethod
+    def reference(cls, golden):
         catalog = replay.signed_reference(CORPUS, golden)
         if catalog is None:
             pytest.skip("case 01's facts are unsigned, so nothing grades a proposal")
@@ -877,11 +880,13 @@ class TestTheEndpointRidesWithTheFates:
     """
 
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     @pytest.fixture(scope="class")
-    def reference(self, golden):
+    @classmethod
+    def reference(cls, golden):
         catalog = replay.signed_reference(CORPUS, golden)
         if catalog is None:
             pytest.skip("case 01's facts are unsigned, so nothing grades a proposal")
@@ -955,11 +960,13 @@ class TestSpanValidityIsReadApartFromSupport:
     """
 
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     @pytest.fixture(scope="class")
-    def reference(self, golden):
+    @classmethod
+    def reference(cls, golden):
         catalog = replay.signed_reference(CORPUS, golden)
         if catalog is None:
             pytest.skip("case 01's facts are unsigned, so nothing grades a proposal")
@@ -1017,11 +1024,13 @@ class TestBothReadingsArriveTogether:
     """
 
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     @pytest.fixture(scope="class")
-    def reference(self, golden):
+    @classmethod
+    def reference(cls, golden):
         catalog = replay.signed_reference(CORPUS, golden)
         if catalog is None:
             pytest.skip("case 01's facts are unsigned, so nothing grades a proposal")
@@ -1243,7 +1252,8 @@ class TestAnArchivedCatalogIsRedrawnFromItsLabels:
 
 class TestTheBundleReadsBackWhatItWrote:
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     def test_an_extraction_re_parses_to_the_model_the_sweep_scored(
@@ -1346,7 +1356,8 @@ class TestAFinishedCaseMustHaveItsFile:
     """A lost case file is refused by name, and a failed case is read if it kept one."""
 
     @pytest.fixture(scope="class")
-    def goldens(self):
+    @classmethod
+    def goldens(cls):
         return case("01"), case("02")
 
     def extraction(self, golden):
@@ -1404,7 +1415,8 @@ class TestTheArchivedEmissionsReplay:
     """The imported archive: every artifact loads, sits on one arm, and replays."""
 
     @pytest.fixture(scope="class")
-    def corpus(self):
+    @classmethod
+    def corpus(cls):
         return load_corpus(CORPUS)
 
     def test_the_archive_is_not_empty(self):
@@ -1667,11 +1679,13 @@ class TestBindingAProposalToAnExtractedGraph:
     """Finding 9: fact omission and binding failure, counted apart."""
 
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return case("01")
 
     @pytest.fixture(scope="class")
-    def proposal(self, golden):
+    @classmethod
+    def proposal(cls, golden):
         bench = next(p for p in ARTIFACTS if "luna-r1" in p.name)
         return assertions_from_reports(load_artifact(bench), [golden])[golden.id]
 
@@ -1846,7 +1860,8 @@ class TestAnArmSeparatesWhatTheRouteRead:
     """Sweeps on one prompt that read different input are two arms (#2105 item 5)."""
 
     @pytest.fixture(scope="class")
-    def corpus(self):
+    @classmethod
+    def corpus(cls):
         return load_corpus(CORPUS)
 
     def test_every_kind_of_treatment_has_a_label(self):
@@ -1996,7 +2011,8 @@ class TestRenderedSources:
     """The digest a sweep records of each case's input, before it spends."""
 
     @pytest.fixture(scope="class")
-    def golden(self):
+    @classmethod
+    def golden(cls):
         return load_corpus(CORPUS)[0]
 
     def test_the_digest_is_of_the_text_the_model_reads(self, golden):

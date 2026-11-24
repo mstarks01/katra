@@ -1879,6 +1879,56 @@ class TestTheSweepLoop:
         assert store.passes == 1
 
 
+class CloseSpy(InMemoryJobStore):
+    """A ``memory`` store that records the tasks still open when it closes."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.open_at_close: set[asyncio.Task] | None = None
+
+    async def close(self) -> None:
+        current = asyncio.current_task()
+        self.open_at_close = {
+            task for task in asyncio.all_tasks() if task is not current
+        }
+
+
+class TestTheStoreClose:
+    """The lifespan closes the store when the app stops, after the sweeps stop."""
+
+    def test_the_lifespan_closes_the_store_after_the_sweep_stops(self):
+        store = CloseSpy()
+
+        async def serve() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                assert store.open_at_close is None
+
+        asyncio.run(serve())
+        assert store.open_at_close == set()
+
+    def test_the_lifespan_closes_the_store_when_the_app_fails(self):
+        store = CloseSpy()
+
+        async def fail() -> None:
+            async with store_backends.store_lifespan(store, {}):
+                raise RuntimeError("the app failed")
+
+        with pytest.raises(RuntimeError, match="the app failed"):
+            asyncio.run(fail())
+        assert store.open_at_close == set()
+
+    def test_a_closed_store_serves_its_next_call(self, store):
+        """A later app can start over the store that an app closed."""
+        record = new_record()
+
+        async def close_then_read() -> JobRecord | None:
+            await admit(store, record)
+            await store.close()
+            return await store.get(record.id)
+
+        assert asyncio.run(close_then_read()).id == record.id
+
+
 class TestTheRetentionSetting:
     """#1530: unset keeps every job, and a value that is not a period refuses."""
 

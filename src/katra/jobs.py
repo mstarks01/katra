@@ -893,6 +893,10 @@ class JobStore(Protocol):
     checks there what it needs to serve, such as its schema revision and its
     object store, and raises where it cannot serve, so the app stops before
     it takes a request.
+
+    **The app calls :meth:`close` when it stops.** A store releases there
+    what it holds open, such as the connections of its database. A closed
+    store stays usable: its next call opens what that call needs.
     """
 
     #: Whether the store keeps its jobs through a restart. Each store states
@@ -901,6 +905,8 @@ class JobStore(Protocol):
     durable: bool
 
     async def startup_check(self) -> None: ...
+
+    async def close(self) -> None: ...
 
     async def reserve(
         self,
@@ -1346,6 +1352,9 @@ class InMemoryJobStore:
 
     async def startup_check(self) -> None:
         """Nothing to check: this store needs no schema and no object store."""
+
+    async def close(self) -> None:
+        """Nothing to release: this store holds no connection."""
 
     async def reserve(
         self,

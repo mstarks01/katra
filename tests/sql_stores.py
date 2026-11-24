@@ -29,10 +29,12 @@ import asyncio
 import atexit
 import os
 import shutil
+import sqlite3
 import tempfile
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -205,6 +207,14 @@ def sql_env(directory: Path, objects: ObjectStoreName = "filesystem") -> dict[st
 def database_of(env: dict[str, str]) -> str:
     """The path of the SQLite database that ``env`` names."""
     return env["KATRA_DATABASE_URL"].partition(":///")[2]
+
+
+@contextmanager
+def sqlite_file(database: str) -> Iterator[sqlite3.Connection]:
+    """A connection to the SQLite database at the path ``database``. The block
+    commits, and then the connection closes."""
+    with closing(sqlite3.connect(database)) as connection, connection:
+        yield connection
 
 
 def lane_url() -> URL:

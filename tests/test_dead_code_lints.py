@@ -387,7 +387,7 @@ def unreachable() -> dict[str, str]:
         dead = found
 
 
-def test_only() -> dict[str, str]:
+def only_a_test_reaches() -> dict[str, str]:
     """The names only a test reaches, to a fixed point.
 
     What :func:`unreachable` reports is left out, so each name is reported by
@@ -423,7 +423,7 @@ def test_a_name_only_a_test_reaches_is_declared():
     """The second lint: a name nothing ships needs a stated reason to stay."""
     undeclared = {
         name: location
-        for name, location in test_only().items()
+        for name, location in only_a_test_reaches().items()
         if name not in TEST_ONLY
     }
 
@@ -437,7 +437,7 @@ def test_a_name_only_a_test_reaches_is_declared():
 
 def test_no_kept_name_outlives_its_reason():
     """An entry whose name gained a reader, or left the tree, is a stale reason."""
-    stale = sorted(set(TEST_ONLY) - set(test_only()))
+    stale = sorted(set(TEST_ONLY) - set(only_a_test_reaches()))
 
     assert not stale, (
         f"{stale} are in TEST_ONLY but something outside tests/ now reaches them,"
@@ -448,7 +448,7 @@ def test_no_kept_name_outlives_its_reason():
 def test_a_public_service_name_only_a_test_reaches_is_reported():
     """Positive check on the scope: a public name in the service that the
     package root does not export is judged, and one it exports is not."""
-    reported = test_only()
+    reported = only_a_test_reaches()
 
     assert reported["PROMPT_SECTION_HEADINGS"].startswith("src/katra/prompts.py:")
     assert "Deployment" in _definitions() and "Deployment" not in reported

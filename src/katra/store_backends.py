@@ -335,7 +335,8 @@ async def store_lifespan(
     the object store), the restart scan (#1529), then requests. A failed check stops the startup. The sweeps
     start after the restart scan and stop with the app: the orphan sweep
     always, because an owner delete can also leave an orphan, and the
-    retention sweep where a retention period is set.
+    retention sweep where a retention period is set. After the sweeps stop,
+    the app closes the store.
     """
     days = retention_days(env)
     await store.startup_check()
@@ -354,3 +355,4 @@ async def store_lifespan(
         sweep.cancel()
         with suppress(asyncio.CancelledError):
             await sweep
+        await store.close()
