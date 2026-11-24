@@ -607,7 +607,8 @@ def hold(
     ran: int,
     unit: HoldUnit = "case",
 ) -> float | None:
-    """Between cases: is the run still inside what was accepted?
+    """Between steps (a case or a call, as ``unit`` names): is the run still
+    inside what was accepted?
 
     Returns the amount now in force — the same one, or a freshly accepted
     larger one. Raises :class:`Refused` to stop the sweep, which the caller
@@ -619,7 +620,7 @@ def hold(
     remaining case boundary. What the contributor is asked for instead is the projection —
     the spend so far, plus the same per-case rate over the cases still to run
     — so one overrun adds one prompt and the next one means the rate moved
-    again. ``ran`` is how many cases produced ``executions``, which is what
+    again. ``ran`` is how many steps produced ``executions``, which is what
     turns a total into a rate.
 
     ``unit`` names what ``ran`` and ``remaining`` count in the messages: a case

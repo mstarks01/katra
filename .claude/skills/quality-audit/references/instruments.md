@@ -87,8 +87,9 @@ command refuses it. The test runs on the Baseline
 run estimates $2.08 to $2.10 for 26 calls on `anthropic/claude-opus-5`. The
 figure moves because case 01 has four plant candidates and each run chooses two
 or three of them at random. Between calls it runs the sweep's hold,
-`consent.hold`, over the token usage and the attempts each call reported, and it stops once the priced usage passes the accepted amount. It keeps
-each answer as it arrives. Its verdicts never enter the vote ledger. With
+`consent.hold`, over the token usage and the attempts each call reported, and it
+stops once the priced usage passes the accepted amount. It keeps each answer as
+it arrives. Its verdicts never enter the vote ledger. With
 `--dry-run` in place of `--accept-cost` it is free: it writes every request
 and prints the estimate and the batch sizes, and sends nothing.
 

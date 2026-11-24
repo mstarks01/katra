@@ -511,7 +511,9 @@ def test_a_call_that_reports_no_usage_counts_at_its_estimate():
 
     run = judge_replay.measured_run(None, fallback, "anthropic/claude-opus-5")
     reported = judge_replay.measured_run(
-        {"usage": None}, fallback, "anthropic/claude-opus-5"
+        {"usage": None, "attempts": 1, "reasks": 0},
+        fallback,
+        "anthropic/claude-opus-5",
     )
 
     assert run.usage == reported.usage == fallback
@@ -665,6 +667,7 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
     from evals.harness import consent
     from evals.harness import node_call as module
     from katra.execution import event_attempts, event_reasks, event_usage
+    from katra.provider import REASKS_METADATA_KEY
     from katra.report import NodeRun
     from katra.retry import ATTEMPTS_METADATA_KEY
 
@@ -673,7 +676,7 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
         usage_metadata=types.GenerateContentResponseUsageMetadata(
             prompt_token_count=1_000, candidates_token_count=10
         ),
-        custom_metadata={ATTEMPTS_METADATA_KEY: 3},
+        custom_metadata={ATTEMPTS_METADATA_KEY: 3, REASKS_METADATA_KEY: 1},
     )
 
     class Adapter:
@@ -711,5 +714,5 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
 
     replayed = judge_replay.measured_run(seen[0], TokenUsage(), route)
 
-    assert replayed.attempts == 3
+    assert (replayed.attempts, replayed.reasks) == (3, 1)
     assert consent.spent([replayed]) == consent.spent([swept]) > 0
