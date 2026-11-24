@@ -8,11 +8,12 @@
   primary figure passes every time — 4.5%, 4.8%, 3.3%, 3.7% fewer emitted
   tokens. Versions 1 to 3 paid for it elsewhere. Version 4 fails only the
   per-case veto, on case 10. The pooled margin of that veto was sized on
-  version 4's full arm, so version 4's reading under it comes after the rule.
-  The next application is the first that declares this veto before its run.
+  version 4's full arm, so version 4's reading under it is not a predeclared
+  test. The next application is the first that declares this veto before its
+  run.
   - `compact-v1` failed three criteria: `duplicate-ref` 16 against a ceiling of
     0, first-pass validity 0.800 against a floor of 0.927, and the per-case veto
-    on three cases. Every quality margin held.
+    under the lowest-of-five floor on three cases. Every quality margin held.
   - `compact-v2` failed six. It fixed what it aimed at — `duplicate-ref` 16 → 2,
     validity 0.800 → 0.923 — and **caused a failure class neither the full route
     nor version 1 ever produced**: nine `data_classification` inferences written
@@ -23,8 +24,8 @@
     quality margin held and first-pass validity passed for the first time
     (0.954 against a 0.927 floor). It failed on `duplicate-ref` (2, both flow
     refs a model derived from endpoints, so parallel flows collided) and on the
-    per-case veto, which rests on case 11: recall 0.450 against a 0.562 floor,
-    endpoint recall 0.769 against a flat 1.000.
+    per-case veto under the lowest-of-five floor, which rests on case 11: recall
+    0.450 against a 0.562 floor, endpoint recall 0.769 against a flat 1.000.
   - `compact-v4` named what a flow's ref is after — its label, not its
     endpoints — and **failed one criterion of eleven**, the best of the four.
     `duplicate-ref` reached **0 of 65**, the primary figure was the largest yet
