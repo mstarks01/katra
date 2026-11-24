@@ -23,8 +23,23 @@ SKIPPED: dict[tuple[str, str, str], plants.PlantReading] = {
         "authentication",
     ): "qualified",
     (
+        "02-iot-fleet-telemetry",
+        "flow:entity:sensor-node>process:device-gateway>publish-readings",
+        "authentication",
+    ): "qualified",
+    (
+        "03-batch-data-pipeline",
+        "flow:entity:insurance-partner>store:landing-bucket>push-daily-extract",
+        "authentication",
+    ): "qualified",
+    (
         "03-batch-data-pipeline",
         "flow:entity:data-analyst>store:claims-warehouse>run-queries",
+        "authentication",
+    ): "qualified",
+    (
+        "04-ml-inference-service",
+        "flow:entity:calling-service>process:inference-gateway>submit-inference-request",
         "authentication",
     ): "qualified",
     (
@@ -32,6 +47,11 @@ SKIPPED: dict[tuple[str, str, str], plants.PlantReading] = {
         "flow:entity:browser>process:web-application>page-request",
         "encryption_in_transit",
     ): "no-mechanism",
+    (
+        "07-cicd-store-deploy",
+        "flow:process:build-runner>process:deploy-controller>set-current-release",
+        "authentication",
+    ): "qualified",
     (
         "08-sso-identity-broker",
         "flow:entity:franchise-identity-provider>process:identity-broker>vouch-for-colleague",
@@ -45,6 +65,11 @@ SKIPPED: dict[tuple[str, str, str], plants.PlantReading] = {
     (
         "10-cookbook-generic-cms",
         "flow:entity:reader>process:web-server>page-requests",
+        "authentication",
+    ): "qualified",
+    (
+        "13-dispatch-control-plane",
+        "flow:process:schedule-importer>process:dispatch-api>post-work-orders",
         "authentication",
     ): "qualified",
     (
@@ -66,7 +91,7 @@ SKIPPED: dict[tuple[str, str, str], plants.PlantReading] = {
         "14-loyalty-oauth-platform",
         "flow:process:mobile-app>process:authorization-server>token-requests",
         "authentication",
-    ): "unsigned",
+    ): "qualified",
     (
         "14-loyalty-oauth-platform",
         "flow:process:mobile-app>process:authorization-server>token-requests",
@@ -169,6 +194,14 @@ def _all_plants(seeds: range) -> list[plants.Plant]:
         ("plain HTTP, no TLS", "qualified"),
         ("HTTP without TLS", "qualified"),
         ("password, except the health endpoint", "qualified"),
+        ("TLS is never enforced", "qualified"),
+        ("mTLS, neither side checks the certificate", "qualified"),
+        ("password; the API cannot verify tokens", "qualified"),
+        ("token checked if present", "qualified"),
+        ("HTTPS in production; HTTP in staging", "qualified"),
+        ("API key, but the gateway doesn't check it", "qualified"),
+        ("TLS, though the certificate isn't checked", "qualified"),
+        ("deprecated API key", "qualified"),
         ("customer-managed key", "plantable"),
         ("the broker treats the provider's assertion as a sign-in", "no-mechanism"),
         ("encrypted (marked as the one encrypted link)", "no-mechanism"),

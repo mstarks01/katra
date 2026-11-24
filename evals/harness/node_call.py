@@ -25,6 +25,7 @@ from google.genai import types
 from katra.binding import build_tier_adapters
 from katra.charges import CHARGE_METADATA_KEY
 from katra.deployment import Deployment
+from katra.execution import usage_of
 from katra.model_tiers import TierName
 
 #: One call: the instruction and the user turn in, the model's raw text out.
@@ -46,7 +47,9 @@ def node_call(
     call, and its caller states what it spent rather than an estimate.
     ``seen`` receives, for each call, the answer text, why the provider
     stopped and the tokens it counted, so a replay that parses to nothing can
-    be read without a second paid call.
+    be read without a second paid call. Its ``usage`` is the call's
+    :class:`~katra.report.TokenUsage` as :func:`~katra.execution.usage_of`
+    reads it, or ``None`` where the provider reported none.
     """
     return tier_call(deployment, deployment.tier_of(graph_node), schema, spent, seen)
 
@@ -92,8 +95,10 @@ def tier_call(
         chunks = []
         charge = None
         stops: list[dict[str, Any]] = []
+        measured = None
         async for response in adapter.generate_content_async(request, False):
             charge = (response.custom_metadata or {}).get(CHARGE_METADATA_KEY, charge)
+            measured = usage_of(response) or measured
             chunks.append(answer_text(response))
             usage = response.usage_metadata
             stops.append(
@@ -113,7 +118,13 @@ def tier_call(
         if spent is not None:
             spent.append(charge)
         if seen is not None:
-            seen.append({"text": "".join(chunks), "responses": stops})
+            seen.append(
+                {
+                    "text": "".join(chunks),
+                    "responses": stops,
+                    "usage": None if measured is None else measured.model_dump(),
+                }
+            )
         return "".join(chunks)
 
     return call

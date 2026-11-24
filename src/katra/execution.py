@@ -464,7 +464,7 @@ class GraphExecutor:
                             node=node,
                             at=observed_at,
                             served_model=getattr(event, "model_version", None),
-                            usage=_usage_of(event),
+                            usage=usage_of(event),
                             attempts=_attempts_of(event),
                             reasks=_reasks_of(event),
                             schema_path=_schema_path_of(event),
@@ -603,7 +603,7 @@ _USAGE_FIELDS: Mapping[str, str] = {
 }
 
 
-def _usage_of(event) -> TokenUsage | None:
+def usage_of(event) -> TokenUsage | None:
     """What the provider says this event's call cost, or ``None`` if it said nothing.
 
     A field the provider withheld arrives as ``None`` and is recorded as 0,

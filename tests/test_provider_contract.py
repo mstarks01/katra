@@ -62,7 +62,7 @@ from katra.execution import (
     _reported_charge_of,
     _served_route,
     _served_upstream_of,
-    _usage_of,
+    usage_of,
 )
 from katra.provider import REASKS_METADATA_KEY
 from katra.report import TokenUsage
@@ -299,12 +299,12 @@ class TestWhatTheExecutorReadsOffAnEvent:
         transposed a pair fails here rather than mis-pricing a sweep."""
         (event,) = events_from("openai", answering("openai"))
 
-        assert _usage_of(event) == EXPECTED_USAGE
+        assert usage_of(event) == EXPECTED_USAGE
 
     def test_a_provider_that_meters_nothing_is_recorded_as_a_free_call(self):
         """A limit of the translator, pinned rather than wished away.
 
-        ``_usage_of`` returns ``None`` where every counter is absent, so that an
+        ``usage_of`` returns ``None`` where every counter is absent, so that an
         unmeasured call and a free call stay different facts. **Through LiteLLM
         they do not:** a response body carrying no ``usage`` block at all is
         parsed into ``Usage(prompt_tokens=0, completion_tokens=0,
@@ -320,7 +320,7 @@ class TestWhatTheExecutorReadsOffAnEvent:
         """
         (event,) = events_from("openai", answering("openai", usage=None))
 
-        assert _usage_of(event) == TokenUsage(
+        assert usage_of(event) == TokenUsage(
             prompt_tokens=0,
             cached_prompt_tokens=0,
             completion_tokens=0,

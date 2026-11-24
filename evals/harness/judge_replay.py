@@ -48,11 +48,14 @@ today's digest.
 estimate through :class:`~evals.harness.consent.Estimate`. ``--dry-run``
 writes the requests and sends nothing. A live run takes consent through
 :func:`~evals.harness.consent.gate`, and ``KATRA_OFFLINE`` refuses its first
-call. Before each call it adds the charges so far (a call the provider
-reported no charge for counts at its estimate) to the next call's estimate,
-and it stops when the sum passes the accepted amount. It writes the output
-file after each answer. A provider failure stops the run, and the output keeps
-the answers so far and names each call that did not run.
+call. Before each call it runs the sweep's hold,
+:func:`~evals.harness.consent.hold`, over the calls made so far: it prices the
+token usage each call reported (a call that reported none counts at its
+estimate), and it stops, or asks again, once the priced usage passes the
+accepted amount. The hold reads the usage after a call, so the last call before
+a stop can take the priced usage past the amount. It writes the output file
+after each answer. A provider failure stops the run, and the output keeps the
+answers so far and names each call that did not run.
 """
 
 from __future__ import annotations
@@ -112,7 +115,7 @@ from katra.graph import STATE_INPUT_TEXT, STATE_SOURCE_TEXTS, render_model
 from katra.grounding import normalize, verify_normalized
 from katra.model_tiers import TierName, TierSelection, provider_breach
 from katra.offline import LiveInferenceRefused
-from katra.report import TokenUsage
+from katra.report import NodeRun, TokenUsage
 from katra.sources import text_digest
 from katra.system_model import EXCERPT_MAX_CHARS, FLOW_ID_VERSION, SystemModel
 from katra.vendors import Vendor, vendor_for_route
@@ -120,6 +123,9 @@ from katra.vendors import Vendor, vendor_for_route
 #: The merged STRIDE Baseline that the replay test runs on, by the maintainer's
 #: ruling of 2026-11-24: its tiers ran on a direct vendor, so its writer is known.
 DIRECT_BASELINE = "d4edd64-gpt-5.6-terra-fd1c49af"
+
+#: The node name a judge call takes in the node runs the spend hold prices.
+JUDGE_NODE = "judge"
 
 #: The tier the judge runs on.
 JUDGE_TIER: TierName = "review"
@@ -660,27 +666,20 @@ def _judge_selection(deployment: Deployment) -> TierSelection:
     return selection
 
 
-def held_back(
-    accepted: float | None,
-    spent: Sequence[float | None],
-    costs: Sequence[float] | None,
-    index: int,
-) -> str | None:
-    """Why the call at ``index`` must not run, or ``None``.
-
-    ``spent`` holds the charge of each call made so far, or ``None`` where the
-    provider reported none; such a call counts at its estimate.
-    """
-    if accepted is None or costs is None:
-        return None
-    so_far = sum(
-        costs[n] if charge is None else charge for n, charge in enumerate(spent)
-    )
-    if so_far + costs[index] <= accepted:
-        return None
-    return (
-        f"${so_far:.4f} spent and the next call estimated at ${costs[index]:.4f}"
-        f" pass the ${accepted:.2f} accepted"
+def measured_run(
+    entry: Mapping[str, Any] | None, fallback: TokenUsage, route: str
+) -> NodeRun:
+    """One judge call as a node run that :func:`~evals.harness.consent.hold`
+    prices: the usage the provider reported, as ``seen`` records it, or
+    ``fallback``, the call's estimate, where it reported none."""
+    reported = None if entry is None else entry.get("usage")
+    usage = fallback if reported is None else TokenUsage.model_validate(reported)
+    return NodeRun(
+        node=JUDGE_NODE,
+        model=route,
+        requested_model=route,
+        duration_ms=0,
+        usage=usage,
     )
 
 
@@ -898,20 +897,27 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     spent: list[float | None] = []
     seen: list[dict[str, Any]] = []
     raws: list[str | None] = [None] * len(requests)
-    costs = request_costs(instruction, requests, judge.route)
 
     call = tier_call(deployment, JUDGE_TIER, JudgeAnswer, spent, seen)
+    # The sweep's own hold, between calls rather than between cases: it prices
+    # the usage each call reported, and it asks again by typing, or stops where
+    # --accept-cost leaves no hand to ask.
+    ask = None if args.accept_cost is not None else input
+    runs: list[NodeRun] = []
     stopped: str | None = None
     # One event loop for every call, so each answer is written to the output
     # file here, as it arrives, before the next call runs.
     with asyncio.Runner() as runner:
         for index, request in enumerate(requests):
-            reason = held_back(accepted, spent, costs, index)
-            if reason is not None:
+            remaining = [f"{r.case} sample {r.sample}" for r in requests[index:]]
+            try:
+                accepted = consent.hold(accepted, runs, remaining, ask, ran=index)
+            except consent.Refused as refusal:
                 stopped = (
-                    f"stopped before {request.case} sample {request.sample}: {reason}"
+                    f"stopped before {request.case} sample {request.sample}: {refusal}"
                 )
                 break
+            answered = len(seen)
             try:
                 raws[index] = runner.run(_ask(call, instruction, request))
             except LiveInferenceRefused as refusal:
@@ -923,6 +929,10 @@ def command_judge_replay(args: argparse.Namespace) -> int:
                     f" {type(error).__name__}: {error}"
                 )
                 break
+            entry = seen[answered] if len(seen) > answered else None
+            runs.append(
+                measured_run(entry, request_usage(instruction, request), judge.route)
+            )
             written = head | {"dry_run": False, "stopped": None, "answers": seen}
             written |= judged(inputs, requests, raws)
             args.out.write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")

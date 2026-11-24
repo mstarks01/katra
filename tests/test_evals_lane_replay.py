@@ -418,6 +418,7 @@ def test_a_node_call_keeps_what_the_provider_returned(monkeypatch):
     from google.genai import types
 
     from evals.harness import node_call as module
+    from katra.report import TokenUsage
 
     class Adapter:
         model = "stub"
@@ -463,6 +464,7 @@ def test_a_node_call_keeps_what_the_provider_returned(monkeypatch):
                     "thought_tokens": 11,
                 }
             ],
+            "usage": TokenUsage(completion_tokens=7, reasoning_tokens=11).model_dump(),
         }
     ]
 

@@ -35,8 +35,9 @@ weak if the source still supports it.
 Check every claim of absence against the model and the source. When a finding
 says a flow has no authentication or no encryption, find that flow's
 `authentication` or `encryption_in_transit` attribute in the model and the
-passage of the source that describes it. A stated control contradicts the
-finding.
+passage of the source that describes it. When a finding says a data store keeps
+its data unencrypted, find that store's `encryption_at_rest` attribute and the
+passage that describes it. A stated control contradicts the finding.
 
 For each finding, give a short `reason`, and copy into `quote` one passage of
 the source, word for word, that decides your answer. The quote must be text

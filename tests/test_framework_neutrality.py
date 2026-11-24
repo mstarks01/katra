@@ -384,7 +384,7 @@ DECLARED: dict[str, str] = {
     ),
     "evals/harness/plants.py": (
         "This code is STRIDE's, through `StrideCategory`. A plant inverts a"
-        " control that a flow states and files the finding under the category"
+        " control that a flow or a store states and files the finding under the category"
         " of that threat, which only a package whose claims name a threat at an"
         " element has. A package whose claims carry a catalog identifier would"
         " plant a false exclusion instead."

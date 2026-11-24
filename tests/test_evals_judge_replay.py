@@ -24,6 +24,7 @@ from evals.harness.scorer import score_case
 from evals.reference_facts import load_facts
 from katra.claim_identity import report_rows
 from katra.offline import OFFLINE_ENV
+from katra.report import TokenUsage
 from katra.vendors import vendor_for
 from tests.eval_factories import sweep_document, write_report_sweep
 
@@ -413,14 +414,15 @@ def test_offline_mode_refuses_the_first_call(sweep, tmp_path, capsys):
     assert written["pooled"]["matched"]["of"] == 0
 
 
-def _scripted(spent_per_call=None, fail_on=None, sent=None):
+def _scripted(usage=None, fail_on=None, sent=None):
     """A ``tier_call`` stand-in that rejects every finding.
 
-    ``spent_per_call`` is the charge each call reports, and ``fail_on`` the
-    number of the call that raises a provider error.
+    ``usage`` is the token usage each call reports, as ``tier_call`` records
+    it in ``seen``, and ``fail_on`` the number of the call that raises a
+    provider error. No call reports a charge, as on a direct vendor.
     """
 
-    def build(_deployment, _tier, _schema, spent, _seen):
+    def build(_deployment, _tier, _schema, spent, seen):
         calls = []
 
         async def call(instruction, turn):
@@ -434,7 +436,8 @@ def _scripted(spent_per_call=None, fail_on=None, sent=None):
                 f["label"]
                 for f in json.loads(text.split("```json\n")[-1].rsplit("```", 1)[0])
             ]
-            spent.append(spent_per_call)
+            spent.append(None)
+            seen.append({"text": "", "responses": [], "usage": usage})
             return json.dumps(
                 {
                     "findings": [
@@ -473,13 +476,13 @@ def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeyp
     assert written["judge"] == {"tier": "review", "route": "anthropic/claude-opus-5"}
 
 
-def test_the_run_stops_before_a_call_that_would_pass_the_accepted_amount(
-    sweep, tmp_path, monkeypatch, capsys
-):
-    """The first call reports a charge far above its estimate, so the second
-    call's estimate on top of it passes what was accepted."""
+def test_the_measured_usage_holds_the_next_call(sweep, tmp_path, monkeypatch, capsys):
+    """On a direct route the provider reports usage and no charge. The first
+    call reports far more tokens than its estimate, so its priced usage passes
+    what was accepted and the hold stops the second call."""
     sent = []
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(5.0, sent=sent))
+    usage = TokenUsage(prompt_tokens=2_000_000, total_tokens=2_000_000).model_dump()
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(usage, sent=sent))
     out = tmp_path / "out.json"
 
     code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="5.00"))
@@ -487,10 +490,35 @@ def test_the_run_stops_before_a_call_that_would_pass_the_accepted_amount(
     assert code == 1
     assert len(sent) == 1
     written = json.loads(out.read_text(encoding="utf-8"))
-    assert "pass the $5.00 accepted" in written["stopped"]
+    assert "against $5.00 accepted" in written["stopped"]
     assert written["not_run"] == [{"case": CASE, "sample": 2}]
     assert written["cases"][0]["samples"][0]["sample"] == 1
     assert "stopped" in capsys.readouterr().err
+
+
+def test_a_call_that_reports_no_usage_counts_at_its_estimate():
+    request = judge_replay.Request("c", 1, (("F-01", "k"),), "x" * 400)
+    fallback = judge_replay.request_usage("instruction", request)
+
+    run = judge_replay.measured_run(None, fallback, "anthropic/claude-opus-5")
+    reported = judge_replay.measured_run(
+        {"usage": None}, fallback, "anthropic/claude-opus-5"
+    )
+
+    assert run.usage == reported.usage == fallback
+
+
+def test_usage_within_the_accepted_amount_runs_every_call(sweep, tmp_path, monkeypatch):
+    usage = TokenUsage(prompt_tokens=1_000, total_tokens=1_000).model_dump()
+    sent = []
+    monkeypatch.setattr(judge_replay, "tier_call", _scripted(usage, sent=sent))
+
+    code = judge_replay.command_judge_replay(
+        _args(sweep, tmp_path / "out.json", accept_cost="5.00")
+    )
+
+    assert code == 0
+    assert len(sent) == 2
 
 
 def test_a_provider_error_keeps_the_paid_answers(sweep, tmp_path, monkeypatch):
@@ -504,7 +532,7 @@ def test_a_provider_error_keeps_the_paid_answers(sweep, tmp_path, monkeypatch):
     assert "the provider failed" in written["stopped"]
     assert written["not_run"] == [{"case": CASE, "sample": 2}]
     assert written["pooled"]["plants"]["of"] > 0
-    assert len(written["answers"]) == 0  # the stand-in records no raw answer
+    assert len(written["answers"]) == 1
 
 
 def test_each_answer_is_written_as_it_arrives(sweep, tmp_path, monkeypatch):

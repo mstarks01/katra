@@ -11,10 +11,13 @@ each judge batch as known negatives. Plants never go into a **Case Sitting**.
 
 1. :func:`plant_reading` reads the model's value. It refuses a value that
    :func:`~katra.analysis.control_state` does not read as ``stated``, a value
-   with a negating or limiting word anywhere in it (``no``, ``without``,
-   ``except``, ``only``, ``some`` and the like), and a value that names no
-   mechanism. A word list cannot prove a control. It only removes candidates:
-   "plain HTTP, no TLS" names TLS and still reads ``qualified``.
+   with a negating, limiting or conditional word anywhere in it (``no``,
+   ``never``, ``cannot``, ``without``, ``except``, ``only``, ``some``, ``if``, a
+   contraction such as "isn't", an environment name such as ``staging``, and
+   the like), and a value that names no mechanism. A word list cannot prove a
+   control. It only removes candidates: "plain HTTP, no TLS" names TLS and
+   still reads ``qualified``. The list cannot read a negation it does not
+   hold, which is why the second reading is required too.
 2. A signed row of the case's ``facts.json`` must state the control on the same
    element. The row is ``stated``, has no scope, has a reviewer, reaches the
    attribute through :func:`~katra.assertions.projected_attribute`, and its
@@ -72,24 +75,40 @@ PlantReading = Literal[
 PLANTS_PER_BATCH: tuple[int, ...] = (2, 3)
 
 #: Words that negate, limit or qualify a stated control. A value with one of
-#: them anywhere in it gives no plant.
+#: them anywhere in it gives no plant. ``t`` is the end of a contraction such as
+#: "don't" or "isn't", which the word split leaves alone. The environment words
+#: (``production``, ``staging`` and the like) refuse a value that states the
+#: control for one environment only, such as "HTTPS in production; HTTP in
+#: staging".
 QUALIFYING_WORDS: frozenset[str] = frozenset(
     {
         "absent",
+        "although",
         "anonymous",
         "but",
+        "cannot",
         "certain",
+        "deprecated",
+        "dev",
+        "development",
         "disabled",
         "except",
         "excluding",
         "few",
+        "if",
+        "lack",
+        "lacking",
         "lacks",
+        "legacy",
         "may",
         "might",
         "missing",
         "most",
+        "neither",
+        "never",
         "no",
         "none",
+        "nor",
         "not",
         "nothing",
         "only",
@@ -99,9 +118,20 @@ QUALIFYING_WORDS: frozenset[str] = frozenset(
         "partially",
         "plain",
         "plaintext",
+        "prod",
+        "production",
+        "sandbox",
         "selected",
+        "skip",
+        "skipped",
+        "skips",
         "some",
         "sometimes",
+        "staging",
+        "t",
+        "test",
+        "testing",
+        "though",
         "unauthenticated",
         "unclear",
         "unencrypted",

@@ -84,9 +84,10 @@ vendor that wrote the sweep. A gateway route can pick its upstream provider on
 each call, so a sweep written through one has no known provider, and the
 command refuses it. The test runs on the Baseline
 `d4edd64-gpt-5.6-terra-fd1c49af`, whose tiers ran on `openai` directly: its dry
-run estimates $2.16 for 26 calls on `anthropic/claude-opus-5`. The command
-stops before a call that would pass the accepted amount, and it keeps each
-answer as it arrives. Its verdicts never enter the vote ledger. With
+run estimates $2.16 for 26 calls on `anthropic/claude-opus-5`. Between calls
+it runs the sweep's hold, `consent.hold`, over the token usage each call
+reported, and it stops once the priced usage passes the accepted amount. It keeps
+each answer as it arrives. Its verdicts never enter the vote ledger. With
 `--dry-run` in place of `--accept-cost` it is free: it writes every request
 and prints the estimate and the batch sizes, and sends nothing.
 
