@@ -405,7 +405,7 @@
       "d59f62a2d745",
       "e1f5bb04d9ab"
     ],
-    "text_change_note": "The rulings of 2026-09-18 asked eight STRIDE reference claims to state the prerequisite an attack needs. Each fixture below keeps the identity the reader's manifest pins, and its reference claim now reads differently from the text recorded above. See https://github.com/mstarks01/work-agent/issues/1064. The ruling of 2026-09-21 then reworded eight STRIDE repudiation reference claims to state what cannot be produced rather than what does not exist; three of them carry a fixture this record pins. Each keeps the identity the reader's manifest pins, and the reading it was labelled against is unchanged: same lane, same verb, same element IDs. See https://github.com/mstarks01/work-agent/issues/1110."
+    "text_change_note": "The rulings of 2026-09-18 asked eight STRIDE reference claims to state the prerequisite an attack needs. Each fixture below keeps the identity the reader's manifest pins, and its reference claim now reads differently from the text recorded above. See https://github.com/mstarks01/katra/issues/1064. The ruling of 2026-09-21 then reworded eight STRIDE repudiation reference claims to state what cannot be produced rather than what does not exist; three of them carry a fixture this record pins. Each keeps the identity the reader's manifest pins, and the reading it was labelled against is unchanged: same lane, same verb, same element IDs. See https://github.com/mstarks01/katra/issues/1110."
   },
   "superseded_by_corpus_change": {
     "date": "2026-09-21",
