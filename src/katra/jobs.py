@@ -894,9 +894,9 @@ class JobStore(Protocol):
     object store, and raises where it cannot serve, so the app stops before
     it takes a request.
 
-    **The app calls :meth:`close` when it stops.** A store releases there
-    what it holds open, such as the connections of its database. A closed
-    store stays usable: its next call opens what that call needs.
+    **The app calls :meth:`close` when it stops.** A store closes the
+    connections of its database there. Its object store stays open. A closed
+    store stays usable: its next call opens the connections that it needs.
     """
 
     #: Whether the store keeps its jobs through a restart. Each store states
@@ -1042,14 +1042,15 @@ class JobStore(Protocol):
         sweep deletes these (#1530)."""
         ...
 
-    async def sweep_orphans(self, before: datetime) -> int:
+    async def sweep_orphans(self, before: datetime, stop: asyncio.Event) -> int:
         """Delete each object last written before ``before`` that no job row
         names, and return how many the store removed (ADR 0065).
 
         A row names an object of its own job only: the sources always, and
         the report only where the row holds the report's digest. A usage row
         names no object. The sweep never deletes an object that a row names,
-        and never a key that the service does not write.
+        and never a key that the service does not write. The sweep reads
+        ``stop`` before each delete, and ends when it is set.
         """
         ...
 
@@ -1764,7 +1765,7 @@ class InMemoryJobStore:
             if ended(record) and record.updated_at < before
         ]
 
-    async def sweep_orphans(self, before: datetime) -> int:
+    async def sweep_orphans(self, before: datetime, stop: asyncio.Event) -> int:
         """Remove nothing: this store holds no objects."""
         return 0
 

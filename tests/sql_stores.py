@@ -212,7 +212,8 @@ def database_of(env: dict[str, str]) -> str:
 @contextmanager
 def sqlite_file(database: str) -> Iterator[sqlite3.Connection]:
     """A connection to the SQLite database at the path ``database``. The block
-    commits, and then the connection closes."""
+    commits where it ends, or rolls back where it raises, and then the
+    connection closes."""
     with closing(sqlite3.connect(database)) as connection, connection:
         yield connection
 

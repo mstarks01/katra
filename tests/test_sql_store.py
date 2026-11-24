@@ -900,7 +900,7 @@ class TestAStoredValueThisServiceDoesNotList:
                 "SELECT status FROM jobs WHERE id = ?", (job,)
             ).fetchone()
         assert asyncio.run(store.expired(datetime.now(UTC))) == [(job, "alice")]
-        asyncio.run(store_backends.expire_jobs(store, 1))
+        asyncio.run(store_backends.expire_jobs(store, 1, asyncio.Event()))
         assert asyncio.run(store.owned(job, "alice")) is None
         with sqlite_file(database_of(env)) as connection:
             (kept,) = connection.execute(
@@ -1149,7 +1149,7 @@ class TestAStoreFailureAsARunStartsOrEnds:
         assert stored.measured_tokens == METERED
         assert statuses(stored)[-2:] == ["running", "failed"]
         later = datetime.now(UTC) + timedelta(days=2)
-        assert asyncio.run(store.sweep_orphans(later)) == 1
+        assert asyncio.run(store.sweep_orphans(later, asyncio.Event())) == 1
 
     def test_a_report_put_that_hangs(self, env, monkeypatch):
         # The bound covers every store call, so it leaves room for an SQLite
