@@ -33,7 +33,7 @@ The primitives this module calls, :func:`~katra.critic.critic_view`,
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -120,6 +120,8 @@ class Accepted:
     claims: list[RuledClaim]
     #: The rejected claims, in the block's audit array.
     rejected: list[RuledClaim]
+    #: What code dropped without a re-ask, for the report to record.
+    settled: list[UnreconciledRuling] = field(default_factory=list)
 
     @property
     def count(self) -> int:
@@ -151,6 +153,9 @@ class Unreconciled:
     #: the claim, which check found it, and the sentence the re-ask is asked to
     #: fix it by.
     problems: list[UnreconciledRuling]
+    #: What code dropped without a re-ask, for the report to record. No re-ask
+    #: reads it.
+    settled: list[UnreconciledRuling] = field(default_factory=list, kw_only=True)
 
     @property
     def messages(self) -> list[str]:
@@ -305,9 +310,10 @@ class CriticRound:
         """
         rulings, problems = self._checked(emitted)
         if not problems:
-            return self._assembled(rulings)
+            return self._assembled(rulings, problems)
         return Reask(
             problems=list(problems.problems),
+            settled=list(problems.settled),
             roster=[draft.id for draft in self.drafts],
             unreconciled=self.view(only=problems.implicated),
             first=FirstPass(
@@ -343,8 +349,10 @@ class CriticRound:
         """
         rulings, problems = self._checked(emitted)
         if problems:
-            return Failed(problems=list(problems.problems))
-        return self._assembled(rulings)
+            return Failed(
+                problems=list(problems.problems), settled=list(problems.settled)
+            )
+        return self._assembled(rulings, problems)
 
     def shown(self) -> dict[str, dict[ControlRowRef, AppliedControl]]:
         """The Control rows each draft is shown, each with its Control, which
@@ -355,11 +363,13 @@ class CriticRound:
         rulings = self.rulings(emitted)
         return rulings, review_issues(self.drafts, rulings, self.model, self.shown())
 
-    def _assembled(self, rulings: Sequence[Ruling]) -> Accepted:
+    def _assembled(
+        self, rulings: Sequence[Ruling], checked: ReviewProblems
+    ) -> Accepted:
         claims, rejected = assemble_claims(
             self.drafts, rulings, self.model, self.schemas, self.shown()
         )
-        return Accepted(claims=claims, rejected=rejected)
+        return Accepted(claims=claims, rejected=rejected, settled=list(checked.settled))
 
 
 def critic_instruction(

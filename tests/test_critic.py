@@ -184,15 +184,29 @@ class TestAssembleThreats:
         with pytest.raises(CriticOutputError, match="dropped draft 'S-02'"):
             assemble_claims(drafts, [sample_ruling("S-01")], model, SCHEMAS, {})
 
-    def test_an_invented_threat_fails_closed(self, model):
-        with pytest.raises(CriticOutputError, match="no lane agent drafted"):
-            assemble_claims(
-                [sample_draft("S-01")], [sample_ruling("S-02")], model, SCHEMAS, {}
-            )
+    def test_an_invented_ruling_never_reaches_the_report(self, model):
+        """Code drops a ruling on an ID nobody drafted (#2360)."""
+        assembled = assemble_claims(
+            [sample_draft("S-01")],
+            [sample_ruling("S-01"), sample_ruling("S-02")],
+            model,
+            SCHEMAS,
+            {},
+        )
 
-    def test_a_duplicated_ruling_fails_closed(self, model):
+        assert [claim.id for claim in assembled.claims] == ["S-01"]
+
+    def test_a_ruling_repeated_word_for_word_is_one_ruling(self, model):
         drafts = [sample_draft("S-01")]
         rulings = [sample_ruling("S-01"), sample_ruling("S-01")]
+
+        assembled = assemble_claims(drafts, rulings, model, SCHEMAS, {})
+
+        assert [claim.id for claim in assembled.claims] == ["S-01"]
+
+    def test_two_different_rulings_on_one_id_fail_closed(self, model):
+        drafts = [sample_draft("S-01")]
+        rulings = [sample_ruling("S-01"), sample_ruling("S-01", confidence="low")]
         with pytest.raises(CriticOutputError, match="used by 2 drafts"):
             assemble_claims(drafts, rulings, model, SCHEMAS, {})
 
@@ -462,19 +476,17 @@ class TestVerdictShapeIsReAskableRatherThanFatal:
         assert len(problems.messages) == 2
 
     def test_a_malformed_threat_id_reads_as_a_drop_and_an_invention(self, model):
-        """Both halves of the same typo, each nameable by the re-ask.
-
-        The pattern this replaces said only "that is not an ID". These two say
-        which draft went unruled and which ID nobody drafted, which is what a
-        re-ask needs to put it right.
-        """
+        """Both halves of the same typo: the draft went unruled, which the
+        re-ask repairs, and the ID nobody drafted, which code drops with a mark
+        (#2360)."""
         ruling = sample_ruling("S-01").model_copy(update={"id": "S-1"})
 
         problems = review_issues([sample_draft("S-01")], [ruling], model, {})
 
-        assert "dropped draft 'S-01'" in "; ".join(problems.messages)
-        assert "'S-1', which no lane agent drafted" in "; ".join(problems.messages)
+        assert problems.messages == ["critic dropped draft 'S-01'"]
         assert problems.implicated == frozenset({"S-01"})
+        [settled] = problems.settled
+        assert (settled.kind, settled.claim_id) == ("invented", "S-1")
 
     def test_assembly_still_fails_closed_on_one(self, model):
         """Re-askable is not ignorable: nothing reaches the report on rulings
@@ -1417,16 +1429,16 @@ class TestEveryProblemCarriesItsClaimAndItsKind:
     """
 
     def _dropped_and_invented(self):
-        """One typo: the draft goes unruled and the ID nobody drafted arrives."""
+        """One typo: the draft goes unruled, and code drops the ruling on the ID
+        nobody drafted with a mark."""
         ruling = sample_ruling("S-01").model_copy(update={"id": "S-1"})
-        return review_issues(
-            [sample_draft("S-01")], [ruling], valid_model(), {}
-        ).problems
+        review = review_issues([sample_draft("S-01")], [ruling], valid_model(), {})
+        return [*review.problems, *review.settled]
 
     def _duplicate_id(self):
         return review_issues(
             [sample_draft("S-01")],
-            [sample_ruling("S-01"), sample_ruling("S-01")],
+            [sample_ruling("S-01"), sample_ruling("S-01", confidence="low")],
             valid_model(),
             {},
         ).problems
@@ -1539,7 +1551,7 @@ class TestEveryProblemCarriesItsClaimAndItsKind:
 
     def test_a_critic_that_names_no_claim_at_all_is_still_recorded(self):
         """``Ruling.id`` carries no ``min_length`` on purpose: an empty ID is
-        one more ID no lane agent drafted, and the re-ask is asked to drop it.
+        one more ID no lane agent drafted, and code drops it with a mark.
         The mark that records that must not be what raises instead."""
         from katra.claims import UNNAMED_CLAIM
 
@@ -1547,7 +1559,7 @@ class TestEveryProblemCarriesItsClaimAndItsKind:
 
         problems = review_issues([sample_draft("S-01")], [ruling], valid_model(), {})
 
-        invented = [p for p in problems.problems if p.kind == "invented"]
+        invented = [p for p in problems.settled if p.kind == "invented"]
         assert [p.claim_id for p in invented] == [UNNAMED_CLAIM]
 
 

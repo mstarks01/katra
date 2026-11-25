@@ -1,7 +1,7 @@
 """The re-ask replay injects one fault and rebuilds the re-ask.
 
 Two claims are tested offline. The round's check names exactly the injected
-fault, the problems ``PROBLEMS_BY_SHAPE`` gives the shape on the faulted ID, for each
+fault, the problems ``PROBLEMS_BY_SHAPE`` gives the shape on the faulted draft, for each
 shape. And the re-ask request rebuilt from an archive equals the one a scripted
 graph run sent, instruction and user turn, byte for byte.
 """
@@ -61,7 +61,6 @@ WORDS = {
     "control-row-missing": "is rejected for control and names no control_row",
     "control-row-not-shown": "which the draft was not shown",
     "dropped": "critic dropped draft",
-    "invented": "which no lane agent drafted",
     "duplicate-id": "is used by 2 drafts",
     "verdict-shape": "is rejected for reasoning but also names open facts",
     "confirmed-ruled-out": "excludes its requirement and is ruled confirmed",
@@ -137,12 +136,17 @@ def test_each_shape_states_its_problems():
 
 
 def test_the_shapes_cover_each_kind_a_live_check_names():
-    """A kind the check gains needs a shape, or the replay cannot measure it."""
+    """A kind the check gains needs a shape, or the replay cannot measure it.
+
+    ``unbriefed-change`` is the merge's mark, and ``invented`` is a mark code
+    settles without a re-ask (``settle_in_code``), so no re-ask is asked to
+    repair either.
+    """
     named = {
         kind for kinds in recritic_replay.PROBLEMS_BY_SHAPE.values() for kind in kinds
     }
     live = set(get_args(UnreconciledKind)) - ARCHIVED_UNRECONCILED_KINDS
-    assert named == live - {"unbriefed-change"}
+    assert named == live - {"unbriefed-change", "invented"}
 
 
 @pytest.mark.parametrize("shape", STRIDE_SHAPES)
@@ -154,11 +158,10 @@ def test_each_fault_gives_its_problems_on_its_draft(archived, shape):
         view = recritic_replay.fault_view(archived, faults, draft.id, shape)
 
         assert [(each.kind, each.claim_id) for each in view.reask.problems] == [
-            (kind, view.faulted_id) for kind in recritic_replay.PROBLEMS_BY_SHAPE[shape]
+            (kind, draft.id) for kind in recritic_replay.PROBLEMS_BY_SHAPE[shape]
         ]
-        assert (view.faulted_id == draft.id) is (shape != "invented")
         assert WORDS[shape] in view.reask.problems[0].message
-        implicated = [] if shape in {"invented", "duplicate-id"} else [draft.id]
+        implicated = [] if shape == "duplicate-id" else [draft.id]
         assert [item["id"] for item in view.reask.unreconciled] == implicated
 
 
@@ -182,7 +185,7 @@ def test_a_confirmed_exclusion_is_the_one_fault_on_an_asvs_draft():
         control=EVERY_LANE, refused={}, control_reasons={}
     )
 
-    faulty, faulted = recritic_replay.inject(
+    faulty = recritic_replay.inject(
         [draft],
         valid_model(),
         [ruled],
@@ -194,7 +197,7 @@ def test_a_confirmed_exclusion_is_the_one_fault_on_an_asvs_draft():
 
     problems = review_issues([draft], faulty, valid_model(), {})
     assert [(each.kind, each.claim_id) for each in problems.problems] == [
-        ("verdict-shape", faulted)
+        ("verdict-shape", draft.id)
     ]
     assert WORDS["confirmed-ruled-out"] in problems.messages[0]
 
@@ -438,11 +441,7 @@ def test_the_command_writes_the_repair_after_its_record(
             *loaded((PACKAGE_LOADER, PROMPT_LOADER)),
         )
     )
-    assert (held["draft"], held["fault"], held["faulted_id"]) == (
-        draft,
-        "row-not-shown",
-        draft,
-    )
+    assert (held["draft"], held["fault"]) == (draft, "row-not-shown")
     assert (held["remaining"], held["unbriefed"]) == ([], [])
 
 

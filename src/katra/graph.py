@@ -2204,6 +2204,9 @@ def route_review(
             state.prompt(nodes.key(artifact), text)
         state.put(nodes.key("first_review"), outcome.first.rulings)
         state.put(nodes.key("repairable"), outcome.first.repairable)
+    # What code dropped without a re-ask is recorded on every route, so the
+    # report says the critic returned it even when nothing else went wrong.
+    recorded += outcome.settled
     if isinstance(outcome, Accepted):
         # The marker ``assemble`` reads a framework as finished by. ``reviewed``
         # alone cannot say so: it holds the first critic's malformed rulings for

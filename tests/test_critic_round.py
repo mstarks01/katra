@@ -233,9 +233,9 @@ class TestTheSecondLook:
         assert isinstance(critic_round.outcome(merged), Accepted)
         assert drift == []
 
-    def test_an_invented_ruling_in_the_re_ask_still_fails_the_second_look(self):
-        """The merge resolves what the first pass got right; it does not excuse a
-        re-ask that invents. That is a loud failure."""
+    def test_an_invented_ruling_in_the_re_ask_is_dropped_with_a_mark(self):
+        """Code drops a ruling on an ID nobody drafted, on the second look as on
+        the first (#2360)."""
         drafts = two_drafts()
         first = revised(drafts, sample_ruling("S-01")).first
 
@@ -247,14 +247,18 @@ class TestTheSecondLook:
             sample_ruling("X-99"),
         )
 
-        assert isinstance(outcome, Failed)
-        assert any("X-99" in message for message in outcome.messages)
+        assert isinstance(outcome, Accepted)
+        assert [(mark.kind, mark.claim_id) for mark in outcome.settled] == [
+            ("invented", "X-99")
+        ]
 
     def test_a_duplicated_id_is_the_re_asks_to_repair(self):
         """A duplicate ID names no draft to read, but it is the re-ask's to fix, so
         the merge takes the re-ask's ruling for it rather than the first pass's pair."""
         drafts = [sample_draft("S-01")]
-        revision = revised(drafts, sample_ruling("S-01"), sample_ruling("S-01"))
+        revision = revised(
+            drafts, sample_ruling("S-01"), sample_ruling("S-01", confidence="low")
+        )
         assert revision.first.repairable == ["S-01"]
         assert revision.unreconciled == []
 
