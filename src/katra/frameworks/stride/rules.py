@@ -44,8 +44,9 @@ question and an attribution question, and the two agents answer differently.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from types import MappingProxyType
+from typing import TypeAlias
 
 from katra.analysis import (
     comparable_asset_tags,
@@ -66,16 +67,34 @@ from katra.assertions import (
     PredicateName,
     answer,
 )
-from katra.candidates import Fact, Match, Rule, clip_fact, with_rule_tables
+from katra.candidates import (
+    Fact,
+    Match,
+    Mechanism,
+    Rule,
+    clip_fact,
+    with_rule_tables,
+)
 from katra.frameworks import NoRule, PredicateReader
-from katra.system_model import BoundaryKind, DataFlow, SystemModel, control_text
+from katra.frameworks.stride.record import AttackerPosition, StrideCategory
+from katra.parsing import table_entry
+from katra.system_model import (
+    BoundaryKind,
+    DataFlow,
+    DataStore,
+    Process,
+    SystemModel,
+    control_text,
+)
 
 __all__ = [
     "ENTERED_ZONE_KINDS",
     "LEFT_ZONE_KINDS",
+    "MECHANISM_LANES",
     "PREDICATE_READERS",
     "RULES",
     "SHARED_DEPENDENCY_MIN",
+    "mechanisms_at",
 ]
 
 # A shared dependency is an element two or more distinct elements flow into.
@@ -1154,3 +1173,107 @@ PREDICATE_READERS: Mapping[str, PredicateReader] = MappingProxyType(
         "data-exposure-restricted-readers": _QUESTION_KIND_PART,
     }
 )
+
+
+# The attacker mechanisms a lane accounts for at each led place (#2204).
+#
+# A lane led to a place tends to write the attacker it writes most often there,
+# an on-path or storage-copy one, and to leave out a party that already holds a
+# legitimate path to the place: the writer of a store, the client that sends a
+# flow, the holder of a grant (QA-2026-11-24-01). `mechanisms_at` lists, for each
+# led place, every position the model supports there and the element the attack
+# acts through, so the lane accounts for each one.
+#
+# **Code decides the list, from the System Model alone.** A position belongs on
+# the list where the model shows the path it needs: a flow to sit on, a store to
+# copy, a process to run code in, an element that sends a flow to the place, or a
+# decided boundary crossing an outside party comes through. No reference claim,
+# case ID or ruling reaches it. Whether the sources support an attack through a
+# listed mechanism stays the lane's judgement.
+
+#: Whether each lane's leads carry a mechanism list. True for the two lanes
+#: whose missed must-finds the lane wrote with another attacker at the same
+#: place (QA-2026-11-24-01); the other lanes name no target of the design.
+MECHANISM_LANES: Mapping[StrideCategory, bool] = MappingProxyType(
+    {
+        "spoofing": False,
+        "tampering": True,
+        "repudiation": False,
+        "information-disclosure": True,
+        "denial-of-service": False,
+        "elevation-of-privilege": False,
+    }
+)
+
+Entry: TypeAlias = tuple[AttackerPosition, str]
+
+
+def mechanisms_at(
+    model: SystemModel, lane: str, places: Sequence[str]
+) -> Mapping[str, tuple[Mechanism, ...]]:
+    """Each led place of ``lane`` with the mechanisms the model supports there."""
+    if not table_entry(MECHANISM_LANES, lane):
+        return MappingProxyType({})
+    elements = {element.id: element for element in model.elements()}
+    crossing = {found.flow_id for found in model.boundary_crossings() if found.decided}
+    listed: dict[str, tuple[Mechanism, ...]] = {}
+    for place in places:
+        element = elements.get(place)
+        if isinstance(element, DataFlow):
+            entries = _at_flow(element, elements, crossing)
+        elif isinstance(element, DataStore):
+            entries = _at_store(element, model, elements)
+        elif isinstance(element, Process):
+            entries = _at_process(element, model, crossing)
+        else:
+            continue
+        listed[place] = tuple(
+            Mechanism(position=position, via=via)
+            for position, via in dict.fromkeys(entries)
+        )
+    return MappingProxyType(listed)
+
+
+def _holder(element_id: str, elements: Mapping[str, object]) -> list[Entry]:
+    """The positions of an element that holds a legitimate path to a place."""
+    entries: list[Entry] = []
+    if isinstance(elements.get(element_id), Process):
+        entries.append(("in-component", element_id))
+    entries.append(("authorized-principal", element_id))
+    return entries
+
+
+def _at_flow(
+    flow: DataFlow, elements: Mapping[str, object], crossing: set[str]
+) -> list[Entry]:
+    entries: list[Entry] = [("on-path", flow.id), *_holder(flow.source, elements)]
+    if isinstance(elements.get(flow.destination), Process):
+        entries.append(("in-component", flow.destination))
+    if flow.id in crossing:
+        entries.append(("outside", flow.id))
+    return entries
+
+
+def _at_store(
+    store: DataStore, model: SystemModel, elements: Mapping[str, object]
+) -> list[Entry]:
+    entries: list[Entry] = [("storage-copy", store.id)]
+    for flow in model.data_flows:
+        if store.id not in (flow.source, flow.destination):
+            continue
+        other = flow.destination if flow.source == store.id else flow.source
+        entries += [*_holder(other, elements), ("on-path", flow.id)]
+    return entries
+
+
+def _at_process(
+    process: Process, model: SystemModel, crossing: set[str]
+) -> list[Entry]:
+    entries: list[Entry] = [("in-component", process.id)]
+    for flow in model.data_flows:
+        if flow.destination != process.id:
+            continue
+        entries += [("authorized-principal", flow.source), ("on-path", flow.id)]
+        if flow.id in crossing:
+            entries.append(("outside", flow.id))
+    return entries

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
+from types import MappingProxyType
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -34,10 +35,13 @@ __all__ = [
     "CandidateSet",
     "Fact",
     "Match",
+    "Mechanism",
+    "MechanismReader",
     "Rule",
     "clip_fact",
     "generate_candidates",
     "leads",
+    "no_mechanisms",
     "with_rule_tables",
 ]
 
@@ -105,12 +109,31 @@ def with_rule_tables(
     )
 
 
+class Mechanism(BaseModel):
+    """One way an attacker can reach a led place: a position, and the element
+    the attack acts through.
+
+    ``position`` is a plain string for the reason :attr:`Candidate.lane` is:
+    the legal set belongs to the package that builds the mechanism.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    position: str = Field(min_length=1, max_length=100)
+    via: str = Field(min_length=1)
+
+
 class CandidateSet(BaseModel):
     """One lane's candidates, plus the questions their rules put.
 
     The questions ride beside the candidates rather than inside each one: a
     rule that fires eight times would otherwise repeat its sentence eight
     times, and the agent reads the question once per rule either way.
+
+    ``mechanisms`` maps a led place, an element ID that a candidate names, to
+    the ways an attacker can reach it in this model. A package fills it with
+    its own reader (:attr:`~katra.frameworks.FrameworkPackage.mechanisms`),
+    and it is empty for a lane the reader lists nothing for.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -118,6 +141,32 @@ class CandidateSet(BaseModel):
     lane: str = Field(min_length=1, max_length=100)
     questions: dict[str, str] = Field(default_factory=dict)
     candidates: tuple[Candidate, ...] = ()
+    mechanisms: dict[str, tuple[Mechanism, ...]] = Field(default_factory=dict)
+
+    def places(self) -> tuple[str, ...]:
+        """Each element ID a candidate names, once, in candidate order."""
+        return tuple(
+            dict.fromkeys(
+                element_id
+                for candidate in self.candidates
+                for element_id in candidate.element_ids
+            )
+        )
+
+
+MechanismReader = Callable[
+    [SystemModel, str, Sequence[str]], Mapping[str, tuple[Mechanism, ...]]
+]
+"""A package's mechanisms for the led places of one lane: the model, the lane
+and the places in, each place's mechanisms out."""
+
+
+def no_mechanisms(
+    model: SystemModel, lane: str, places: Sequence[str]
+) -> Mapping[str, tuple[Mechanism, ...]]:
+    """The reader of a package whose claims name no attacker position."""
+    del model, lane, places
+    return MappingProxyType({})
 
 
 @dataclass(frozen=True)

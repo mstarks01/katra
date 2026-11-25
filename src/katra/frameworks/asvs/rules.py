@@ -63,13 +63,14 @@ from katra.analysis import (
     names_term,
 )
 from katra.assertions import AssertionCatalog, PredicateName
-from katra.candidates import Match, Rule, clip_fact, with_rule_tables
+from katra.candidates import Match, Rule, clip_fact, no_mechanisms, with_rule_tables
 from katra.claims import UnknownRef
 from katra.frameworks import NoRule, PreconditionResult, PredicateReader
 from katra.protocol_defaults import NEGATED
 from katra.system_model import SystemModel, control_text
 
 __all__ = [
+    "MECHANISMS",
     "PREDICATE_READERS",
     "PRESENCE_TESTS",
     "RULES",
@@ -78,6 +79,10 @@ __all__ = [
     "asvs_precondition",
     "asvs_precondition_facts",
 ]
+
+#: An ASVS ruling names a requirement, not an attacker position, so no lane's
+#: block carries a mechanism list.
+MECHANISMS = no_mechanisms
 
 
 @dataclass(frozen=True)

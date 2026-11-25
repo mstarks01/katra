@@ -35,7 +35,7 @@ from katra.frameworks.stride.record import (
     STRIDE_VERSION,
     DraftThreat,
 )
-from katra.frameworks.stride.rules import PREDICATE_READERS, RULES
+from katra.frameworks.stride.rules import PREDICATE_READERS, RULES, mechanisms_at
 from katra.system_model import SystemModel
 
 __all__ = ["CASES", "NOTES", "STRIDE", "StrideOptions"]
@@ -203,6 +203,7 @@ STRIDE = FrameworkPackage(
     version=STRIDE_VERSION,
     lanes=STRIDE_CATEGORIES,
     rules=RULES,
+    mechanisms=mechanisms_at,
     record=DraftThreat,
     id_rule=IdRule(
         template=ID_FORMAT,

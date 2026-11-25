@@ -40,7 +40,7 @@ from pydantic import BaseModel
 
 from katra.assertions import REGISTRY, projection_fields
 from katra.bands import Band
-from katra.candidates import Rule
+from katra.candidates import MechanismReader, Rule
 from katra.claims import (
     Claim,
     FrameworkAnalysis,
@@ -344,6 +344,10 @@ class FrameworkPackage:
     ``rules``
         The deterministic **Candidate** table. Each rule names a lane this
         package declares.
+    ``mechanisms``
+        The attacker mechanisms the model supports at each led place of a
+        lane, which ride in the lane's candidate block. A package whose claims
+        name no attacker position answers :func:`~katra.candidates.no_mechanisms`.
     ``record``
         The Pydantic subclass of :class:`Claim` this package's agents produce.
     ``id_rule``
@@ -415,6 +419,7 @@ class FrameworkPackage:
     version: str
     lanes: tuple[str, ...]
     rules: tuple[Rule, ...]
+    mechanisms: MechanismReader
     record: type[Claim]
     id_rule: IdRule
     options: type[BaseModel]

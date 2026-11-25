@@ -2499,7 +2499,14 @@ def framework_lane_inputs(
     the lead the graph would send.
     """
     package = nodes.package
-    candidates = generate_candidates(model, package.lanes, package.rules, held)
+    candidates = {
+        lane: found.model_copy(
+            update={"mechanisms": dict(package.mechanisms(model, lane, found.places()))}
+        )
+        for lane, found in generate_candidates(
+            model, package.lanes, package.rules, held
+        ).items()
+    }
     # Selected for every lane at once, because a lane's tie-break reads what
     # earlier lanes were sent: `select_per_lane` is the one reader of that
     # accumulation, so the offline coverage lint measures the selection this
@@ -2534,7 +2541,13 @@ def framework_lane_inputs(
         # Keyed by the placeholder each fills, which is the vocabulary the
         # prompt file uses; the lane turns that into its own four state keys.
         artifacts[lane.lane] = {
-            "candidates": render_fenced(candidate_set.model_dump(mode="json")),
+            # A lane with no mechanism list gets no `mechanisms` key.
+            "candidates": render_fenced(
+                candidate_set.model_dump(
+                    mode="json",
+                    exclude=set() if candidate_set.mechanisms else {"mechanisms"},
+                )
+            ),
             "scope": lane_scope(
                 lane.lane,
                 package,

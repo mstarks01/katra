@@ -119,13 +119,14 @@ def _comparison(traced: delivery.LaneTrace) -> delivery.LaneComparison:
     return traced.comparison
 
 
-def test_the_captured_candidates_read_back_as_the_lane_was_sent(sent, tampering):
+def test_the_captured_candidates_read_back_as_the_lane_was_sent(sent, report, options):
     material = {"lanes": {"stride": {"tampering": sent}}}
 
     held = captured_lane(material, "stride", "tampering")
 
     assert held == sent
-    assert _candidates(held) == tampering
+    rebuilt = rebuilt_lane_inputs("stride", report, options)
+    assert _candidates(held) == rebuilt.candidates["tampering"]
 
 
 def _without(sent, name):

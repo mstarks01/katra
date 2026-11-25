@@ -55,6 +55,7 @@ from katra.frameworks.asvs.record import (
     requirement_of,
 )
 from katra.frameworks.asvs.rules import (
+    MECHANISMS,
     PREDICATE_READERS,
     RULES,
     asvs_precondition,
@@ -216,6 +217,7 @@ ASVS = FrameworkPackage(
     version=ASVS_VERSION,
     lanes=LANES,
     rules=RULES,
+    mechanisms=MECHANISMS,
     record=DraftRequirementRuling,
     id_rule=IdRule(
         # The standard's own version-safe reference, composed from the lane's
