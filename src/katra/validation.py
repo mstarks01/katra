@@ -544,8 +544,8 @@ def _assumption_issues(
     the schema, so a field added to an element type is covered here the day it
     lands and nothing lists the names twice.
 
-    Then the attribute has to hold an inference. An **Assumption** is what
-    extraction inferred with a stated basis, which makes an assumption on an
+    Then the attribute has to hold an inference. An **Assumption** is a value
+    inferred with a stated basis, which makes an assumption on an
     attribute still reading ``unknown`` a contradiction of its own record:
     nothing was inferred, so there is nothing for the basis to support.
     ``GLOSSARY.md`` draws the same line — a hedge somebody voiced is

@@ -717,7 +717,11 @@ ZonedElement = ExternalEntity | Process | DataStore
 
 
 class Assumption(BaseModel):
-    """A value extraction inferred on the record, with a stated basis.
+    """An inferred value on the record, with a stated basis.
+
+    Extraction writes most of them. Code writes one beside each value it
+    infers after the gate: a protocol default, and a store's tier that its
+    asset tags settle. Only ``basis`` tells the two apart.
 
     ``element_id`` and ``attribute`` together name *what* was inferred, which
     is the whole reason the pair exists rather than the element alone. An

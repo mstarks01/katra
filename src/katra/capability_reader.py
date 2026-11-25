@@ -13,11 +13,11 @@ already costs the owner little (ADR 0084). A wrong "present" makes a
 requirement apply that does not; it cannot rule one out.
 
 **A row carries its words, or it is dropped.** Code keeps a row only where its
-key is in the table and its quote is in a submitted source under the validity
-gate's own matcher. Where the row's label names a source that does not hold
-the quote, the one submitted source that does is the label
-(:func:`~katra.grounding.holding_label`); where several or none do, the row's
-own label decides. The answers source is not one of them: an answer writes its own capability
+key is in the table and its quote is in the submitted source its label names,
+under the validity gate's own matcher. Where that source does not hold the
+quote, the one submitted source that does is the label
+(:func:`~katra.grounding.holding_label`); where several or none do, the row is
+dropped. The answers source is not one of them: an answer writes its own capability
 (:func:`~katra.fact_writes.capability_statements`), and a row that
 quoted it would state that answer a second time. Each statement this module
 writes has the origin ``reader``. **A statement always wins**: a capability
