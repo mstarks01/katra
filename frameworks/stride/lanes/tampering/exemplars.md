@@ -4,7 +4,7 @@ Three drafts against the exemplar systems, showing the shape and the reasoning. 
 
 ## Canonical: transfer instructions modified in flight
 
-`flow:process:web-api>process:ledger-service>post-transfer` carries `encryption_in_transit: none` and `authentication: none`, and appears in the derived crossings (dmz → core). Its `data_description` says what an alteration is worth: transfer instructions with customer IDs.
+`flow:process:web-api>process:ledger-service>post-transfer` carries `encryption_in_transit` state `absent` and `authentication` state `absent`, and appears in the derived crossings (dmz → core). Its `data_description` says what an alteration is worth: transfer instructions with customer IDs.
 
 All three facts are catalogued — two `absent:` rows and the crossing — so this draft quotes nothing. The submitter's own sentence says the same thing, and citing it as well would be one fact filed twice.
 
@@ -15,7 +15,7 @@ Two shapes, one test: what does the fix protect? This draft is `alter-in-transit
 ```json
 {
   "title": "On-path modification of transfer instructions between web API and ledger",
-  "description": "`flow:process:web-api>process:ledger-service>post-transfer` moves gRPC transfer instructions from `boundary:dmz` into `boundary:core` with `encryption_in_transit: none`. An attacker positioned on that path — a compromised sidecar, a node in the dmz, or anything that can redirect traffic — rewrites the amount, the destination account, or the customer ID in a message the ledger has no way to distinguish from the original, since the flow also carries `authentication: none`. Second-order: `process:ledger-service` commits the altered instruction to `store:accounts-db`, so the modification becomes an authoritative balance, and `flow:process:ledger-service>store:audit-log>append-transfer-record` records the forged version as fact.",
+  "description": "`flow:process:web-api>process:ledger-service>post-transfer` moves gRPC transfer instructions from `boundary:dmz` into `boundary:core` with `encryption_in_transit` state `absent`. An attacker positioned on that path — a compromised sidecar, a node in the dmz, or anything that can redirect traffic — rewrites the amount, the destination account, or the customer ID in a message the ledger has no way to distinguish from the original, since the flow also carries `authentication` state `absent`. Second-order: `process:ledger-service` commits the altered instruction to `store:accounts-db`, so the modification becomes an authoritative balance, and `flow:process:ledger-service>store:audit-log>append-transfer-record` records the forged version as fact.",
   "affected_element_ids": [
     "flow:process:web-api>process:ledger-service>post-transfer",
     "process:ledger-service"
@@ -88,12 +88,12 @@ Two shapes, one test: what does the fix protect? This draft is `alter-in-transit
 
 ## Unknown-conditional, in system B: unverified authorization on the topic
 
-Written against exemplar system B. The submitter's own words are the trigger here — an admitted gap, recorded as `authentication: unknown` on the internal subscription rather than as an absent control. Condition the threat on the attribute and quote the admission; asserting "nothing checks topic access" would state a fact the model does not contain. **Each premise stays inside the operation its own evidence names**: the admission is about a subscriber, so the step that publishes rests on the stated shared certificate instead.
+Written against exemplar system B. The submitter's own words are the trigger here — an admitted gap, recorded as `authentication` state `unknown` on the internal subscription rather than as an absent control. Condition the threat on the attribute and quote the admission; asserting "nothing checks topic access" would state a fact the model does not contain. **Each premise stays inside the operation its own evidence names**: the admission is about a subscriber, so the step that publishes rests on the stated shared certificate instead.
 
 ```json
 {
   "title": "Fabricated readings enter the pipeline if topic access is unchecked",
-  "description": "`flow:process:mqtt-broker>process:stream-processor>consume-topic` carries `authentication: unknown` and crosses from `boundary:ingest` into `boundary:platform`. The publisher side is stated: every device image carries the same client certificate on `flow:entity:sensor-gateway>process:mqtt-broker>publish-telemetry`, so anyone holding one image publishes as any fleet. If the unknown resolves to no check on who may attach to a topic either, `process:stream-processor` treats the arriving payloads as gateway telemetry because they came off the expected topic. The attacker modifies the fleet's picture rather than reading it: suppressed alarm thresholds, invented readings, altered volumes written on into `store:telemetry-store` as though a device had reported them. This draft is conditional on that flow's `authentication` attribute; it is not a claim that topic authorization is missing.",
+  "description": "`flow:process:mqtt-broker>process:stream-processor>consume-topic` carries `authentication` state `unknown` and crosses from `boundary:ingest` into `boundary:platform`. The publisher side is stated: every device image carries the same client certificate on `flow:entity:sensor-gateway>process:mqtt-broker>publish-telemetry`, so anyone holding one image publishes as any fleet. If the unknown resolves to no check on who may attach to a topic either, `process:stream-processor` treats the arriving payloads as gateway telemetry because they came off the expected topic. The attacker modifies the fleet's picture rather than reading it: suppressed alarm thresholds, invented readings, altered volumes written on into `store:telemetry-store` as though a device had reported them. This draft is conditional on that flow's `authentication` attribute; it is not a claim that topic authorization is missing.",
   "affected_element_ids": [
     "process:mqtt-broker",
     "process:stream-processor",

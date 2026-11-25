@@ -4,7 +4,7 @@ Two drafts against exemplar system A. This is the chapter the System Model answe
 
 ## V12.3.3 — The transfer path to the ledger service runs unencrypted
 
-`none` on an internal crossing between two HTTP-based services — gRPC runs over HTTP/2. The submitter answered, so the ruling is written plainly and cites the `absent:` row rather than the sentence behind it.
+The state `absent` on an internal crossing between two HTTP-based services — gRPC runs over HTTP/2. The submitter answered, so the ruling is written plainly and cites the `absent:` row rather than the sentence behind it.
 
 ```json
 {

@@ -18,7 +18,7 @@ Two systems produce this same model: one that genuinely accepts anonymous reques
 
 The conditional form is what carries both: name the attacker action, name the control whose state is unknown, and let the verdict record the gap. The same move applies to `encryption_at_rest` on a store and to transport protection on a link — anywhere the sentinel appears rather than a stated absence.
 
-Compare a flow whose `authentication` reads `none; the queue is only reachable inside the cluster`. That is a *stated* absence with a stated reason, and a finding against it is confirmed rather than conditional, because the submitter has told you the control is not there.
+Compare a flow whose `authentication` has the state `absent` and the detail "the queue is only reachable inside the cluster". That is a *stated* absence with a stated reason, and a finding against it is confirmed rather than conditional, because the submitter has told you the control is not there.
 
 ## What decided it
 

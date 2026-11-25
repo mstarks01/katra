@@ -4,14 +4,14 @@ Four drafts against the exemplar systems, showing the shape and the reasoning. F
 
 ## Canonical: plaintext transfer traffic between zones
 
-`flow:process:web-api>process:ledger-service>post-transfer` has `encryption_in_transit: none`, appears in the derived crossings (dmz → core), and carries transfer instructions with customer IDs. Stated trigger, stated content, stated crossing.
+`flow:process:web-api>process:ledger-service>post-transfer` has `encryption_in_transit` state `absent`, appears in the derived crossings (dmz → core), and carries transfer instructions with customer IDs. Stated trigger, stated content, stated crossing.
 
 Same path, two lanes: rewriting those messages is tampering, reading them is yours. Write the read harm only, and score it on what is exposed rather than on what could be changed.
 
 ```json
 {
   "title": "Transfer instructions readable on the wire between the web API and the ledger",
-  "description": "`flow:process:web-api>process:ledger-service>post-transfer` carries gRPC transfer instructions — customer identifiers, amounts, destination accounts — from `boundary:dmz` into `boundary:core` with `encryption_in_transit: none`. Anyone able to observe that path (a compromised node in either zone, a misconfigured span port, a sidecar with packet capture) reads the payment activity of every customer in real time, without needing to authenticate to anything. Second-order: the observed identifiers are the inputs the ledger uses against `store:accounts-db`, so a passive observer accumulates the account mapping needed to target specific customers in later attacks.",
+  "description": "`flow:process:web-api>process:ledger-service>post-transfer` carries gRPC transfer instructions — customer identifiers, amounts, destination accounts — from `boundary:dmz` into `boundary:core` with `encryption_in_transit` state `absent`. Anyone able to observe that path (a compromised node in either zone, a misconfigured span port, a sidecar with packet capture) reads the payment activity of every customer in real time, without needing to authenticate to anything. Second-order: the observed identifiers are the inputs the ledger uses against `store:accounts-db`, so a passive observer accumulates the account mapping needed to target specific customers in later attacks.",
   "affected_element_ids": [
     "flow:process:web-api>process:ledger-service>post-transfer",
     "process:web-api",
@@ -84,7 +84,7 @@ Same path, two lanes: rewriting those messages is tampering, reading them is you
 
 ## Unknown-conditional, in system B: unverified encryption at rest, shared tenancy
 
-Written against exemplar system B, and worth comparing with the canonical draft above: the same `encryption_at_rest: unknown` trigger, but the multi-tenant store changes what one copy costs. Note the boundary the skill draws — disk encryption does nothing against an attacker with valid query access, so the conditional threat is about the store's shadow copies.
+Written against exemplar system B, and worth comparing with the canonical draft above: the same `encryption_at_rest` state `unknown` trigger, but the multi-tenant store changes what one copy costs. Note the boundary the skill draws — disk encryption does nothing against an attacker with valid query access, so the conditional threat is about the store's shadow copies.
 
 ```json
 {

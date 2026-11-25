@@ -4,7 +4,7 @@ Three drafts against the exemplar systems, showing the shape and the reasoning. 
 
 ## Canonical: a confused deputy holding standing database authority
 
-`process:ledger-service` accepts instructions over `flow:process:web-api>process:ledger-service>post-transfer` with `authentication: none`, and holds a full read/write credential to `store:accounts-db`. It makes no authorization decision of its own about whose money is being moved, yet it carries authority over everyone's.
+`process:ledger-service` accepts instructions over `flow:process:web-api>process:ledger-service>post-transfer` with `authentication` state `absent`, and holds a full read/write credential to `store:accounts-db`. It makes no authorization decision of its own about whose money is being moved, yet it carries authority over everyone's.
 
 Lane contrast: being accepted *as* the web API is spoofing. Directing an honest, over-privileged service to use authority the caller does not have is yours.
 
@@ -15,7 +15,7 @@ Two verbs, and the fix decides between them: narrow a grant and it is `abuse-gra
 ```json
 {
   "title": "The ledger service lends its full database authority to any caller",
-  "description": "`process:ledger-service` performs transfers using the standing full read/write credential on `flow:process:ledger-service>store:accounts-db>read-write-balances`, and takes its instructions from `flow:process:web-api>process:ledger-service>post-transfer`, which carries `authentication: none`. Nothing binds an instruction to an authorized customer at the point authority is exercised: the caller supplies the account identifiers and the ledger acts on them with its own privilege, the classic confused deputy. An attacker who can reach the ledger moves funds between arbitrary accounts — horizontal escalation across the entire customer base — without ever holding a customer credential. Second-order: the same standing authority covers all rows of `store:accounts-db`, so any code-execution flaw in this process inherits it wholesale.",
+  "description": "`process:ledger-service` performs transfers using the standing full read/write credential on `flow:process:ledger-service>store:accounts-db>read-write-balances`, and takes its instructions from `flow:process:web-api>process:ledger-service>post-transfer`, which carries `authentication` state `absent`. Nothing binds an instruction to an authorized customer at the point authority is exercised: the caller supplies the account identifiers and the ledger acts on them with its own privilege, the classic confused deputy. An attacker who can reach the ledger moves funds between arbitrary accounts — horizontal escalation across the entire customer base — without ever holding a customer credential. Second-order: the same standing authority covers all rows of `store:accounts-db`, so any code-execution flaw in this process inherits it wholesale.",
   "affected_element_ids": [
     "process:ledger-service",
     "flow:process:ledger-service>store:accounts-db>read-write-balances",
@@ -104,7 +104,7 @@ Written against exemplar system B. Elevation does not need a privilege bug when 
 ```json
 {
   "title": "Direct transfer authority if the ledger service is reachable beyond the core zone",
-  "description": "`process:ledger-service` has `exposure: unknown`, and it accepts transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer` from `process:web-api` with `authentication: none`. If that unknown resolves to reachability beyond `boundary:core` — a load balancer, a peered network, a management interface — then a position outside the core zone reaches the transfer surface directly, without a dmz foothold and without any prior compromise: the attacker's position does not carry transfer authority, and the crossing hands it over on reachability alone. What the ledger then does with its own database authority is E-01's finding, not this one. This draft is conditional on the `exposure` attribute of `process:ledger-service`; it is not a claim that the process is externally reachable.",
+  "description": "`process:ledger-service` has `exposure: unknown`, and it accepts transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer` from `process:web-api` with `authentication` state `absent`. If that unknown resolves to reachability beyond `boundary:core` — a load balancer, a peered network, a management interface — then a position outside the core zone reaches the transfer surface directly, without a dmz foothold and without any prior compromise: the attacker's position does not carry transfer authority, and the crossing hands it over on reachability alone. What the ledger then does with its own database authority is E-01's finding, not this one. This draft is conditional on the `exposure` attribute of `process:ledger-service`; it is not a claim that the process is externally reachable.",
   "affected_element_ids": [
     "process:web-api",
     "flow:process:web-api>process:ledger-service>post-transfer",

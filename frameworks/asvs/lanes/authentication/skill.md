@@ -91,9 +91,9 @@ Read the model's `DataFlow.authentication` values, its `ExternalEntity` kinds, a
 
 The recurring ways this chapter's requirements go unanswered in a system description. Each names what to look for; none is a finding on its own.
 
-**Authentication is named without its mechanism.** `authentication: unknown` on a flow from a human entity puts every requirement in this chapter into needs-info at once. Rule them one at a time and name the same attribute in each.
+**Authentication is named without its mechanism.** `authentication` state `unknown` on a flow from a human entity puts every requirement in this chapter into needs-info at once. Rule them one at a time and name the same attribute in each.
 **A password is named and its rules are not.** Minimum length, breach screening, storage algorithm and rotation policy are separate requirements. The input almost never carries any of them, and each is its own ruling.
-**Multi-factor is stated as absent.** `none` is the submitter answering the question. Write that ruling plainly rather than conditionally.
+**Multi-factor is stated as absent.** The state `absent` is the submitter answering the question. Write that ruling plainly rather than conditionally.
 **No password anywhere.** A service authenticating only with mutual TLS or a federated token rules out the password requirements. Name the mechanism the model states, and rule them out on it.
 **Recovery and lifecycle go unmentioned.** Password reset, account recovery and credential change are requirements here even where the input describes only the login path.
 
