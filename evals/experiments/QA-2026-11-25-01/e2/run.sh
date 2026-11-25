@@ -1,7 +1,7 @@
 #!/bin/bash
 # The -E2 lane replays: 2 lanes x 2 arms x 3 passes on the changed model of
 # case 01, alternating the arms. It stops before a call that could take the
-# spend past CAP, the amount of grants/QA-2026-11-25-01.jsonl.
+# spend past CAP, a cap in USD.
 #
 #   run.sh CONTROL_WORKTREE TREATMENT_WORKTREE OUT_DIR CAP
 #
