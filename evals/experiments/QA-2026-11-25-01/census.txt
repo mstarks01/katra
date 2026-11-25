@@ -1,3 +1,4 @@
+== archive
 read: 302
 no assertion pass: 250
 refused: 7
@@ -5,7 +6,9 @@ rows: 943
 hidden qualifications: 0
 held-open entries: 0
 dropped absences: 0
-catalog entries with rows: {'unknown-attribute': 959, 'derived-fact': 172, 'assertion': 385, 'unknown-assertion': 52, 'absent-attribute': 45}
-cases with signed facts: 18
-dropped absences on the signed arm: 0
-held-open entries on the signed arm: 0
+== signed
+cases: 18
+rows: 368
+hidden qualifications: 0
+held-open entries: 0
+dropped absences: 0

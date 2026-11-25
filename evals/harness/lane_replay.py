@@ -28,12 +28,13 @@ tries its instruction this way, so both of its arms read the same prompt files.
 **Today's ``prepare``, on request.** ``--prepare-today`` builds the lane's whole
 request from the case instead of from a sweep: the real ``prepare`` node runs
 offline over the case's blessed model, with no catalog or with the case's
-signed facts as the assertion proposal. ``--system-model`` puts a built input
-in place of the blessed model: the same elements, other attribute values. The two arms differ only in that
+signed facts as the assertion proposal. The two arms differ only in that
 catalog, so a pair of replays measures what ``KATRA_ASSERTIONS`` can give a
 lane when its pass writes exactly the signed rows (#1231). The lane's drafts
 are then scored by :func:`~evals.harness.descendants.lane_must_finds`, for the
-package that scores drafts by an action and a place.
+package that scores drafts by an action and a place. ``--system-model`` puts a
+built input in place of the blessed model: the same elements, other attribute
+values.
 """
 
 from __future__ import annotations
