@@ -2810,14 +2810,16 @@ class FrameworkAnalysis(BaseModel):
         return (*self.claims, *self.rejected_claims)
 
     def re_ask_kinds(self, claim_id: str) -> tuple[UnreconciledKind, ...]:
-        """Which problems the *first* critic pass recorded against one claim.
+        """Which problems the bounded re-ask met for one claim.
 
         Empty for a claim the first pass ruled cleanly, which is the common
         case. A kind code settled without a re-ask
-        (:data:`SETTLED_UNRECONCILED_KINDS`) does not count. A non-empty answer says the ruling this block carries came out of
-        the bounded re-ask, and names what the first pass got wrong — which is
-        the difference between a rejection the critic argued for and one that
-        arrived after a repair.
+        (:data:`SETTLED_UNRECONCILED_KINDS`) does not count. A non-empty
+        answer says the ruling this block carries came out of the bounded
+        re-ask, and names what went wrong: a problem the first pass left, or
+        a change the re-ask made that no problem named (``unbriefed-change``).
+        That is the difference between a rejection the critic argued for and
+        one that arrived after a repair.
 
         **The one reader of that join.** Both loss instruments under ``evals/``
         ask it, keyed by the claim ID each already holds, so neither grows its

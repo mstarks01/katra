@@ -798,9 +798,9 @@ def review_issues(
     verdict, and each ``needs-info`` naming only unknowns the model actually
     contains. A ruling on an ID no lane drafted, and a ruling that repeats an
     earlier one word for word once completed, are dropped by
-    :func:`settle_in_code`, and its marks ride on the result as ``settled``. It reads the rulings after
-    :func:`complete_rulings`, so the status each one reads is the one code
-    decides.
+    :func:`settle_in_code`, and its marks ride on the result as ``settled``.
+    It reads the rulings after :func:`complete_rulings`, so the status each
+    one reads is the one code decides.
 
     **Verdict shape is checked here rather than by the schema**, and that is
     the reason this function is worth reading twice. The rules are conditional
