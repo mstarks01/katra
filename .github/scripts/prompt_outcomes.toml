@@ -179,10 +179,9 @@ check = "a_repeated_requirement_keeps_the_first_draft_and_drops_the_rest"
 [[outcome]]
 prompt = "frameworks/stride/severity_rubric.md"
 sentence = """The severity band (`low | medium | high | critical`) is **derived
-mechanically from the matrix below — never assert a band yourself**; a stated
-band that contradicts the matrix is a validation error."""
+mechanically from the matrix below**, so you rate only the two inputs."""
 modules = ["src/katra/claims.py"]
-check = "a_stated_band_that_contradicts_the_matrix_is_refused"
+check = "the_band_is_derived_from_the_matrix"
 
 [[outcome]]
 prompt = "frameworks/asvs/lanes/security-logging-and-error-handling/skill.md"

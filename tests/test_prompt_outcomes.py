@@ -423,13 +423,11 @@ def a_repeated_requirement_keeps_the_first_draft_and_drops_the_rest():
 
 
 @decides
-def a_stated_band_that_contradicts_the_matrix_is_refused():
-    with pytest.raises(ValidationError, match="contradicts the matrix"):
-        Severity(likelihood="high", impact="high", level="low", justification="j")
-
+def the_band_is_derived_from_the_matrix():
     assert Severity(likelihood="high", impact="high", justification="j").level == (
         "critical"
     )
+    assert "level" not in Severity.model_json_schema()["properties"]
 
 
 @decides
