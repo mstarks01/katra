@@ -221,8 +221,8 @@ def compose_assert_prompt(loader: MarkdownLoader) -> str:
     return "\n\n".join(part.strip() for part in parts) + "\n"
 
 
-#: The state key the job's capability table is rendered into. The reader's
-#: prompt templates it last, so the body before it stays one cacheable prefix.
+#: The state key the job's capability table is rendered into, and that the
+#: reader's prompt templates after its body.
 CAPABILITY_TABLE_KEY = "capability_table"
 
 

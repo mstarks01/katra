@@ -3135,7 +3135,8 @@ def snap_subject(
     element a proposed row *would* bind to without resolving the whole
     proposal — the binding replay asks it of the blessed model to name the
     element an extracted graph refused. One reader: it calls what
-    :func:`_resolve` calls.
+    :func:`_resolve` calls, and a caller passes the type
+    :func:`subject_type_of` reads, as the resolver does.
     """
     element_ids = [element.id for element in model.elements()]
     labels = {element.id: element.name for element in model.elements()}

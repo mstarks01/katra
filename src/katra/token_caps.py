@@ -162,9 +162,10 @@ TOKEN_CAPS: dict[str, int] = {
     # 8 of 23 signed rows in every run, and the 13 it never found all sat on
     # such a subject.
     "prompts/assert": 2000,
-    # The capability reader's body alone. The capability table beside it is
-    # rendered from `capabilities.CAPABILITIES`, so a capability added
-    # tomorrow moves the composed instruction and never this file.
+    # The capability reader's body alone. The capability table is rendered
+    # from `capabilities.CAPABILITIES` into state for each job, so a
+    # capability added tomorrow moves the instruction digest, which expands
+    # the table whole, and never this file.
     #
     # Rules 6 to 8 say that a vendor's hosted product is not the application,
     # that `database` needs a named query language or technology, and that

@@ -3578,9 +3578,22 @@ def instruction_digest(llm_nodes: Sequence[LlmAgent]) -> str:
     the new ones. The digest gates certification (#504): a run on edited
     prompts is not the run a deployment sanctioned, so it does not report as
     certified.
+
+    **A repo-authored table a job renders is digested whole.** The capability
+    reader's table is a ``{capability_table}`` placeholder, because a job
+    leaves out what its statements already answer. Its rows are still
+    repo-authored text, so the digest expands the placeholder with every row:
+    an edit to a capability's meaning moves the hash, and the hashed text is
+    the one the instruction carried before the table moved to state.
     """
+    full_table = render_capabilities(CAPABILITIES.keys())
     payload = json.dumps(
-        {node.name: node.instruction for node in llm_nodes},
+        {
+            node.name: str(node.instruction).replace(
+                f"{{{STATE_CAPABILITY_TABLE}}}", full_table
+            )
+            for node in llm_nodes
+        },
         sort_keys=True,
         separators=(",", ":"),
     )
