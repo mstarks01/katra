@@ -14,6 +14,7 @@ from typing import get_args
 import pytest
 from pydantic import BaseModel, ValidationError
 
+from katra.analysis import held_state
 from katra.assertions import (
     _QUALIFIED_BECAUSE,
     ABSENT,
@@ -39,6 +40,7 @@ from katra.assertions import (
     Basis,
     CatalogIssueCode,
     CatalogProposal,
+    Projection,
     ProjectionReason,
     Qualifier,
     QualifierKind,
@@ -56,11 +58,13 @@ from katra.assertions import (
     contradiction_issues,
     contradictions,
     disputed,
+    graph_value,
     identity_parts,
     offered,
     project,
     projected_attribute,
     projection_fields,
+    qualified,
     quarantine,
     read_assertion_id,
     referent_type,
@@ -76,6 +80,7 @@ from katra.evidence import evidence_catalog, unknown_evidence_ref
 from katra.sources import ANSWERS_LABEL
 from katra.system_model import (
     ABSENT_WORD,
+    CONTROL_VALUE_MAX_CHARS,
     EXCERPT_MAX_CHARS,
     UNKNOWN,
     CapabilityStatement,
@@ -2168,6 +2173,33 @@ class TestTheProjectionBecomesTheGraphsValue:
         assert control_text(self._flow(updated).authentication) == ABSENT_WORD
         assert [entry.reason for entry in applied] == ["absent"]
 
+    @pytest.mark.parametrize(
+        ("value", "state", "detail"),
+        [
+            (
+                "none; accepted by network position",
+                "absent",
+                "accepted by network position",
+            ),
+            ("None", "absent", ""),
+            ("Unknown", "unknown", ""),
+            ("unknown; not sure", "unknown", "not sure"),
+        ],
+    )
+    def test_a_row_value_reaches_a_control_by_the_first_word_rule(
+        self, value, state, detail
+    ):
+        """The projection reads a row's text through ``control_from_text``, as
+        an answer and an archived field are read, so a sentinel with a reason
+        or in capitals is never a stated mechanism."""
+        assert graph_value("authentication", value) == ElementControl(
+            state=state, detail=detail
+        )
+        updated, _ = apply_projection(self.model(), self.catalog_of(value))
+
+        assert held_state(self._flow(updated).authentication) != "stated"
+        assert graph_value("exposure", value) == value
+
     def test_a_compatible_projection_leaves_the_attribute_alone(self):
         """Two predicates on one attribute that both hold: one string cannot
         carry both, and the graph's own value contradicts neither."""
@@ -2646,3 +2678,22 @@ def test_a_row_quote_two_sources_hold_finds_no_span_under_a_wrong_label():
     )
 
     assert record.catalog.entries == []
+
+
+@pytest.mark.parametrize("attribute", ["authentication", "data_classification"])
+def test_a_qualified_unknown_fills_its_own_bound(attribute):
+    """A control's reason is its ``detail``, so the bound cuts the reason, and a
+    text field's bound cuts the sentinel and the reason together."""
+    projection = Projection(
+        element_id=FLOW,
+        attribute=attribute,
+        value=UNKNOWN,
+        reason="unsupported",
+        rows=(),
+    )
+    written = qualified(projection, [], {}, because="x" * 300)
+
+    text = written.detail if isinstance(written, ElementControl) else written
+    assert len(text) == CONTROL_VALUE_MAX_CHARS
+    assert text.endswith("…")
+    assert isinstance(written, ElementControl) == (attribute == "authentication")

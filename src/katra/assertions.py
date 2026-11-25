@@ -109,6 +109,7 @@ from katra.system_model import (
     SystemModel,
     TrustBoundary,
     ZonedElement,
+    control_from_text,
     element_prefix,
     make_element_id,
     normalize_name,
@@ -3941,32 +3942,35 @@ def qualified(
         scope = ", ".join(f"{q.kind} {q.value}" for q in entry.scope)
         stated.append(f"{value} ({scope})" if scope else value)
     said = "; ".join(dict.fromkeys(stated))
-    text = f"{UNKNOWN}; {because or _QUALIFIED_BECAUSE[projection.reason]}" + (
+    reason = f"{because or _QUALIFIED_BECAUSE[projection.reason]}" + (
         f": {said}" if said else ""
     )
-    if len(text) > CONTROL_VALUE_MAX_CHARS:
-        text = text[: CONTROL_VALUE_MAX_CHARS - 1] + "…"
     if projection.attribute in CONTROL_FIELDS:
-        return ElementControl(state="unknown", detail=text[len(f"{UNKNOWN}; ") :])
-    return text
+        return ElementControl(state="unknown", detail=_cut(reason))
+    return _cut(f"{UNKNOWN}; {reason}")
+
+
+def _cut(text: str) -> str:
+    """``text`` cut to :data:`~katra.system_model.CONTROL_VALUE_MAX_CHARS`,
+    with an ellipsis where the cut drops words."""
+    if len(text) <= CONTROL_VALUE_MAX_CHARS:
+        return text
+    return text[: CONTROL_VALUE_MAX_CHARS - 1] + "…"
 
 
 def graph_value(attribute: str, value: str) -> str | ElementControl:
     """``value`` as the graph field ``attribute`` holds it.
 
     A text field holds ``value`` as it is. A control field holds an
-    :class:`~katra.system_model.ElementControl`, read from the catalog's own
-    spelling by exact match: :data:`~katra.system_model.ABSENT_WORD` is an
-    absent control, :data:`~katra.system_model.UNKNOWN` is an unknown one, and
-    any other value is the mechanism of a stated one.
+    :class:`~katra.system_model.ElementControl`, which
+    :func:`~katra.system_model.control_from_text` reads from the row's text by
+    the first-word rule: :data:`~katra.system_model.ABSENT_WORD` is an absent
+    control, :data:`~katra.system_model.UNKNOWN` an unknown one, each with any
+    reason after it, and any other value is the mechanism of a stated one.
     """
     if attribute not in CONTROL_FIELDS:
         return value
-    if value == ABSENT_WORD:
-        return ElementControl(state="absent")
-    if value == UNKNOWN:
-        return ElementControl(state="unknown")
-    return ElementControl(state="stated", detail=value)
+    return control_from_text(value)
 
 
 def _value_state(attribute: str, value: str) -> ControlState:
