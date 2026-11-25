@@ -695,11 +695,13 @@ def test_a_flow_that_never_said_no_longer_holds_a_decided_model_open():
         (("unknown", "AMQP"), "undecidable"),
         (("unknown; the team never said", "AMQP"), "undecidable"),
         (("none", "AMQP"), "undecidable"),
-        (("unknownish binary framing", "AMQP"), "refuted"),
-        (("AMQP", "SFTP"), "refuted"),
+        (("unknownish binary framing", "AMQP"), "undecidable"),
+        (("AMQP", "SFTP"), "undecidable"),
+        (("h2", "connect-rpc"), "undecidable"),
+        (("MQTT", "SFTP"), "undecidable"),
         (("HTTPS", "SFTP"), "satisfied"),
         (("RESTful JSON", "SFTP"), "satisfied"),
-        (("TCP, firewall-restricted port", "SFTP"), "refuted"),
+        (("TCP, firewall-restricted port", "SFTP"), "undecidable"),
         (("AMQP, not HTTP", "SFTP"), "undecidable"),
         (("MQTT without HTTP", "SFTP"), "undecidable"),
         (("HTTPS, not HTTP/2", "SFTP"), "undecidable"),
@@ -709,18 +711,15 @@ def test_a_flow_that_never_said_no_longer_holds_a_decided_model_open():
 def test_a_model_with_no_processes_is_answered_by_its_flows(protocols, expected):
     """The fallback, for a model carrying no **Process** to ask.
 
-    Silence is ``undecidable`` and a stated non-web protocol is ``refuted``. The
-    two are never collapsed, because the remedy differs: one says do not name
-    this framework for this system, the other says the input did not say. A blank
-    protocol reaches a **Valid System Model** — the gate sets no minimum length —
-    and reading it as a stated non-web protocol would tell an operator to drop
-    ASVS when what they need is to submit more.
+    The web word list can only say yes (ADR 0027, ADR 0135). A flow that speaks
+    a listed web protocol satisfies the precondition. Every other protocol gives
+    ``undecidable``: a silent one, a stated non-web one, and a web protocol that
+    the list does not hold, such as ``h2`` or ``connect-rpc``. Only a process
+    that states a non-web interface gives ``refuted``.
 
-    ``unknownish binary framing`` is a stated protocol on purpose: the leading
-    token is read as a *word*, which is the rule every other reader of an
-    attribute in this repo already applies. A web term is a word too, so
-    "restricted" is not REST. A web term beside a negation is open: "AMQP, not
-    HTTP" and "HTTPS, not HTTP/2" read the same to a word match.
+    A web term matches as a word, so "restricted" is not REST. A web term beside
+    a negation does not satisfy: "AMQP, not HTTP" and "HTTPS, not HTTP/2" read
+    the same to a word match.
     """
     model = valid_model()
     flows = [
@@ -735,19 +734,29 @@ def test_a_model_with_no_processes_is_answered_by_its_flows(protocols, expected)
     assert answer == expected
 
 
-def test_a_negated_web_protocol_is_asked():
-    """The facts ask the flow that holds the precondition open."""
+@pytest.mark.parametrize(
+    "protocols",
+    [
+        ("h2", "connect-rpc"),
+        ("MQTT", "SFTP"),
+        ("AMQP, not HTTP", "unknown"),
+    ],
+)
+def test_the_facts_name_each_flow_that_does_not_speak_web(protocols):
+    """The facts ask each flow that holds the precondition open.
+
+    With no process, a flow that does not speak a listed web protocol holds
+    the answer open, so the facts name it.
+    """
     model = valid_model()
     flows = [
         flow.model_copy(update={"protocol": protocol})
-        for flow, protocol in zip(
-            model.data_flows, ("AMQP, not HTTP", "SFTP"), strict=True
-        )
+        for flow, protocol in zip(model.data_flows, protocols, strict=True)
     ]
     open_model = model.model_copy(update={"processes": [], "data_flows": flows})
 
-    assert rules.asvs_precondition_facts(open_model) == (
-        UnknownRef(element_id=flows[0].id, attribute="protocol"),
+    assert rules.asvs_precondition_facts(open_model) == tuple(
+        UnknownRef(element_id=flow.id, attribute="protocol") for flow in flows
     )
 
 

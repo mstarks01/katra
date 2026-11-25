@@ -2827,15 +2827,10 @@ ONE_READERS: dict[str, _OneReader] = {
         },
         "",
     ),
-    "an open protocol for a web precondition": _OneReader(
-        lambda node: _calls(node, "states_a_protocol"),
-        ("src/katra/frameworks/asvs/rules.py", "_protocol_unsettled"),
-        {
-            ("evals/harness/alignment.py", "protocol_state"): (
-                "it reduces a protocol to stated or silent for the scorer, and"
-                " asks no precondition"
-            ),
-        },
+    "a web protocol for a web precondition": _OneReader(
+        lambda node: _loads(node, "WEB_PROTOCOL_TERMS"),
+        ("src/katra/frameworks/asvs/rules.py", "_speaks_web"),
+        {},
         "",
     ),
     "whether a resumed job locks its parent": _OneReader(

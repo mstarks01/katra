@@ -2752,8 +2752,8 @@ def test_the_two_refusing_states_state_different_reasons(monkeypatch):
 # --- Two frameworks, one of them refused -------------------------------------
 #
 # The tests above swap STRIDE's precondition for one that can refuse. These run
-# the real pair: ASVS refuses a system whose flows carry no web protocol, STRIDE's is
-# total, and one job asks for both.
+# the real pair: ASVS refuses a system whose processes all present a non-web
+# interface, STRIDE's is total, and one job asks for both.
 
 BOTH: tuple[FrameworkName, ...] = ("asvs", "stride")
 BOTH_KEYS = graph.GraphKeys.of(BOTH)
@@ -2769,8 +2769,8 @@ def non_web_model():
 
     Every ``interface_kind`` is *stated*, which is what makes ASVS answer
     ``refuted`` rather than ``undecidable``: the input said, and what it said was
-    not a web application. The flows are given a stated non-web protocol too, so
-    the model is decided whichever half of the precondition reads it.
+    not a web application. The flows state a non-web protocol too, so no
+    part of the model says web.
     """
     model = valid_model()
     return model.model_copy(
