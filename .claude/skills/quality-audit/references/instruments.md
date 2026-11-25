@@ -62,7 +62,10 @@ what the lane was shown. The material is the run's and the prompt files are
 this checkout's, and the command prints both commits. To compare a lane with and without the assertion catalog, use
 `lane-replay --case <case> --framework stride --lane <lane> --prepare-today none|signed --accept-cost unknown`
 with no artifact: it runs today's `prepare` offline, so the two arms differ only in the
-catalog, and it prints the must-finds the lane's drafts match.
+catalog, and it prints the must-finds the lane's drafts match. Add
+`--system-model <file>` to put a built input in place of the case's blessed
+model: the file passes the live validity gate, and it holds the blessed model's
+element IDs.
 
 `python -m evals.harness.run recritic-replay <artifact> --case <case> --framework <package> --faults <file> --draft <id> --fault <shape> --accept-cost unknown`
 costs one re-ask call. It reads the case's critic first pass from its report,

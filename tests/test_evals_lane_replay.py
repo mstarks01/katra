@@ -75,6 +75,10 @@ def replay_args(**given) -> argparse.Namespace:
     return argparse.Namespace(**{**vars(defaults), **given})
 
 
+def _no_call(*args, **kwargs):
+    raise AssertionError("the command reached the paid call")
+
+
 def record_requests(monkeypatch) -> list[tuple[str, list]]:
     """Every request the scripted model is sent from now on, as it was sent."""
     seen: list[tuple[str, list]] = []
@@ -228,10 +232,7 @@ def test_the_command_refuses_a_failed_case_before_the_call(
     out, _ = recorded
     write_emission_sweep(out, "analysis", [case.id], failed=[case.id])
 
-    def no_call(*args, **kwargs):
-        raise AssertionError("the command reached the paid call")
-
-    monkeypatch.setattr(lane_replay, "node_call", no_call)
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
     args = replay_args(artifact=out, case=case.id)
 
     assert lane_replay.command_lane_replay(args) == 1
@@ -313,10 +314,6 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
         digests[str(path)] == hashlib.sha256(path.read_bytes()).hexdigest()
         for path in named
     )
-
-
-def _no_call(*args, **kwargs):
-    raise AssertionError("the command reached the paid call")
 
 
 def test_a_built_model_replaces_the_blessed_one(

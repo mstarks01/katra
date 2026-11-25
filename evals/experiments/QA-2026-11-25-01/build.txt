@@ -7,5 +7,4 @@
 == signed, counted
 rows: 25
 hidden qualifications: 0
-held-open entries: 0
 dropped absences: 2

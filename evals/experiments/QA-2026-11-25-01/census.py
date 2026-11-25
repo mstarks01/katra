@@ -21,22 +21,18 @@ from evals.harness.lane_replay import prepare_today
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, load_case
 from katra.assertions import AssertionCatalog, hidden_qualifications
-from katra.evidence import evidence_catalog, held_value
+from katra.evidence import evidence_catalog
 from katra.graph import held_assertions
 from katra.open_facts import prepared_model
-from katra.system_model import ModelIndex, SystemModel
+from katra.system_model import SystemModel
 
 
 def count(model: SystemModel, rows: AssertionCatalog, counts: Counter[str]) -> None:
-    """Add one catalog's held-open entries and dropped absences to ``counts``."""
-    index = ModelIndex.of(model)
+    """Add one catalog's hidden qualifications and dropped absences to ``counts``."""
     bare = evidence_catalog(model)
     full = evidence_catalog(model, rows)
     counts["rows"] += len(rows.entries)
     counts["hidden qualifications"] += len(hidden_qualifications(rows, model))
-    counts["held-open entries"] += sum(
-        held_value(ground, index) is not None for ground in full.values()
-    )
     counts["dropped absences"] += sum(
         ground.kind == "absent-attribute" and ref not in full
         for ref, ground in bare.items()

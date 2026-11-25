@@ -36,21 +36,22 @@ OUT = Path(__file__).with_name("case01-built-model.json")
 
 
 def main() -> None:
-    model = load_case(REPO_ROOT / DEFAULT_CORPUS / CASE).model.model_copy(deep=True)
+    case = load_case(REPO_ROOT / DEFAULT_CORPUS / CASE)
+    model = case.model.model_copy(deep=True)
     elements = {element.id: element for element in model.elements()}
     for element_id, attribute in BUILT:
         setattr(elements[element_id], attribute, ElementControl(state="absent"))
     OUT.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    case = built_input(load_case(REPO_ROOT / DEFAULT_CORPUS / CASE), OUT)
-    for arm in ("none", "signed"):
-        material = json.dumps(prepare_today(case, "stride", arm).material)
-        lines = material.replace("\\n", "\n").split("\n")
+    case = built_input(case, OUT)
+    prepared = {arm: prepare_today(case, "stride", arm) for arm in ("none", "signed")}
+    for arm, today in prepared.items():
+        lines = json.dumps(today.material).replace("\\n", "\n").split("\n")
         print(f"== {arm}")
         for line in sorted(set(lines)):
             about = "receipt-archive" in line and "encryption" in line
             if line.startswith("|") and about:
                 print(line)
-    rows = held_assertions(prepare_today(case, "stride", "signed").state)
+    rows = held_assertions(prepared["signed"].state)
     counts: Counter[str] = Counter()
     count(prepared_model(case.model, rows), rows, counts)
     print("== signed, counted")
