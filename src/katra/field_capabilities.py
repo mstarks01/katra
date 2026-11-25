@@ -55,7 +55,9 @@ XML_NAMES = ("soap", "xmpp")
 #: The asset tags whose disclosure is a loss, less ``business-critical-data``:
 #: extraction adds that tag where a reference has none more than any other
 #: (``QA-2026-10-12-01-E10``), so a row that read it would state a capability
-#: on the weakest evidence the model holds.
+#: on the weakest evidence the model holds. The tier a store's tags settle
+#: (:mod:`katra.tag_classification`) reads the same set for the same reason,
+#: and because ``extract.md``'s ``confidential`` names the other five.
 SENSITIVE_TAGS = SENSITIVE_ASSET_TAGS - {"business-critical-data"}
 #: The two tags that name secrets.
 SECRET_TAGS = frozenset({"credentials", "secrets"})

@@ -510,6 +510,29 @@ class TestCitationsResolve:
         assert model is not None
         assert "invalid-reference" in codes(issues)
 
+    def test_a_quote_two_sources_hold_keeps_its_own_label(self):
+        """Where several sources hold the quote, the model's label decides."""
+        sources = {**self.SOURCES, "Payments doc": "Ana: a quote, and nightly."}
+        model, issues = parse_and_validate(
+            self.model_citing("Nowhere", "Ana: a quote").model_dump(mode="json"),
+            normalize_ids=True,
+            sources=sources,
+        )
+        assert model is not None
+        assert model.processes[0].source_label == "Nowhere"
+        assert "invalid-reference" in codes(issues)
+
+    def test_the_answers_source_is_never_chosen(self):
+        sources = {**self.SOURCES, ANSWERS_LABEL: "Is it encrypted? the vault key"}
+        model, issues = parse_and_validate(
+            self.model_citing("Nowhere", "the vault key").model_dump(mode="json"),
+            normalize_ids=True,
+            sources=sources,
+        )
+        assert model is not None
+        assert model.processes[0].source_label == "Nowhere"
+        assert "invalid-reference" in codes(issues)
+
     def test_a_quote_under_the_wrong_label_takes_the_source_that_holds_it(self):
         """The label is a fact code can find (#2367): one source holds the
         quote, so that source is the one quoted."""

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from katra.graph import after_gate
 from katra.tag_classification import with_tag_classification
+from katra.validation import validate
 from tests.factories import valid_model
 
 
@@ -43,7 +44,8 @@ def test_a_tier_the_model_states_is_never_touched():
     assert not [a for a in model.assumptions if a.attribute == "data_classification"]
 
 
-def test_the_gate_writes_it():
+def test_the_gate_writes_it_and_the_model_still_validates():
     model = after_gate(_with_store(data_classification="unknown", assets=["health"]))
 
     assert model.data_stores[0].data_classification == "confidential"
+    assert validate(model) == []

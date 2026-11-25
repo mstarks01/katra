@@ -15,8 +15,9 @@ basis, and a tier the model already states is never touched.
 
 from __future__ import annotations
 
+from katra.analysis import control_state
 from katra.field_capabilities import SENSITIVE_TAGS
-from katra.system_model import UNKNOWN, Assumption, SystemModel
+from katra.system_model import Assumption, SystemModel
 
 
 def with_tag_classification(model: SystemModel) -> SystemModel:
@@ -25,7 +26,7 @@ def with_tag_classification(model: SystemModel) -> SystemModel:
     updated = model.model_copy(deep=True)
     for store in updated.data_stores:
         tags = sorted(set(store.assets) & SENSITIVE_TAGS)
-        if store.data_classification != UNKNOWN or not tags:
+        if control_state(store.data_classification) != "unverified" or not tags:
             continue
         store.data_classification = "confidential"
         updated.assumptions.append(

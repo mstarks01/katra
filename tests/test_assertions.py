@@ -2609,3 +2609,23 @@ def test_a_row_quote_under_the_wrong_label_takes_the_source_that_holds_it():
     assert issues == []
     [entry] = held.entries
     assert {span.source_label for span in entry.support} == {SOURCE_LABEL}
+
+
+def test_a_row_quote_two_sources_hold_finds_no_span_under_a_wrong_label():
+    """Where several sources hold the quote, code cannot say which one."""
+    proposing = TestResolvingAProposal()
+    row = proposing.row(
+        quotes=[
+            QuoteProposal(
+                source_label="A call nobody held",
+                quote="sign in with email and password",
+            )
+        ]
+    )
+    sources = {**SOURCES, "Second copy": SOURCE}
+
+    record = AssertionRecord.of(
+        CatalogProposal(assertions=[row]), proposing.model(), sources
+    )
+
+    assert record.catalog.entries == []

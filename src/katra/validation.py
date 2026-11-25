@@ -793,7 +793,9 @@ def repair_excerpts(model: SystemModel, sources: Mapping[str, str]) -> SystemMod
 
     Run only on a model that arrived from a model, after
     :func:`~katra.system_model.normalize_element_ids` has snapped
-    each label to the job's spelling. An authored model is never rewritten, and
+    each label to the job's spelling. Each element's label is first set to the
+    one submitted source that holds its excerpt where its own does not
+    (:func:`_relabelled`, #2367); like a label snap, that leaves no record. An authored model is never rewritten, and
     a quote of the answers Source is the gate's to refuse. The scans of one
     call share :func:`~katra.grounding.repair_deadline`.
     """
@@ -851,7 +853,8 @@ def parse_and_validate(
     reported, because there the two disagreeing fields are an authoring error
     a human should see rather than a slug to canonicalize. It carries the same
     decision for an element's ``source_label``, which that pass snaps to the
-    job's own spelling, and for an asset tag that spells "no tag", which it
+    job's own spelling and sets to the one submitted source that holds the
+    excerpt where its own does not, and for an asset tag that spells "no tag", which it
     drops: same flag, same reason, so a model arriving from a model has one
     policy about its spellings rather than two.
 

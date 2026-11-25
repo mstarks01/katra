@@ -71,6 +71,7 @@ from katra.analysis import ABSENT_WORD, ControlAttribute, control_state
 from katra.grounding import (
     IndexedSource,
     fragments,
+    holding_label,
     index_source,
     keeps_text,
     locate_quote,
@@ -3194,14 +3195,12 @@ def _spans(
     found = spans_for(quote.quote, source) if source is not None else ()
     if found:
         return found
-    held = [
-        spans
-        for other in prepared.values()
-        if other is not None and other is not source
-        for spans in [spans_for(quote.quote, other)]
-        if spans
-    ]
-    return held[0] if len(held) == 1 else ()
+    holder = holding_label(
+        quote.quote,
+        {label: held.indexed.haystack for label, held in prepared.items() if held},
+    )
+    held = prepared.get(holder) if holder else None
+    return spans_for(quote.quote, held) if held is not None else ()
 
 
 #: Which of two rows of one identity stands when their bases differ, lowest

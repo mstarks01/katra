@@ -68,6 +68,15 @@ class TestTheChecks:
         row = _row("authentication", "customers sign in with a passkey")
         assert "authentication" not in _stated(row)
 
+    def test_a_row_two_sources_hold_keeps_its_own_label(self):
+        sources = {**SOURCES, "Kickoff call": "Customers log in, Ana said."}
+        row = _row("authentication", "Customers log in", "Kickoff call")
+        updated = with_stated_capabilities(
+            valid_model(), CapabilityReading(capabilities=[row]), sources
+        )
+        stated = {s.capability: s for s in updated.capabilities}
+        assert stated["authentication"].source_label == "Kickoff call"
+
     def test_a_row_under_the_wrong_label_takes_the_source_that_holds_it(self):
         """The label is a fact code can find (#2367)."""
         row = _row("authentication", "Customers log in", "Kickoff call")
