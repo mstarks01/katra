@@ -1,0 +1,17 @@
+row,arm,lane,pass,cites_dropped_absence,evidence_refs
+1,control,information-disclosure,3,False,assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b
+2,control,information-disclosure,1,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+3,treatment,information-disclosure,2,False,assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b unknown:flow:process:order-service>store:receipt-archive>append-receipt:protocol
+4,treatment,tampering,1,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+5,treatment,information-disclosure,2,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b unknown:store:receipt-archive:data_classification
+6,treatment,information-disclosure,3,False,assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b
+7,treatment,tampering,2,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+8,control,information-disclosure,2,True,absent:flow:process:order-service>store:receipt-archive>append-receipt:encryption_in_transit assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b
+9,control,tampering,1,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+10,treatment,information-disclosure,3,False,unknown:store:receipt-archive:data_classification assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+11,treatment,tampering,3,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+12,control,information-disclosure,2,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+13,treatment,information-disclosure,1,False,unknown:store:receipt-archive:data_classification assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b
+14,treatment,information-disclosure,1,False,unknown:flow:process:order-service>store:receipt-archive>append-receipt:protocol assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b
+15,control,information-disclosure,3,False,assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b unknown:store:receipt-archive:data_classification
+16,control,information-disclosure,1,True,absent:flow:process:order-service>store:receipt-archive>append-receipt:encryption_in_transit assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b

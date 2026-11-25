@@ -1,0 +1,16 @@
+control-information-disclosure-1: 9 drafts, must-finds [10, 11]
+control-information-disclosure-2: 8 drafts, must-finds [10, 11]
+control-information-disclosure-3: 10 drafts, must-finds [10, 11]
+control-tampering-1: 8 drafts, must-finds [3]
+control-tampering-2: 7 drafts, must-finds [3, 4]
+control-tampering-3: 4 drafts, must-finds [4]
+treatment-information-disclosure-1: 8 drafts, must-finds [10, 11]
+treatment-information-disclosure-2: 9 drafts, must-finds [10, 11]
+treatment-information-disclosure-3: 8 drafts, must-finds [10, 11]
+treatment-tampering-1: 8 drafts, must-finds [3, 4]
+treatment-tampering-2: 5 drafts, must-finds [4]
+treatment-tampering-3: 8 drafts, must-finds [3, 4]
+information-disclosure control: mean drafts 9.0, median must-finds 2
+information-disclosure treatment: mean drafts 8.3, median must-finds 2
+tampering control: mean drafts 6.3, median must-finds 1
+tampering treatment: mean drafts 7.0, median must-finds 2
