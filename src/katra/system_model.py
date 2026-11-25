@@ -515,7 +515,8 @@ def control_text(control: ElementControl) -> str:
 
     A stated control is its mechanism. An absent control is ``none`` and an
     unknown control is ``unknown``, each followed by ``; <reason>`` where
-    it carries one. Candidate facts and owner answers spell a control this way.
+    it carries one. Every reader that needs a control as one line of text
+    uses this spelling.
     """
     if control.state == "stated":
         return control.detail
