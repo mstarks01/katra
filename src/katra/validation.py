@@ -36,6 +36,7 @@ from katra.grounding import (
     PreparedSource,
     deadline_spent,
     faithful_repair,
+    holding_label,
     normalize,
     prepare_source,
     repair_deadline,
@@ -756,6 +757,30 @@ def _quote_issue(
     return None
 
 
+def _relabelled(model: SystemModel, folded: Mapping[str, str]) -> SystemModel:
+    """``model`` with each element's ``source_label`` set to the one submitted
+    source that holds its excerpt, where its own label does not (#2367).
+
+    The label is a fact code can find: where exactly one source the submitter
+    wrote holds the quote, that source is the one quoted. An excerpt its own
+    label already holds keeps that label, so several sources holding one
+    quote leave the model's choice. The answers Source is never chosen,
+    because a model quoting it repeats an answer as a fact of its own.
+    """
+    submitted = {
+        label: text for label, text in folded.items() if label != ANSWERS_LABEL
+    }
+    relabelled = model.model_copy(deep=True)
+    for element in relabelled.elements():
+        written, label = element.source_excerpt, element.source_label
+        if not written or (
+            label in submitted and verify_normalized(written, submitted[label])
+        ):
+            continue
+        element.source_label = holding_label(written, submitted) or label
+    return relabelled
+
+
 def repair_excerpts(model: SystemModel, sources: Mapping[str, str]) -> SystemModel:
     """``model`` with each refused element excerpt replaced by its source's span.
 
@@ -775,6 +800,7 @@ def repair_excerpts(model: SystemModel, sources: Mapping[str, str]) -> SystemMod
     if not sources:
         return model
     folded = {label: normalize(text) for label, text in sources.items()}
+    model = _relabelled(model, folded)
     prepared: dict[str, PreparedSource] = {}
     deadline = repair_deadline()
     repaired = model.model_copy(deep=True)

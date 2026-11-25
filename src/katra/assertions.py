@@ -3185,12 +3185,23 @@ def _spans(
     """Where one proposed quote sits, or nothing where it is not there.
 
     The label resolves by :func:`~katra.references.canonical`, the
-    rule every other citation of a source follows.
+    rule every other citation of a source follows. Where the source it names
+    does not hold the quote, the one source that does is the one quoted
+    (#2367), as :func:`~katra.grounding.holding_label` reads an element's
+    label; where several or none do, the quote finds no span.
     """
     source = prepared.get(canonical(quote.source_label, prepared))
-    if source is None:
-        return ()
-    return spans_for(quote.quote, source)
+    found = spans_for(quote.quote, source) if source is not None else ()
+    if found:
+        return found
+    held = [
+        spans
+        for other in prepared.values()
+        if other is not None and other is not source
+        for spans in [spans_for(quote.quote, other)]
+        if spans
+    ]
+    return held[0] if len(held) == 1 else ()
 
 
 #: Which of two rows of one identity stands when their bases differ, lowest

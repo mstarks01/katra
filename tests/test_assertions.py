@@ -2590,3 +2590,22 @@ class TestCodeReadsTheSubjectType:
         )
 
         assert [issue.code for issue in issues] == ["dangling-subject"]
+
+
+def test_a_row_quote_under_the_wrong_label_takes_the_source_that_holds_it():
+    """The label is a fact code can find (#2367)."""
+    proposing = TestResolvingAProposal()
+    row = proposing.row(
+        quotes=[
+            QuoteProposal(
+                source_label="A call nobody held",
+                quote="sign in with email and password",
+            )
+        ]
+    )
+
+    held, issues = proposing.resolve(row)
+
+    assert issues == []
+    [entry] = held.entries
+    assert {span.source_label for span in entry.support} == {SOURCE_LABEL}

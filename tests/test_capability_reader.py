@@ -64,15 +64,17 @@ class TestTheChecks:
         assert statement.source_excerpt == "Customers log in to the web app"
         assert (statement.origin, statement.basis) == ("reader", "")
 
-    @pytest.mark.parametrize(
-        ("row", "why"),
-        [
-            (_row("authentication", "customers sign in with a passkey"), "quote"),
-            (_row("authentication", "Customers log in", "Kickoff call"), "label"),
-        ],
-    )
-    def test_a_row_its_source_does_not_hold_is_dropped(self, row, why):
-        assert "authentication" not in _stated(row), why
+    def test_a_row_no_source_holds_is_dropped(self):
+        row = _row("authentication", "customers sign in with a passkey")
+        assert "authentication" not in _stated(row)
+
+    def test_a_row_under_the_wrong_label_takes_the_source_that_holds_it(self):
+        """The label is a fact code can find (#2367)."""
+        row = _row("authentication", "Customers log in", "Kickoff call")
+
+        statement = _stated(row)["authentication"]
+
+        assert statement.source_label == DEFAULT_DESCRIPTION_LABEL
 
     def test_a_key_outside_the_table_is_dropped(self):
         assert "teleport" not in _stated(_row("teleport", "Customers log in"))
