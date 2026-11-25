@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from katra.analysis import held_text
 from katra.assertions import (
     ABSENT,
     REGISTRY,
@@ -54,7 +55,14 @@ from katra.frameworks.stride.record import (
     ThreatProposal,
     ThreatProposals,
 )
-from katra.system_model import UNKNOWN, DataStore, ModelIndex, SystemModel
+from katra.system_model import (
+    UNKNOWN,
+    DataStore,
+    ElementControl,
+    ModelIndex,
+    SystemModel,
+    control_from_text,
+)
 from tests.factories import (
     sample_draft,
     sample_proposal,
@@ -212,7 +220,7 @@ class TestEvidenceCatalog:
         """No quote, and no room for a conclusion: every entry is one of three
         shapes, all computed by rule from the model."""
         model = valid_model()
-        model.data_flows[0].authentication = "none"
+        model.data_flows[0].authentication = control_from_text("none")
 
         kinds = {ground.kind for ground in evidence_catalog(model).values()}
 
@@ -231,7 +239,9 @@ class TestEvidenceCatalog:
         "nobody said" and "somebody said no" carry different threats.
         """
         model = valid_model()
-        model.data_flows[0].authentication = "none; accepted by network position"
+        model.data_flows[0].authentication = control_from_text(
+            "none; accepted by network position"
+        )
 
         catalog = evidence_catalog(model)
 
@@ -256,7 +266,9 @@ class TestEvidenceCatalog:
         with the speaker's own doubt is the same fact as the bare one, and the
         catalog does not miss it for the decoration."""
         model = valid_model()
-        model.data_flows[0].authentication = "unknown; possibly a shared group account"
+        model.data_flows[0].authentication = control_from_text(
+            "unknown; possibly a shared group account"
+        )
 
         catalog = evidence_catalog(model)
 
@@ -270,7 +282,9 @@ class TestEvidenceCatalog:
         becoming a classifier with a security opinion: ``no MFA on the password
         login`` describes a mechanism that exists."""
         model = valid_model()
-        model.data_flows[0].authentication = "no MFA on the password login"
+        model.data_flows[0].authentication = control_from_text(
+            "no MFA on the password login"
+        )
 
         catalog = evidence_catalog(model)
 
@@ -320,7 +334,10 @@ class TestEvidenceCatalog:
             unknown_evidence_ref(element.id, attribute)
             for element in model.elements()
             for attribute in type(element).model_fields
-            if getattr(element, attribute, None) == UNKNOWN
+            if isinstance(
+                value := getattr(element, attribute, None), str | ElementControl
+            )
+            and held_text(value) == UNKNOWN
         ] + [
             crossing_evidence_ref(crossing.flow_id)
             for crossing in model.boundary_crossings()
@@ -508,7 +525,7 @@ class TestEvidenceCatalog:
                     technology="PostgreSQL",
                     trust_zone="boundary:core",
                     data_classification="confidential",
-                    encryption_at_rest="CMEK",
+                    encryption_at_rest=ElementControl(state="stated", detail="CMEK"),
                 )
             ]
         )

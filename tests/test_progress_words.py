@@ -83,10 +83,11 @@ SELECTIONS: list[tuple[FrameworkName, ...]] = [
 ]
 
 #: A word of a script that equals a step and names a different thing: the ID
-#: of the form, the state of a flag, and the basis of a question.
+#: of the form, the state of a flag, the basis of a question, and the state of
+#: a control.
 OTHER_MEANINGS = {
     "first_run.js": {'"analyze"', '"stated"'},
-    "report_view.js": {'"critic"'},
+    "report_view.js": {'"critic"', '"stated"'},
 }
 
 

@@ -113,14 +113,18 @@ from katra.retry import ATTEMPTS_METADATA_KEY
 from katra.sampling import SamplingConfig, load_sampling
 from katra.sources import DEFAULT_DESCRIPTION_LABEL, Source, SourceLimits
 from katra.system_model import (
+    CONTROL_FIELDS,
     Assumption,
     DataFlow,
     DataStore,
+    Element,
+    ElementControl,
     EmittedSystemModel,
     ExternalEntity,
     Process,
     SystemModel,
     TrustBoundary,
+    control_from_text,
 )
 from katra.vendors import (
     ChargeMode,
@@ -630,9 +634,9 @@ def three_hop_model(source_label: str = DEFAULT_DESCRIPTION_LABEL) -> SystemMode
         source=REPORTING_JOB,
         destination="store:orders-db",
         protocol="unknown",
-        authentication="unknown",
+        authentication=ElementControl(state="unknown"),
         data_description="orders",
-        encryption_in_transit="unknown",
+        encryption_in_transit=ElementControl(state="unknown"),
         operations="read",
         source_excerpt="orders are stored in Postgres",
         source_label=source_label,
@@ -648,6 +652,12 @@ def three_hop_model(source_label: str = DEFAULT_DESCRIPTION_LABEL) -> SystemMode
 def emitted(model: SystemModel) -> str:
     """``model`` as the extraction and repair nodes emit it: no capabilities."""
     return model.model_dump_json(include=set(EmittedSystemModel.model_fields))
+
+
+def write_text(element: Element, attribute: str, text: str) -> None:
+    """Write ``text`` into ``attribute``, as a control where the field is one."""
+    value = control_from_text(text) if attribute in CONTROL_FIELDS else text
+    setattr(element, attribute, value)
 
 
 def valid_model(source_label: str = DEFAULT_DESCRIPTION_LABEL) -> SystemModel:
@@ -690,7 +700,7 @@ def valid_model(source_label: str = DEFAULT_DESCRIPTION_LABEL) -> SystemModel:
                 technology="Cloud SQL Postgres",
                 trust_zone="boundary:internal-network",
                 data_classification="confidential",
-                encryption_at_rest="unknown",
+                encryption_at_rest=ElementControl(state="unknown"),
                 source_excerpt="orders are stored in Postgres",
                 source_label=source_label,
                 assets=["business-critical-data", "pii"],
@@ -703,9 +713,9 @@ def valid_model(source_label: str = DEFAULT_DESCRIPTION_LABEL) -> SystemModel:
                 source="entity:customer",
                 destination="process:web-app",
                 protocol="HTTPS",
-                authentication="session cookie",
+                authentication=ElementControl(state="stated", detail="session cookie"),
                 data_description="credentials in, session out",
-                encryption_in_transit="TLS 1.3",
+                encryption_in_transit=ElementControl(state="stated", detail="TLS 1.3"),
                 operations="unknown",
                 source_excerpt="customers log in from the browser",
                 source_label=source_label,
@@ -716,9 +726,11 @@ def valid_model(source_label: str = DEFAULT_DESCRIPTION_LABEL) -> SystemModel:
                 source="process:web-app",
                 destination="store:orders-db",
                 protocol="Postgres wire protocol",
-                authentication="IAM database auth",
+                authentication=ElementControl(
+                    state="stated", detail="IAM database auth"
+                ),
                 data_description="order rows",
-                encryption_in_transit="unknown",
+                encryption_in_transit=ElementControl(state="unknown"),
                 operations="write",
                 source_excerpt="orders are stored in Postgres",
                 source_label=source_label,

@@ -11,10 +11,10 @@ The failure it names is the one #465 measured. Given one sentence::
 
     The API sends payment requests to Stripe.
 
-an extraction wrote ``authentication = "OAuth 2.0"`` and
-``encryption_in_transit = "TLS 1.3"``. Both pass every mechanical check the
-service has: the leading token is neither sentinel, so
-:func:`~katra.analysis.control_state` reads them as ``stated``, the
+an extraction wrote ``authentication`` as a stated "OAuth 2.0" and
+``encryption_in_transit`` as a stated "TLS 1.3". Both pass every mechanical
+check the service has: :func:`~katra.analysis.control_reading` reads them as
+``stated``, the
 candidate rules that ask about a missing control stay quiet, and the evidence
 catalog offers nothing. Measured on that model, four of the five evidence
 entries the flow would otherwise carry are erased. Nothing anywhere says the
@@ -133,7 +133,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from katra.analysis import (
     CONTROL_ATTRIBUTES,
     ControlAttribute,
-    control_state,
+    held_state,
+    held_text,
     matches_term,
 )
 from katra.sources import MAX_LABEL_CHARS
@@ -373,9 +374,12 @@ def control_measurability(
     for element in model.elements():
         cited = bool(sources.get(element.source_label))
         for attribute in IN_SCOPE:
-            value = getattr(element, attribute, None)
-            if not isinstance(value, str) or control_state(value) != "stated":
+            if attribute not in type(element).model_fields:
                 continue
+            held = getattr(element, attribute)
+            if held_state(held) != "stated":
+                continue
+            value = held_text(held)
             tokens = content_tokens(value)
             control = StatedControl(
                 element_id=element.id,

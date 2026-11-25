@@ -61,7 +61,7 @@ def models() -> list[SystemModel]:
     loaded = []
     for case_dir in verify_corpus.case_dirs():
         model, issues = parse_and_validate(
-            json.loads((case_dir / "model.json").read_text())
+            json.loads((case_dir / "model.json").read_text()), archived=True
         )
         assert model is not None and not issues, f"{case_dir.name}: {issues}"
         loaded.append(model)

@@ -29,6 +29,7 @@ from evals.harness import falsify
 from evals.harness.reference import load_corpus
 from evals.harness.replay import signed_reference
 from katra import graph
+from katra.analysis import held_text
 from katra.assertions import (
     ABSENT,
     UNKNOWN,
@@ -160,8 +161,8 @@ def test_an_unchecked_row_is_never_a_verified_control(name) -> None:
         attribute = projected_attribute(entry.predicate, entry.subject)
         if not attribute or entry.subject not in before:
             continue
-        was = str(getattr(before[entry.subject], attribute))
-        now = str(getattr(after[entry.subject], attribute))
+        was = held_text(getattr(before[entry.subject], attribute))
+        now = held_text(getattr(after[entry.subject], attribute))
         if not was.startswith(("unknown", "none")) and was.strip():
             continue
         assert now == was or now.startswith("unknown"), (entry.subject, was, now)
@@ -180,7 +181,7 @@ def test_no_reviewer_rejected_fact_reaches_analysis(name) -> None:
             continue
         attribute = projected_attribute(entry.predicate, entry.subject)
         if attribute and entry.subject in by_id:
-            held = str(getattr(by_id[entry.subject], attribute))
+            held = held_text(getattr(by_id[entry.subject], attribute))
             assert held != entry.value
             # A qualified unknown is prose a lane reads, so the rejected value
             # may not ride along in it either.

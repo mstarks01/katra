@@ -35,6 +35,7 @@ from typing import Annotated, Literal, Self, TypeVar, cast, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from katra.analysis import held_text
 from katra.answer_sets import AnswerSet
 from katra.assertions import AssertionCatalog
 from katra.claims import (
@@ -828,7 +829,7 @@ def _stated_value(
     if fact.kind == "attribute":
         if open_attribute(model, ref.element_id, ref.attribute, catalog):
             return None
-        return str(getattr(model.get(ref.element_id), ref.attribute))
+        return held_text(getattr(model.get(ref.element_id), ref.attribute))
     return None
 
 

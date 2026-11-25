@@ -28,7 +28,7 @@ from katra.fact_answers import FactAnswer
 from katra.jobs import Checkpoint, JobRecord
 from katra.pipeline import _seeded_state
 from katra.sources import ANSWERS_LABEL, Source, SourceLimits
-from tests.factories import DESCRIPTION_TEXT, sample_selection, valid_model
+from tests.factories import DESCRIPTION_TEXT, sample_selection, valid_model, write_text
 from tests.test_api import auth
 from tests.test_links import catalog_client
 from tests.test_pause import waiting
@@ -197,7 +197,7 @@ class TestTheCarriedAnswers:
         key = _open_key(_state())
         element_id, attribute, *_ = key
         model = valid_model()
-        setattr(model.get(element_id), attribute, "stated by the amendment")
+        write_text(model.get(element_id), attribute, "stated by the amendment")
         state = _state(carried=[FactAnswer(key=key, value="none")], model=model)
         assert [a.key for a in state.carried.dropped.facts] == [key]
 

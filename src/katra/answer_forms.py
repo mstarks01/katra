@@ -34,7 +34,12 @@ from katra.fact_answers import (
 )
 from katra.parsing import member
 from katra.question_kinds import QUESTION_KINDS, Facet, parse_question_kind
-from katra.system_model import EXCERPT_MAX_CHARS, SystemModel
+from katra.system_model import (
+    CONTROL_FIELDS,
+    EXCERPT_MAX_CHARS,
+    ElementControl,
+    SystemModel,
+)
 
 __all__ = [
     "CONTROL_SUGGESTIONS",
@@ -260,7 +265,11 @@ def answer_limit(key: UnknownKey, model: SystemModel) -> int:
     ref = key_ref(key)
     element = model.get(ref.element_id) if fact_kind(key) == "attribute" else None
     if element is not None and ref.attribute in type(element).model_fields:
-        bounds.append(max_length_of(type(element), ref.attribute))
+        # A control field holds its words in an ElementControl's ``detail``.
+        if ref.attribute in CONTROL_FIELDS:
+            bounds.append(max_length_of(ElementControl, "detail"))
+        else:
+            bounds.append(max_length_of(type(element), ref.attribute))
     return min(bound for bound in bounds if bound is not None)
 
 

@@ -49,18 +49,20 @@ from katra.prompts import (
 )
 from katra.sources import DEFAULT_DESCRIPTION_LABEL
 from katra.system_model import (
+    CONTROL_FIELDS,
     ELEMENT_GROUPS,
     UNKNOWN,
     Assumption,
     Element,
+    ElementControl,
     EmittedSystemModel,
     Process,
     ZonedElement,
     _Element,
     normalize_element_ids,
 )
-from katra.validation import repair_scope
-from tests.factories import valid_model
+from katra.validation import parse_and_validate, repair_scope
+from tests.factories import emitted, valid_model
 from tests.test_validation import codes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -107,7 +109,7 @@ def compact_fixture() -> dict:
                 "technology": "Cloud SQL Postgres",
                 "trust_zone": "b:corp",
                 "data_classification": "confidential",
-                "encryption_at_rest": "unknown",
+                "encryption_at_rest": {"state": "unknown", "detail": ""},
                 "source_excerpt": "orders are stored in Postgres",
                 "source_label": label,
                 "assets": ["business-critical-data", "pii"],
@@ -120,9 +122,9 @@ def compact_fixture() -> dict:
                 "source": "e:cust",
                 "destination": "p:app",
                 "protocol": "HTTPS",
-                "authentication": "session cookie",
+                "authentication": {"state": "stated", "detail": "session cookie"},
                 "data_description": "credentials in, session out",
-                "encryption_in_transit": "TLS 1.3",
+                "encryption_in_transit": {"state": "stated", "detail": "TLS 1.3"},
                 "operations": "unknown",
                 "source_excerpt": "customers log in from the browser",
                 "source_label": label,
@@ -133,9 +135,9 @@ def compact_fixture() -> dict:
                 "source": "p:app",
                 "destination": "s:db",
                 "protocol": "Postgres wire protocol",
-                "authentication": "IAM database auth",
+                "authentication": {"state": "stated", "detail": "IAM database auth"},
                 "data_description": "order rows",
-                "encryption_in_transit": "unknown",
+                "encryption_in_transit": {"state": "unknown", "detail": ""},
                 "operations": "write",
                 "source_excerpt": "orders are stored in Postgres",
                 "source_label": label,
@@ -185,9 +187,15 @@ class TestTheTransportCarriesTheSameFacts:
         The hand-written fixture above proves the shape; this proves it on the
         only data in the repo that looks like what a model actually emits —
         every element type, parallel flows, assumptions, long descriptions and
-        excerpts.
+        excerpts. The corpus holds each control as an archived string, so the
+        archive reader reads it first, and both routes take the shape a model
+        writes.
         """
-        blessed = json.loads(path.read_text(encoding="utf-8"))
+        archived, _ = parse_and_validate(
+            json.loads(path.read_text(encoding="utf-8")), archived=True
+        )
+        assert archived is not None
+        blessed = json.loads(emitted(archived))
         expected, _ = parse_extraction(blessed, FULL_FORMAT, sources={}, diagrams={})
         through_the_wire, issues = parse_extraction(
             as_compact(blessed), COMPACT_FORMAT, sources={}, diagrams={}
@@ -719,7 +727,9 @@ class TestTheTablesAnswerTheirRegistries:
 
         Each compact field that mirrors a full field carries the full field's
         length and pattern constraints. A reference field holds a ref on the
-        compact route, so only its compact side carries a pattern.
+        compact route, so only its compact side carries a pattern. A control
+        field carries the archive reader on the full side only: a model writes
+        the compact route, so it never holds an archived string.
         """
         pairs = [*COMPACT_ELEMENTS.values(), (CompactAssumption, Assumption)]
         diverging = [
@@ -728,10 +738,22 @@ class TestTheTablesAnswerTheirRegistries:
             for name, field in full_type.model_fields.items()
             if field.metadata
             and name in compact_type.model_fields
+            and name not in CONTROL_FIELDS
             and compact_type.model_fields[name].metadata != field.metadata
         ]
 
         assert diverging == []
+
+    def test_a_compact_control_field_takes_no_string(self):
+        refused = [
+            f"{compact_type.__name__}.{name}"
+            for compact_type, _ in COMPACT_ELEMENTS.values()
+            for name, field in compact_type.model_fields.items()
+            if name in CONTROL_FIELDS
+            and (field.annotation is not ElementControl or field.metadata)
+        ]
+
+        assert refused == []
 
     def test_the_root_lists_are_the_full_route_s_own(self):
         """One vocabulary for both routes, so expansion is a row-by-row copy."""

@@ -19,6 +19,7 @@ from katra.analysis import (
     cross_boundary_flows,
     crossing_facts,
     crossings_by_flow,
+    held_text,
     inbound_flows,
     internet_exposed_elements,
     is_unverified,
@@ -35,10 +36,12 @@ from katra.system_model import (
     BoundaryCrossing,
     DataFlow,
     DataStore,
+    ElementControl,
     ExternalEntity,
     Process,
     SystemModel,
     TrustBoundary,
+    control_from_text,
     make_flow_id,
 )
 from tests.factories import valid_model
@@ -47,9 +50,9 @@ from tests.factories import valid_model
 def flow(source, destination, label, **overrides):
     fields = {
         "protocol": "HTTPS",
-        "authentication": "service account",
+        "authentication": {"state": "stated", "detail": "service account"},
         "data_description": "records",
-        "encryption_in_transit": "TLS 1.3",
+        "encryption_in_transit": {"state": "stated", "detail": "TLS 1.3"},
         "operations": "unknown",
     }
     fields.update(overrides)
@@ -99,18 +102,23 @@ def chain():
                 technology="Postgres",
                 trust_zone="boundary:core",
                 data_classification="confidential",
-                encryption_at_rest="unknown",
+                encryption_at_rest=ElementControl(state="unknown"),
                 assets=["pii", "secrets"],
             )
         ],
         data_flows=[
             flow("entity:user", "process:edge", "browse"),
-            flow("process:edge", "process:worker", "dispatch", authentication="none"),
+            flow(
+                "process:edge",
+                "process:worker",
+                "dispatch",
+                authentication=ElementControl(state="absent"),
+            ),
             flow(
                 "process:worker",
                 "store:vault",
                 "read",
-                encryption_in_transit="unknown",
+                encryption_in_transit=ElementControl(state="unknown"),
             ),
         ],
         trust_boundaries=[
@@ -148,7 +156,7 @@ class TestControlState:
         arrives anyway.
         """
         assert control_state("") == "unverified"
-        assert is_unverified("")
+        assert is_unverified(control_from_text(""))
         assert not states_a_protocol("")
 
     def test_a_stated_mechanism_with_a_gap_is_still_stated(self):
@@ -156,9 +164,9 @@ class TestControlState:
         assert control_state("password login, no MFA") == "stated"
 
     def test_unverified_covers_both_non_stated_states(self):
-        assert is_unverified("unknown")
-        assert is_unverified("none")
-        assert not is_unverified("mTLS")
+        assert is_unverified(ElementControl(state="unknown"))
+        assert is_unverified(ElementControl(state="absent"))
+        assert not is_unverified(ElementControl(state="stated", detail="mTLS"))
 
 
 class TestTraversal:
@@ -333,10 +341,10 @@ def test_the_joined_text_names_what_a_value_names():
         )
         term = "".join(rng.choices(SHAPES, k=rng.randint(0, 4))).lower()
         by_value = any(
-            matches_term(term, value.lower())
+            matches_term(term, held_text(getattr(element, attribute)).lower())
             for element in model.elements()
             for attribute in TEXT_ATTRIBUTES
-            if isinstance(value := getattr(element, attribute, ""), str)
+            if attribute in type(element).model_fields
         )
 
         assert names_term(model_text(model), term) == by_value, (term, model)
@@ -392,9 +400,9 @@ class TestACrossingSaysWhichZoneWasAssumed:
             source="process:a",
             destination="store:b",
             protocol=UNKNOWN,
-            authentication=UNKNOWN,
+            authentication=ElementControl(state="unknown"),
             data_description=UNKNOWN,
-            encryption_in_transit=UNKNOWN,
+            encryption_in_transit=ElementControl(state="unknown"),
         )
 
     def test_a_crossing_both_sources_state_is_flagged_neither_side(self) -> None:

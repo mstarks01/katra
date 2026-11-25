@@ -26,7 +26,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
-from katra.analysis import SENSITIVE_ASSET_TAGS, control_state
+from katra.analysis import SENSITIVE_ASSET_TAGS, control_reading
 from katra.protocol_defaults import (
     QUIC_NAMES,
     TLS_NAMES,
@@ -216,7 +216,7 @@ def _encrypted_store(index: _ModelIndex) -> Iterator[DataStore]:
     """Data stores whose encryption at rest is stated, and not assumed."""
     for store in index.stores:
         assumed = (store.id, "encryption_at_rest") in index.assumed
-        if not assumed and control_state(store.encryption_at_rest) == "stated":
+        if not assumed and control_reading(store.encryption_at_rest) == "stated":
             yield store
 
 

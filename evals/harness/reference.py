@@ -823,8 +823,13 @@ def _load_model(case_dir: Path) -> SystemModel:
 
     Lane agents only ever see valid models in production; a case whose blessed
     model would be rejected there cannot ground a score here.
+
+    ``archived``: the corpus is reference data, like a Baseline, so a
+    control written as a string reads through the archive reader.
     """
-    model, issues = parse_and_validate(_read_json(case_dir / "model.json"))
+    model, issues = parse_and_validate(
+        _read_json(case_dir / "model.json"), archived=True
+    )
     if model is None or issues:
         detail = "; ".join(f"{issue.code}: {issue.message}" for issue in issues)
         raise CorpusError(f"{case_dir.name}: model.json is not valid: {detail}")

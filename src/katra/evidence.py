@@ -98,7 +98,8 @@ from typing import Any, NamedTuple
 from katra.analysis import (
     CONTROL_ATTRIBUTES,
     ModelText,
-    control_state,
+    held_state,
+    held_text,
     model_text,
     names_term,
 )
@@ -140,6 +141,7 @@ from katra.system_model import (
     UNKNOWN,
     DataFlow,
     Element,
+    ElementControl,
     ModelIndex,
     SystemModel,
     TrustBoundary,
@@ -420,13 +422,11 @@ def lead_topics(
 def _attribute_entry(element: Element, attribute: str) -> tuple[str, Ground] | None:
     """One attribute's catalog entry, or ``None`` where it states a control.
 
-    The classifier is :func:`~katra.analysis.control_state`, the same
+    The classifier is :func:`~katra.analysis.held_state`, the same
     one the candidate rules read, which is the whole of this function's point.
-    A catalog that tested exact equality with the ``unknown`` sentinel while
-    the analysis layer read the leading token would take a control the input
-    *hedged* (``"unknown; possibly a shared group account"``) and a control the
-    input said is *not there* (``"none; accepted by network position"``) both
-    facts a rule could fire on and no agent could cite (#171).
+    A catalog that read a state another way than the analysis layer would take
+    a control the input left unknown or said is *not there* as a fact a rule
+    could fire on and no agent could cite (#171).
 
     **The two halves cover different attribute sets, and the asymmetry is the
     honest reading rather than an oversight.** ``unknown`` is the extraction
@@ -444,7 +444,7 @@ def _attribute_entry(element: Element, attribute: str) -> tuple[str, Ground] | N
     kind and payload could disagree is the shape this whole module exists to
     make unreachable.
     """
-    state = control_state(getattr(element, attribute))
+    state = held_state(getattr(element, attribute))
     if state == "unverified":
         return unknown_evidence_ref(element.id, attribute), Ground(
             kind="unknown-attribute", element_id=element.id, attribute=attribute
@@ -609,7 +609,7 @@ def _one_ground_issue(
     )
     if ref in catalog:
         return ""
-    state = control_state(getattr(element, ground.attribute))
+    state = held_state(getattr(element, ground.attribute))
     held_open_absence = (
         ground.kind == "absent-attribute"
         and state == "absent"
@@ -754,8 +754,9 @@ def _held_open_value(element: Element, attribute: str) -> str | None:
     that value beside the question, so they do not deny what the model shows.
     """
     value = getattr(element, attribute, None)
-    if isinstance(value, str) and control_state(value) != "unverified":
-        return value
+    # ``assets`` holds a list, which states no held-open value.
+    if isinstance(value, str | ElementControl) and held_state(value) != "unverified":
+        return held_text(value)
     return None
 
 

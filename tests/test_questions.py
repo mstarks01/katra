@@ -56,7 +56,12 @@ from katra.questions import _by_band, fact_questions
 from katra.report import Report
 from katra.report_conditions import conditions
 from katra.sources import ANSWERS_LABEL, Source, text_digest
-from katra.system_model import ZONE_ATTRIBUTE, Assumption
+from katra.system_model import (
+    ZONE_ATTRIBUTE,
+    Assumption,
+    control_from_text,
+    control_text,
+)
 from tests import test_open_facts
 from tests.factories import (
     DESCRIPTION_TEXT,
@@ -197,8 +202,8 @@ def flow_id():
 def open_model():
     """The shared model with the facts these tests answer left open."""
     model = valid_model()
-    model.data_flows[0].authentication = "unknown"
-    model.data_flows[0].encryption_in_transit = "unknown"
+    model.data_flows[0].authentication = control_from_text("unknown")
+    model.data_flows[0].encryption_in_transit = control_from_text("unknown")
     model.processes[0].exposure = "unknown"
     return model
 
@@ -375,7 +380,7 @@ def test_an_attribute_answer_is_written_onto_the_model_and_noted():
     )
     model = answered_model(valid_model(), [answer])
     flow = model.data_flows[0]
-    assert flow.encryption_in_transit == "TLS 1.3"
+    assert control_text(flow.encryption_in_transit) == "TLS 1.3"
     assert "TLS 1.3" in flow.notes
 
 
@@ -449,9 +454,9 @@ class TestTheResumedRunWithoutACatalog:
         outcome = asyncio.run(adk_runner(pipeline).run(record, on_node))
 
         assert isinstance(outcome, PipelineCompleted)
-        assert outcome.report.system_model.data_flows[0].encryption_in_transit == (
-            "TLS 1.3"
-        )
+        assert control_text(
+            outcome.report.system_model.data_flows[0].encryption_in_transit
+        ) == ("TLS 1.3")
         assert outcome.report.assertions is None
 
 
@@ -731,7 +736,7 @@ class TestAnAttributeAnswerOverACatalogRow:
         )
 
     def encryption(self, report):
-        return report.system_model.data_flows[0].encryption_in_transit
+        return control_text(report.system_model.data_flows[0].encryption_in_transit)
 
     def test_without_an_answer_the_row_projects(self):
         assert self.encryption(
@@ -958,7 +963,7 @@ class TestAnUnknownAnswer:
         model = answered_model(valid_model(), [self.DONT_KNOW])
         flow = model.data_flows[1]
 
-        assert flow.encryption_in_transit == UNKNOWN
+        assert control_text(flow.encryption_in_transit) == UNKNOWN
         assert "does not know encryption_in_transit" in flow.notes
 
     def test_it_leaves_an_open_row_open(self):
@@ -975,7 +980,7 @@ class TestAnUnknownAnswer:
         """The page's choice sends ``unknown``; typed words read as a control."""
         answer = FactAnswer(key=self.DONT_KNOW.key, value=typed)
         model = valid_model()
-        model.data_flows[1].authentication = UNKNOWN
+        model.data_flows[1].authentication = control_from_text(UNKNOWN)
         key = (model.data_flows[1].id, "authentication", "", "", "", "")
         with pytest.raises(ValueError, match="opens with"):
             check_fact_answers([answer.model_copy(update={"key": key})], model, None)
@@ -1209,9 +1214,9 @@ class TestTheControlForm:
         self, attribute, value
     ):
         model = open_model()
-        model.data_flows[0].encryption_in_transit = UNKNOWN
+        model.data_flows[0].encryption_in_transit = control_from_text(UNKNOWN)
         store = model.data_stores[0]
-        store.encryption_at_rest = UNKNOWN
+        store.encryption_at_rest = control_from_text(UNKNOWN)
         element = store.id if attribute == "encryption_at_rest" else flow_id()
         answer = FactAnswer(key=(element, attribute, "", "", "", ""), value=value)
 

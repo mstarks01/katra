@@ -20,7 +20,7 @@ from katra.answer_shares import SharedAnswer, check_shares
 from katra.answer_state import Answers, SavedAnswers
 from katra.fact_answers import MAX_FACT_ANSWERS, MAX_HELD_FACTS, FactAnswer
 from katra.jobs import JobRecord
-from katra.system_model import ELEMENT_ID_MAX_CHARS, SystemModel
+from katra.system_model import ELEMENT_ID_MAX_CHARS, SystemModel, control_from_text
 from tests.factories import sample_report, sample_selection, sample_threat, valid_model
 from tests.test_api import admit, auth, make_client
 from tests.test_questions import DESCRIPTION
@@ -39,7 +39,7 @@ def _model() -> SystemModel:
     model.data_flows.append(extra)
     model = SystemModel.model_validate(model.model_dump())
     for flow in model.data_flows:
-        flow.authentication = "unknown"
+        flow.authentication = control_from_text("unknown")
     return model
 
 

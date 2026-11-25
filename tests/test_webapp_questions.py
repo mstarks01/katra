@@ -21,7 +21,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from katra import StubPipelineRunner
-from katra.analysis import ABSENT_WORD
 from katra.answer_bodies import BodyRefused, read_answers
 from katra.answer_sets import AnswerSet, SentAnswers
 from katra.answer_shares import SharedAnswer
@@ -47,7 +46,7 @@ from katra.open_facts import group_of
 from katra.question_kinds import QUESTION_KINDS
 from katra.selection import SelectionError, resolve_names
 from katra.sources import FORMATS
-from katra.system_model import ELEMENT_TYPE_NOUNS
+from katra.system_model import ABSENT_WORD, ELEMENT_TYPE_NOUNS
 from tests import test_open_facts, test_questions, test_webapp
 from tests.factories import (
     asking_threat,

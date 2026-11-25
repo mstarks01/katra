@@ -2012,6 +2012,16 @@
   // `protocol`, `authentication` and `data_classification` are free text
   // copied out of submitted prose.
   const mark = (v) => (v === "unknown" ? el("span", "unk", "unknown") : String(v));
+  // A control is `{state, detail}`. A report that a service of schema 3.5
+  // stored holds it as one string, and the report route serves that report
+  // too. The detail is submitted prose, so it lands as text.
+  const controlMark = (c) => {
+    if (typeof c === "string") return [mark(c)];
+    const detail = c && typeof c.detail === "string" ? c.detail : "";
+    if (c && c.state === "stated") return [detail];
+    const word = c && c.state === "absent" ? "none" : mark("unknown");
+    return detail ? [word, `; ${detail}`] : [word];
+  };
   const named = (e) => cell(Object.hasOwn(HUES, e.id)
     ? elementTag(e.name, e.id, HUES[e.id])
     : Object.assign(el("span", null, e.name), { title: e.id }));
@@ -2028,11 +2038,12 @@
     { title: "Data stores", rows: R.system_model.data_stores,
       head: ["Name", "Trust zone", "Technology", "Classification", "Encrypted at rest"],
       cells: e => [named(e), zoneCell(e.trust_zone), cell(mark(e.technology)),
-        cell(mark(e.data_classification)), cell(mark(e.encryption_at_rest))] },
+        cell(mark(e.data_classification)), cell(...controlMark(e.encryption_at_rest))] },
     { title: "Data flows", rows: R.system_model.data_flows,
       head: ["Name", "From → to", "Protocol", "Authentication", "Encrypted in transit"],
       cells: e => [named(e), cell(ref(e.id)), cell(mark(e.protocol)),
-        cell(mark(e.authentication)), cell(mark(e.encryption_in_transit))] },
+        cell(...controlMark(e.authentication)),
+        cell(...controlMark(e.encryption_in_transit))] },
   ];
   ELEMENT_TABLES.filter(t => t.rows.length).forEach(t => {
     const table = el("table");

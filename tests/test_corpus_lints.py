@@ -244,7 +244,9 @@ def test_a_case_that_declares_no_framework_it_runs_is_caught():
     web system — so dropping the declaration is caught once per framework.
     """
     case_dir = verify_corpus.case_dirs()[0]
-    model, _ = parse_and_validate(verify_corpus._load_json(case_dir / "model.json"))
+    model, _ = parse_and_validate(
+        verify_corpus._load_json(case_dir / "model.json"), archived=True
+    )
     assert model is not None
 
     problems = list(verify_corpus.framework_issues(case_dir, {"frameworks": []}, model))
@@ -269,7 +271,9 @@ def test_a_case_declaring_a_framework_its_model_does_not_satisfy_is_caught():
     case_dir = next(
         path for path in verify_corpus.case_dirs() if path.name.endswith("pipeline")
     )
-    model, _ = parse_and_validate(verify_corpus._load_json(case_dir / "model.json"))
+    model, _ = parse_and_validate(
+        verify_corpus._load_json(case_dir / "model.json"), archived=True
+    )
     assert model is not None
 
     meta = {"frameworks": [{"name": "asvs", "options": {"level": 1}}]}
@@ -290,7 +294,9 @@ def test_a_pending_entry_whose_precondition_no_longer_holds_is_caught(monkeypatc
     case_dir = next(
         path for path in verify_corpus.case_dirs() if path.name.endswith("pipeline")
     )
-    model, _ = parse_and_validate(verify_corpus._load_json(case_dir / "model.json"))
+    model, _ = parse_and_validate(
+        verify_corpus._load_json(case_dir / "model.json"), archived=True
+    )
     assert model is not None
     monkeypatch.setattr(
         verify_corpus, "PENDING_REFERENCE_SETS", {case_dir.name: frozenset({"asvs"})}
@@ -909,7 +915,9 @@ class TestTheTwoReadersOfTheIdRule:
             path = case_dir / "model.json"
             if not path.is_file():
                 continue
-            model, _ = parse_and_validate(json.loads(path.read_text(encoding="utf-8")))
+            model, _ = parse_and_validate(
+                json.loads(path.read_text(encoding="utf-8")), archived=True
+            )
             assert model is not None, path
             for element in model.elements():
                 checked += 1
@@ -952,7 +960,9 @@ ESCALATE_REGRESSIONS = [
 
 def _model_of(case_id: str):
     case_dir = verify_corpus.CORPUS_DIR / case_id
-    model, _ = parse_and_validate(verify_corpus._load_json(case_dir / "model.json"))
+    model, _ = parse_and_validate(
+        verify_corpus._load_json(case_dir / "model.json"), archived=True
+    )
     assert model is not None
     return model
 

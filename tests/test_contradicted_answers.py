@@ -34,7 +34,7 @@ from katra.open_facts import open_attribute, source_states
 from katra.questions import choices_of, fact_questions
 from katra.report_conditions import conditions, corrected_findings
 from katra.sources import ANSWERS_LABEL
-from katra.system_model import SystemModel
+from katra.system_model import SystemModel, control_from_text, control_text
 from tests.factories import sample_analysis, sample_report, sample_threat, valid_model
 from tests.test_questions import PRINCIPAL, resume
 
@@ -100,7 +100,7 @@ def model_with(authentication: str) -> SystemModel:
     model = valid_model()
     for flow in model.data_flows:
         if flow.id == LOGIN:
-            flow.authentication = authentication
+            flow.authentication = control_from_text(authentication)
     return model
 
 
@@ -262,7 +262,7 @@ class TestTheAnswerSurvivesAResumedRun:
     def test_the_model_holds_the_answer_after_each_run(self):
         for report in self.runs():
             (login,) = [f for f in report.system_model.data_flows if f.id == LOGIN]
-            assert login.authentication == ANSWER.value
+            assert control_text(login.authentication) == ANSWER.value
 
     def test_the_second_run_places_the_answer(self):
         _, second = self.runs()

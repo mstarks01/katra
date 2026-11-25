@@ -40,6 +40,7 @@ from evals.harness.reference import read_digest
 from katra.claims import FrameworkName
 from katra.frameworks import PACKAGES
 from katra.frameworks.asvs.catalog import ASVS_VERSION, requirement_text
+from katra.system_model import control_text, read_control
 
 EVALS = Path(__file__).resolve().parent
 CORPUS = EVALS / "corpus"
@@ -137,6 +138,17 @@ def table(headers: list[str], rows: list[list[str]]) -> str:
 
 #: One model group per row: the key it lives under in ``model.json``, the
 #: caption a reader sees, the column headers, and the cells one element fills.
+def _control(value: object) -> str:
+    """A control field of a corpus model, as one line of text.
+
+    A string is the file's own words, and a reader of the review sees them as
+    written. An object is rendered by :func:`~katra.system_model.control_text`.
+    """
+    if isinstance(value, str):
+        return value
+    return control_text(read_control(value))
+
+
 #: A table rather than five near-identical blocks, so a group added to the
 #: model reaches both surfaces through one row. Order is the reading order.
 MODEL_TABLES: list[tuple[str, str, list[str], Callable[[dict], list[str]]]] = [
@@ -165,7 +177,7 @@ MODEL_TABLES: list[tuple[str, str, list[str], Callable[[dict], list[str]]]] = [
         lambda s: [
             s["id"],
             s["trust_zone"],
-            s["encryption_at_rest"],
+            _control(s["encryption_at_rest"]),
             s["data_classification"],
         ],
     ),
@@ -178,8 +190,8 @@ MODEL_TABLES: list[tuple[str, str, list[str], Callable[[dict], list[str]]]] = [
             f["source"],
             f["destination"],
             f["protocol"],
-            f["authentication"],
-            f["encryption_in_transit"],
+            _control(f["authentication"]),
+            _control(f["encryption_in_transit"]),
         ],
     ),
     (

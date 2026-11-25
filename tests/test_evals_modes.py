@@ -22,10 +22,18 @@ from evals.harness import modes
 from evals.harness.alignment import Alignment, Pair
 from evals.harness.reference import load_case, load_corpus
 from evals.harness.structural import report_issues
+from katra.analysis import held_state
 from katra.deployment import Deployment
+from katra.system_model import (
+    CONTROL_FIELDS,
+    ElementControl,
+    control_from_text,
+    read_control,
+)
+from tests.factories import write_text
 
 CORPUS = Path(__file__).resolve().parents[1] / "evals" / "corpus"
-from katra.analysis import control_state, states_a_protocol
+from katra.analysis import states_a_protocol
 from katra.assertions import ABSENT, projection_fields
 from katra.basis import IN_SCOPE
 from katra.certification import fingerprints_of
@@ -543,7 +551,7 @@ class TestTheAssertionMode:
         assert reachable
         for (element_id, attribute), stratum in reachable.items():
             element = ModelIndex.of(case.model).get(element_id)
-            assert control_state(str(getattr(element, attribute))) == stratum
+            assert held_state(getattr(element, attribute)) == stratum
             assert stratum != "unverified"
 
     def test_a_stated_absence_is_the_number_the_graph_cannot_carry(self, case):
@@ -687,8 +695,13 @@ class TestAProjectionIsComparedTheWayItsFieldSays:
     def test_a_closed_vocabulary_compares_by_value_and_a_mechanism_by_state(self):
         assert modes.PROJECTION_COMPARED["exposure"]("internal") == "internal"
         assert modes.PROJECTION_COMPARED["trust_zone"]("boundary:x") == "boundary:x"
-        assert modes.PROJECTION_COMPARED["authentication"]("mTLS") == "stated"
-        assert modes.PROJECTION_COMPARED["authentication"] is control_state
+        assert (
+            modes.PROJECTION_COMPARED["authentication"](
+                ElementControl(state="stated", detail="mTLS")
+            )
+            == "stated"
+        )
+        assert modes.PROJECTION_COMPARED["authentication"] is held_state
 
 
 def test_extraction_mode_runs_extract_alone(case):
@@ -777,7 +790,9 @@ def test_an_invented_control_is_caught_where_the_blessed_model_says_unknown(case
         case.model,
         "data_flows",
         1,
-        authentication="OAuth 2.0 client credentials, rotated quarterly",
+        authentication=ElementControl(
+            state="stated", detail="OAuth 2.0 client credentials, rotated quarterly"
+        ),
     )
 
     score = score_of(case, invented)
@@ -798,7 +813,9 @@ def test_rewording_a_stated_control_is_not_a_disagreement(case):
         case.model,
         "data_stores",
         1,
-        encryption_at_rest="a KMS key the customer manages",
+        encryption_at_rest=ElementControl(
+            state="stated", detail="a KMS key the customer manages"
+        ),
     )
 
     assert score_of(case, reworded).differing == ()
@@ -2139,8 +2156,8 @@ class TestTheFalsificationFixtures:
         for index, flow in enumerate(model.data_flows):
             flow.name = f"interaction {index}"
             flow.protocol = "arbitrary nonsense"
-            flow.authentication = "arbitrary nonsense"
-            flow.encryption_in_transit = "arbitrary nonsense"
+            flow.authentication = control_from_text("arbitrary nonsense")
+            flow.encryption_in_transit = control_from_text("arbitrary nonsense")
             flow.operations = "unknown"
         model = normalize_element_ids(model)
 
@@ -2205,8 +2222,8 @@ class TestTheFalsificationFixtures:
                 "encryption_at_rest",
             ):
                 value = getattr(element, attribute, None)
-                if isinstance(value, str) and control_state(value) == "stated":
-                    setattr(element, attribute, "arbitrary nonsense")
+                if value is not None and held_state(value) == "stated":
+                    write_text(element, attribute, "arbitrary nonsense")
 
         score = self.score(case, model)
 
@@ -2228,8 +2245,8 @@ class TestTheFalsificationFixtures:
                 "encryption_at_rest",
             ):
                 value = getattr(element, attribute, None)
-                if isinstance(value, str) and control_state(value) == "stated":
-                    setattr(element, attribute, "the")
+                if value is not None and held_state(value) == "stated":
+                    write_text(element, attribute, "the")
 
         score = self.score(case, model)
 
@@ -2250,8 +2267,8 @@ class TestTheFalsificationFixtures:
                 "data_classification",
             ):
                 value = getattr(element, attribute, None)
-                if isinstance(value, str) and control_state(value) == "stated":
-                    setattr(element, attribute, "arbitrary nonsense")
+                if value is not None and held_state(value) == "stated":
+                    write_text(element, attribute, "arbitrary nonsense")
 
         score = self.score(case, model)
 
@@ -2433,7 +2450,9 @@ class TestWhatNoFigureHereReaches:
         case = self.case_01()
         model = case.model.model_copy(deep=True)
         flow = next(f for f in model.data_flows if "place-order" in f.id)
-        flow.authentication = "session cookie; MFA enforced for every shopper"
+        flow.authentication = control_from_text(
+            "session cookie; MFA enforced for every shopper"
+        )
 
         assert self.perfect(self.score(case, model))
 
@@ -2467,8 +2486,8 @@ class TestWhatNoFigureHereReaches:
         case = self.case_01()
         model = case.model.model_copy(deep=True)
         flow = next(f for f in model.data_flows if "settlement-webhook" in f.id)
-        flow.authentication = "order service's own service account"
-        flow.encryption_in_transit = "TLS"
+        flow.authentication = control_from_text("order service's own service account")
+        flow.encryption_in_transit = control_from_text("TLS")
 
         score = self.score(case, model)
         lost = set(evidence_catalog(case.model)) - set(evidence_catalog(model))
@@ -2501,11 +2520,18 @@ class TestAStateAgreementIsJoinedToItsBasis:
         ):
             for element in raw.get(group, []):
                 for field in modes.STATE_REDUCED:
-                    if field in element and control_state(str(element[field])) == (
-                        "stated"
-                    ):
-                        element[field] = self.NONSENSE
-                        replaced += 1
+                    if field not in element:
+                        continue
+                    control = field in CONTROL_FIELDS
+                    held = read_control(element[field]) if control else element[field]
+                    if held_state(held) != "stated":
+                        continue
+                    element[field] = (
+                        {"state": "stated", "detail": self.NONSENSE}
+                        if control
+                        else self.NONSENSE
+                    )
+                    replaced += 1
         assert replaced, "the fixture must replace something"
         return SystemModel.model_validate(raw), replaced
 

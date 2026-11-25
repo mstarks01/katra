@@ -2234,7 +2234,7 @@ def _ends_a_job(node: ast.AST) -> bool:
 def _opens_an_attribute(node: ast.AST) -> bool:
     """A function that asks both ways an attribute stays open."""
     return isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and _calls_each(
-        node, "control_state", "assumed_zone_elements"
+        node, "held_state", "assumed_zone_elements"
     )
 
 
@@ -2789,6 +2789,10 @@ ONE_READERS: dict[str, _OneReader] = {
         {
             ("src/katra/fact_answers.py", MODULE_OWNER): (
                 "the context a read-back passes, which the stores write"
+            ),
+            ("src/katra/system_model.py", "_control_field"): (
+                "the context a model's output passes, under which a control"
+                " field refuses a string; it says nothing of a read-back"
             ),
         },
         "",

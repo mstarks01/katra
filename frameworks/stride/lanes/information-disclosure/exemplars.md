@@ -4,14 +4,14 @@ Four drafts against the exemplar systems, showing the shape and the reasoning. F
 
 ## Canonical: plaintext transfer traffic between zones
 
-`flow:process:web-api>process:ledger-service>post-transfer` has `encryption_in_transit: none`, appears in the derived crossings (dmz → core), and carries transfer instructions with customer IDs. Stated trigger, stated content, stated crossing.
+`flow:process:web-api>process:ledger-service>post-transfer` has `encryption_in_transit` state `absent`, appears in the derived crossings (dmz → core), and carries transfer instructions with customer IDs. Stated trigger, stated content, stated crossing.
 
 Same path, two lanes: rewriting those messages is tampering, reading them is yours. Write the read harm only, and score it on what is exposed rather than on what could be changed.
 
 ```json
 {
   "title": "Transfer instructions readable on the wire between the web API and the ledger",
-  "description": "`flow:process:web-api>process:ledger-service>post-transfer` carries gRPC transfer instructions — customer identifiers, amounts, destination accounts — from `boundary:dmz` into `boundary:core` with `encryption_in_transit: none`. Anyone able to observe that path (a compromised node in either zone, a misconfigured span port, a sidecar with packet capture) reads the payment activity of every customer in real time, without needing to authenticate to anything. Second-order: the observed identifiers are the inputs the ledger uses against `store:accounts-db`, so a passive observer accumulates the account mapping needed to target specific customers in later attacks.",
+  "description": "`flow:process:web-api>process:ledger-service>post-transfer` carries gRPC transfer instructions — customer identifiers, amounts, destination accounts — from `boundary:dmz` into `boundary:core` with `encryption_in_transit` state `absent`. Anyone able to observe that path (a compromised node in either zone, a misconfigured span port, a sidecar with packet capture) reads the payment activity of every customer in real time, without needing to authenticate to anything. Second-order: the observed identifiers are the inputs the ledger uses against `store:accounts-db`, so a passive observer accumulates the account mapping needed to target specific customers in later attacks.",
   "affected_element_ids": [
     "flow:process:web-api>process:ledger-service>post-transfer",
     "process:web-api",
@@ -84,12 +84,12 @@ Same path, two lanes: rewriting those messages is tampering, reading them is you
 
 ## Unknown-conditional, in system B: unverified encryption at rest, shared tenancy
 
-Written against exemplar system B, and worth comparing with the canonical draft above: the same `encryption_at_rest: unknown` trigger, but the multi-tenant store changes what one copy costs. Note the boundary the skill draws — disk encryption does nothing against an attacker with valid query access, so the conditional threat is about the store's shadow copies.
+Written against exemplar system B, and worth comparing with the canonical draft above: the same `encryption_at_rest` state `unknown` trigger, but the multi-tenant store changes what one copy costs. Note the boundary the skill draws — disk encryption does nothing against an attacker with valid query access, so the conditional threat is about the store's shadow copies.
 
 ```json
 {
   "title": "One snapshot exposes every tenant if the telemetry store is unencrypted at rest",
-  "description": "`store:telemetry-store` is classified confidential and tagged `business-critical-data`, and its `encryption_at_rest` attribute is `unknown`. If that unknown resolves to unencrypted storage, anyone obtaining a copy of the media — an exported snapshot, a backup with broader read access, a replica in a lower environment — reads the readings directly, without presenting a credential to `process:stream-processor` or touching the platform's own access path. What makes this worse than the same gap on a single-tenant store is that the partitions share one space: the tenant key separates customers inside a live query, and a raw copy carries no query, so one exported artifact discloses every fleet's operating data at once. This draft is conditional on the `encryption_at_rest` attribute; it is not a claim that the store is unencrypted.",
+  "description": "`store:telemetry-store` is classified confidential and tagged `business-critical-data`, and its `encryption_at_rest` state is `unknown`. If that unknown resolves to unencrypted storage, anyone obtaining a copy of the media — an exported snapshot, a backup with broader read access, a replica in a lower environment — reads the readings directly, without presenting a credential to `process:stream-processor` or touching the platform's own access path. What makes this worse than the same gap on a single-tenant store is that the partitions share one space: the tenant key separates customers inside a live query, and a raw copy carries no query, so one exported artifact discloses every fleet's operating data at once. This draft is conditional on the `encryption_at_rest` attribute; it is not a claim that the store is unencrypted.",
   "affected_element_ids": [
     "store:telemetry-store"
   ],
@@ -124,7 +124,7 @@ Written against exemplar system B, and worth comparing with the canonical draft 
 
 ## Contrast, in system A: a compromised reader is not a storage copy
 
-`process:ledger-service` reads `store:accounts-db` through its own grant, and the store's `encryption_at_rest` is `unknown`. Two attackers reach the same rows. One obtains a copy of the storage: encryption at rest stops that attacker, and the draft is conditional on the unknown, as in the system B draft. The other runs code inside the ledger service and reads through the grant the service already holds: encryption at rest does nothing against that attacker, because the database decrypts each row for an authorized session. The two have different preconditions and different remedies, so they are two drafts. Where the sources say a component reads a store, write the compromised-reader draft. One draft does not stand in for the other.
+`process:ledger-service` reads `store:accounts-db` through its own grant, and the store's `encryption_at_rest` state is `unknown`. Two attackers reach the same rows. One obtains a copy of the storage: encryption at rest stops that attacker, and the draft is conditional on the unknown, as in the system B draft. The other runs code inside the ledger service and reads through the grant the service already holds: encryption at rest does nothing against that attacker, because the database decrypts each row for an authorized session. The two have different preconditions and different remedies, so they are two drafts. Where the sources say a component reads a store, write the compromised-reader draft. One draft does not stand in for the other.
 
 ```json
 {

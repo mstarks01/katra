@@ -36,7 +36,7 @@ The scope of this repair:
 
 1. Take the issues one at a time. For each, locate the element and field it names.
 2. Re-read what the original text says about that element. Render the fact the text supports in the legal form the issue demands — a controlled asset tag, a legal enum value, a resolvable endpoint ID, a `trust_zone` naming a boundary that exists or `unknown`.
-3. If the text supports no legal value, write `unknown`. If you infer one, write it and add a matching entry to the `assumptions` list naming that `attribute`, exactly as in extraction.
+3. If the text supports no legal value, write `unknown`; a control field takes `{"state": "unknown"}`. If you infer one, write it and add a matching entry to the `assumptions` list naming that `attribute`, exactly as in extraction.
 4. If an issue is a dangling reference, prefer repointing it at the element that actually exists over deleting the flow; delete only when the text supports no endpoint at all.
 5. If an issue is a **duplicate ID**, two elements hold one ID and every reference to it names neither. Where the text names two distinct things alike, put in front of each the word the text itself uses nearby to tell them apart — `Seattle scheduler` and `Dublin scheduler` — and put the text's own word for both in each one's `notes`; where it names one thing twice, keep one element and repoint every reference at it. A rename renames every flow through that element, so rewrite those flows as well — they follow from the element the issue named rather than being a change of your own.
 6. Change nothing the issues do not cite, beyond the flows a rename carries. A "while I'm here" improvement is an unreviewed edit.

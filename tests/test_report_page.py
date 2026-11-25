@@ -16,6 +16,7 @@ import pytest
 
 from katra.claims import UnknownRef
 from katra.fact_answers import FactAnswer
+from katra.system_model import ElementControl
 from tests.factories import (
     asking_threat,
     report_state,
@@ -234,7 +235,9 @@ def test_findings_that_rest_on_one_missing_control_share_a_group(monkeypatch):
     from tests import factories
 
     model = valid_model()
-    flow = model.data_flows[1].model_copy(update={"encryption_in_transit": "none"})
+    flow = model.data_flows[1].model_copy(
+        update={"encryption_in_transit": ElementControl(state="absent")}
+    )
     stated = model.model_copy(update={"data_flows": [model.data_flows[0], flow]})
     monkeypatch.setattr(factories, "valid_model", lambda: stated)
     missing = Ground(

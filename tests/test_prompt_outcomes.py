@@ -86,6 +86,10 @@ UNWORDED_ISSUE_CODES: dict[str, str] = {
     # job's prompt (ADR 0121). tests/test_sources.py pins the sentence.
     "diagram-node-missing": "worded in the diagram register, not a prompt file",
     "diagram-edge-missing": "worded in the diagram register, not a prompt file",
+    # A control states its state as a field, so this reads only
+    # ``data_classification``, whose provider schema states its closed set.
+    "ambiguous-control": "the schema states the closed set of the one text field"
+    " it reads",
 }
 
 #: The one source every citing element of a test model quotes.
@@ -282,17 +286,9 @@ def an_assumption_on_an_unknown_attribute_is_refused():
 @decides
 def an_empty_control_is_refused():
     model = valid_model()
-    model.data_flows[0].authentication = ""
+    model.data_stores[0].data_classification = ""
 
     assert "blank-control" in codes(validate(model))
-
-
-@decides
-def a_control_that_opens_with_a_negation_is_refused():
-    model = valid_model()
-    model.data_flows[0].authentication = "no MFA on the password login"
-
-    assert "ambiguous-control" in codes(validate(model))
 
 
 @decides

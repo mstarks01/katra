@@ -54,6 +54,7 @@ from katra.analysis import (
     ControlAttribute,
     comparable_asset_tags,
     control_state,
+    held_state,
 )
 from katra.assertions import (
     REGISTRY,
@@ -64,6 +65,7 @@ from katra.assertions import (
     CatalogProposal,
     ProjectionReason,
     conflicts,
+    graph_value,
     project,
     projection_fields,
     states_missing,
@@ -291,9 +293,9 @@ def _tags(value: list[str]) -> str:
 #:
 #: **Two kinds of attribute, and nothing else.** A closed vocabulary — ``kind``,
 #: ``exposure``, the asset tags — is set arithmetic against the blessed model,
-#: exact and needs no interpretation. A free-text control is not, but
-#: :func:`~katra.analysis.control_state` reduces it to ``unverified`` /
-#: ``absent`` / ``stated`` by its leading token, and *that* is comparable. So
+#: exact and needs no interpretation. A control is not, but
+#: :func:`~katra.analysis.held_state` reduces it to ``unverified`` /
+#: ``absent`` / ``stated`` by its state, and *that* is comparable. So
 #: this measures the state rather than the wording, which keeps interpretation out
 #: and still catches the corpus's most repeated extraction failure: a control
 #: invented where the blessed model says ``unknown``.
@@ -319,7 +321,7 @@ class _Scored(NamedTuple):
     ``kind``, ``exposure``, ``interface_kind`` and ``operations`` hold closed
     vocabularies and ``assets`` a controlled one, so comparing them compares
     what they say. The other five hold free text that is reduced to a state
-    first: ``control_state`` maps a whole mechanism to ``stated``, ``absent`` or
+    first: ``held_state`` maps a whole control to ``stated``, ``absent`` or
     ``unverified``, and a protocol to whether it says anything at all. Those
     comparisons agree on ``session cookie; no MFA`` against ``session cookie;
     MFA enforced for every shopper``, and on either against ``arbitrary
@@ -345,9 +347,9 @@ _SCORED_ATTRIBUTES: Mapping[ScoredAttribute, _Scored] = {
     "assets": _Scored(_tags, states=False),
     "operations": _Scored(str, states=False),
     "protocol": _Scored(protocol_state, states=True),
-    "authentication": _Scored(control_state, states=True),
-    "encryption_in_transit": _Scored(control_state, states=True),
-    "encryption_at_rest": _Scored(control_state, states=True),
+    "authentication": _Scored(held_state, states=True),
+    "encryption_in_transit": _Scored(held_state, states=True),
+    "encryption_at_rest": _Scored(held_state, states=True),
     "data_classification": _Scored(control_state, states=True),
 }
 
@@ -1848,7 +1850,7 @@ def reachable_controls(model: SystemModel) -> Mapping[tuple[str, str], Stratum]:
         for attribute in attributes:
             if not hasattr(element, attribute):
                 continue
-            state = control_state(str(getattr(element, attribute)))
+            state = held_state(getattr(element, attribute))
             if state == "unverified":
                 continue
             strata[element.id, attribute] = state
@@ -1886,7 +1888,8 @@ def _projection_counts(case: GoldenCase, catalog: AssertionCatalog) -> dict[str,
             reached[stratum].add(key)
         compared = PROJECTION_COMPARED[projection.attribute]
         blessed = getattr(element, projection.attribute, UNKNOWN)
-        if compared(projection.value) == compared(str(blessed)):
+        projected = graph_value(projection.attribute, projection.value)
+        if compared(projected) == compared(blessed):
             agrees[stratum or "unstated"] += 1
     return {
         "reachable": sum(1 for stratum in reachable.values() if stratum == "stated"),

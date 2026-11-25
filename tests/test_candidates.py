@@ -23,13 +23,16 @@ from katra.frameworks.stride import STRIDE
 from katra.frameworks.stride.record import STRIDE_CATEGORIES
 from katra.sources import text_digest
 from katra.system_model import (
+    CONTROL_VALUE_MAX_CHARS,
     UNKNOWN,
     DataFlow,
     DataStore,
+    ElementControl,
     ExternalEntity,
     Process,
     SystemModel,
     TrustBoundary,
+    control_from_text,
     make_flow_id,
 )
 
@@ -63,9 +66,9 @@ def candidates(model, catalog=None) -> dict:
 def flow(source, destination, label, **overrides):
     fields = {
         "protocol": "HTTPS",
-        "authentication": "workload identity",
+        "authentication": {"state": "stated", "detail": "workload identity"},
         "data_description": "records",
-        "encryption_in_transit": "TLS 1.3",
+        "encryption_in_transit": {"state": "stated", "detail": "TLS 1.3"},
         "operations": "unknown",
     }
     fields.update(overrides)
@@ -144,32 +147,46 @@ def model():
                 technology="Postgres",
                 trust_zone="boundary:dmz",
                 data_classification="confidential",
-                encryption_at_rest="unknown",
+                encryption_at_rest=ElementControl(state="unknown"),
                 assets=["financial", "pii"],
             )
         ],
         data_flows=[
-            flow("entity:customer", "process:api", "submit", authentication="unknown"),
-            flow("entity:partner", "process:api", "callback", authentication="none"),
+            flow(
+                "entity:customer",
+                "process:api",
+                "submit",
+                authentication=ElementControl(state="unknown"),
+            ),
+            flow(
+                "entity:partner",
+                "process:api",
+                "callback",
+                authentication=ElementControl(state="absent"),
+            ),
             flow(
                 "process:api",
                 "store:ledger",
                 "write",
-                authentication="shared app password",
-                encryption_in_transit="unknown",
+                authentication=ElementControl(
+                    state="stated", detail="shared app password"
+                ),
+                encryption_in_transit=ElementControl(state="unknown"),
             ),
             flow(
                 "process:admin",
                 "store:ledger",
                 "audit",
-                authentication="shared app password",
+                authentication=ElementControl(
+                    state="stated", detail="shared app password"
+                ),
             ),
             flow(
                 "process:api",
                 "process:admin",
                 "escalate",
-                authentication="unknown",
-                encryption_in_transit="none",
+                authentication=ElementControl(state="unknown"),
+                encryption_in_transit=ElementControl(state="absent"),
             ),
         ],
         trust_boundaries=[
@@ -246,7 +263,7 @@ class TestFiring:
         ]
 
     def test_write_to_store_rule_carries_the_classification(self, model):
-        model.data_flows[2].authentication = "unknown"
+        model.data_flows[2].authentication = control_from_text("unknown")
         hits = fired(model, "tampering-unverified-write-to-store")
         assert hits[0].facts["data_classification"] == "confidential"
 
@@ -257,7 +274,7 @@ class TestFiring:
         a claim about an operation the model records nothing about — until
         ``operations`` did.
         """
-        model.data_flows[2].authentication = "unknown"
+        model.data_flows[2].authentication = control_from_text("unknown")
         model.data_flows[2].operations = "read"
 
         assert fired(model, "tampering-unverified-write-to-store") == []
@@ -269,7 +286,7 @@ class TestFiring:
         — and the fact rides on the lead so the agent argues from the model
         rather than from the rule's name.
         """
-        model.data_flows[2].authentication = "unknown"
+        model.data_flows[2].authentication = control_from_text("unknown")
         model.data_flows[2].operations = "unknown"
 
         hits = fired(model, "tampering-unverified-write-to-store")
@@ -279,7 +296,7 @@ class TestFiring:
     def test_unattributable_action_needs_a_graded_asset(self, model):
         hits = fired(model, "repudiation-unattributable-action")
         assert [hit.element_ids for hit in hits] == []
-        model.data_flows[2].authentication = "none"
+        model.data_flows[2].authentication = control_from_text("none")
         hits = fired(model, "repudiation-unattributable-action")
         assert hits[0].facts["destination_assets"] == "financial, pii"
 
@@ -352,7 +369,7 @@ class TestFiring:
 
         store = next(one for one in model.data_stores if one.id == "store:ledger")
         store.assets = ["secrets", "pii", "credentials", "pii", "financial"]
-        store.encryption_at_rest = "unknown"
+        store.encryption_at_rest = control_from_text("unknown")
         reported = [
             value
             for candidate_set in candidates(model, None).values()
@@ -377,7 +394,12 @@ class TestFiring:
     def test_leaving_a_privilege_zone_is_not_a_transition(self, model):
         """The authority is on the inside, so only entering it crosses one."""
         model.data_flows.append(
-            flow("process:admin", "process:api", "report", authentication="unknown")
+            flow(
+                "process:admin",
+                "process:api",
+                "report",
+                authentication=ElementControl(state="unknown"),
+            )
         )
         hits = fired(model, "elevation-of-privilege-privilege-zone-crossing")
         assert [hit.facts["direction"] for hit in hits] == ["into"]
@@ -499,7 +521,9 @@ class TestShape:
         }
 
     def test_facts_are_clipped(self, model):
-        model.data_flows[0].authentication = "unknown, " + "x" * 500
+        model.data_flows[0].authentication = ElementControl(
+            state="unknown", detail="x" * CONTROL_VALUE_MAX_CHARS
+        )
         hit = fired(model, "spoofing-unverified-boundary-auth")[0]
         assert len(hit.facts["authentication"]) <= 200
 
@@ -782,7 +806,7 @@ class TestTheStoreReadersRule:
                     name="vault",
                     technology="x",
                     data_classification="confidential",
-                    encryption_at_rest="AES-256",
+                    encryption_at_rest=ElementControl(state="stated", detail="AES-256"),
                     trust_zone="boundary:inside",
                     assets=["credentials"],
                 )

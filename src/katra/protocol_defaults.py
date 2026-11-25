@@ -28,8 +28,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal
 
-from katra.analysis import control_state
-from katra.system_model import Assumption, DataFlow, SystemModel
+from katra.analysis import control_reading
+from katra.system_model import Assumption, DataFlow, ElementControl, SystemModel
 
 #: A protocol field that also names a plain sibling states no inherent
 #: property: "HTTP and HTTPS" carries some traffic unencrypted.
@@ -200,9 +200,13 @@ def with_protocol_defaults(model: SystemModel) -> SystemModel:
     updated = model.model_copy(deep=True)
     for default in PROTOCOL_DEFAULTS:
         for flow in _flows(updated, default):
-            if control_state(getattr(flow, default.attribute)) != "unverified":
+            if control_reading(getattr(flow, default.attribute)) != "unverified":
                 continue
-            setattr(flow, default.attribute, default.value)
+            setattr(
+                flow,
+                default.attribute,
+                ElementControl(state="stated", detail=default.value),
+            )
             updated.assumptions.append(
                 Assumption(
                     assumption=f"{flow.name}: {default.value}, which the stated"

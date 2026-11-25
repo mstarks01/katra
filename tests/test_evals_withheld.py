@@ -16,6 +16,8 @@ from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import development_cases, load_corpus
 from evals.harness.withheld import AnswerFile, load_answer_file, withheld_case
 from evals.verify_corpus import CORPUS_DIR
+from katra.analysis import held_text
+from katra.system_model import control_text
 from tests.test_evals_modes import case  # noqa: F401  (fixture)
 
 DRAFT = REPO_ROOT / "evals" / "answers" / "01-payments-checkout.json"
@@ -60,7 +62,7 @@ def test_the_facts_leave_the_sources_and_the_model(case, tmp_path):  # noqa: F81
     assert NO_MFA in case.sources[0].text
     assert NO_MFA not in withheld.sources[0].text
     flow = withheld.model.get("flow:entity:shopper>process:storefront-api>place-order")
-    assert flow is not None and flow.authentication == "unknown"
+    assert flow is not None and control_text(flow.authentication) == "unknown"
 
 
 def test_each_answer_restates_a_field_the_test_set_back(case, tmp_path):  # noqa: F811
@@ -68,7 +70,7 @@ def test_each_answer_restates_a_field_the_test_set_back(case, tmp_path):  # noqa
     answer_file = signed_copy(tmp_path)
     for answer in answer_file.answers:
         element_id, attribute, *_ = answer.key
-        assert getattr(case.model.get(element_id), attribute) == answer.value
+        assert held_text(getattr(case.model.get(element_id), attribute)) == answer.value
         assert (element_id, attribute, "unknown") in answer_file.withheld_fields
 
 

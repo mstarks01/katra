@@ -11,6 +11,7 @@ from katra.domains import (
 from katra.system_model import (
     DataFlow,
     DataStore,
+    ElementControl,
     Process,
     SystemModel,
     TrustBoundary,
@@ -46,16 +47,16 @@ def store(name, technology):
         technology=technology,
         trust_zone="boundary:z",
         data_classification="internal",
-        encryption_at_rest="unknown",
+        encryption_at_rest=ElementControl(state="unknown"),
     )
 
 
 def flow(label, **overrides):
     fields = {
         "protocol": "HTTPS",
-        "authentication": "workload identity",
+        "authentication": {"state": "stated", "detail": "workload identity"},
         "data_description": "records",
-        "encryption_in_transit": "TLS 1.3",
+        "encryption_in_transit": {"state": "stated", "detail": "TLS 1.3"},
         "operations": "unknown",
     }
     fields.update(overrides)
@@ -80,7 +81,15 @@ class TestDetection:
     def test_oauth_in_authentication_selects_the_identity_pack(self):
         model = model_with(
             processes=[process("a"), process("b")],
-            flows=[flow("login", authentication="OIDC via the broker", protocol="tcp")],
+            flows=[
+                flow(
+                    "login",
+                    authentication=ElementControl(
+                        state="stated", detail="OIDC via the broker"
+                    ),
+                    protocol="tcp",
+                )
+            ],
         )
         assert "oauth-oidc" in select_domain_packs(model)
 
@@ -106,7 +115,14 @@ class TestSelection:
         model = model_with(
             processes=[process("api", technology="FastAPI over HTTPS")],
             stores=[store("orders", "Postgres")],
-            flows=[flow("login", authentication="OAuth bearer token")],
+            flows=[
+                flow(
+                    "login",
+                    authentication=ElementControl(
+                        state="stated", detail="OAuth bearer token"
+                    ),
+                )
+            ],
             boundaries=[TrustBoundary(id="boundary:t", name="T", kind="tenant")],
         )
         assert len(pack_evidence(model)) > MAX_PACKS

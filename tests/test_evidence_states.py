@@ -40,7 +40,13 @@ from katra.frameworks import PACKAGES, schemas_for
 from katra.frameworks.stride import STRIDE
 from katra.open_facts import reference_labels
 from katra.sources import ANSWERS_LABEL
-from katra.system_model import DataStore, ModelIndex, SystemModel
+from katra.system_model import (
+    DataStore,
+    ModelIndex,
+    SystemModel,
+    control_from_text,
+    control_text,
+)
 from tests import test_assertions
 from tests.factories import sample_draft, sample_ruling, valid_model
 from tests.test_assertions import FLOW, stated
@@ -58,7 +64,7 @@ def _with_encryption(value: str) -> SystemModel:
     model = valid_model()
     store = model.get(ORDERS)
     assert isinstance(store, DataStore)
-    store.encryption_at_rest = value
+    store.encryption_at_rest = control_from_text(value)
     return model
 
 
@@ -417,7 +423,7 @@ class TestARejectedAnswer:
         updated, _ = apply_projection(model, catalog)
 
         (flow,) = updated.data_flows
-        assert flow.authentication.startswith("unknown")
+        assert control_text(flow.authentication).startswith("unknown")
 
 
 def test_an_answer_of_unknown_does_not_lift_the_unchecked_guard():
@@ -441,7 +447,7 @@ def test_an_answer_of_unknown_does_not_lift_the_unchecked_guard():
     updated, _ = apply_projection(graph.model("none"), catalog)
 
     (flow,) = updated.data_flows
-    assert flow.authentication == "none"
+    assert control_text(flow.authentication) == "none"
     assert contradicted(catalog, updated) == (source,)
 
 
@@ -567,7 +573,7 @@ class TestADisputedPairUnderARefusedProjection:
         assert assertion_id(self.ENCRYPTED) not in offered
         store = model.get(ORDERS)
         assert isinstance(store, DataStore)
-        assert store.encryption_at_rest.startswith(UNKNOWN)
+        assert control_text(store.encryption_at_rest).startswith(UNKNOWN)
 
 
 class TestCoverageOfAContradictedAttribute:
@@ -888,7 +894,7 @@ class TestOneUncheckedRowBesideALead:
     def offered(self, field):
         catalog = assertions(self.ROW, subjects=(self.STORE,))
         model, _, offered = prepared_view(_with_encryption(field), catalog)
-        return model.get(ORDERS).encryption_at_rest, offered
+        return control_text(model.get(ORDERS).encryption_at_rest), offered
 
     def test_beside_a_stated_absence_it_is_an_open_question(self):
         field, offered = self.offered("none")
@@ -908,5 +914,5 @@ class TestOneUncheckedRowBesideALead:
         catalog = assertions(supported, subjects=(self.STORE,))
         model, _, offered = prepared_view(_with_encryption("none"), catalog)
 
-        assert model.get(ORDERS).encryption_at_rest == "AES-256"
+        assert control_text(model.get(ORDERS).encryption_at_rest) == "AES-256"
         assert self.ABSENT_REF not in offered

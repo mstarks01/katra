@@ -213,7 +213,14 @@ from katra.vendors import ServedTrust, vendor_for_route
 # Version 3.5: each block carries ``quotes_checked``, whether the fan-in ran
 # the quote check, and ``None`` only on a block a run wrote before the field.
 # A stored 3.4 job record gets 409 ``UnreadableSchema``.
-SCHEMA_VERSION = "3.5"
+#
+# Version 4.0: each control field of the system model —
+# ``authentication`` and ``encryption_in_transit`` on a flow,
+# ``encryption_at_rest`` on a store — holds ``{state, detail}``, where
+# ``state`` is ``stated``, ``absent`` or ``unknown`` (ADR 0134). A stored 3.5
+# job record gets 409 ``UnreadableSchema``. The report route serves a stored
+# report of any version, and its page reads both shapes.
+SCHEMA_VERSION = "4.0"
 
 # The envelope's disclaimer, which is about the *service* rather than about any
 # one framework. It does not say "threat model": that is false of a report

@@ -90,12 +90,12 @@ Written against exemplar system B, to show the same reasoning on an event-driven
 
 ## Unknown-conditional: unverified settlement webhook
 
-`flow:entity:payments-provider>process:web-api>settlement-webhook` has `authentication: unknown`. The model does not say the webhook is unauthenticated — it says nobody recorded whether it is. Write the threat conditionally and name the attribute; the critic will mark it needs-info. Writing "the webhook is unauthenticated" would assert a fact the model does not contain.
+`flow:entity:payments-provider>process:web-api>settlement-webhook` has `authentication` state `unknown`. The model does not say the webhook is unauthenticated — it says nobody recorded whether it is. Write the threat conditionally and name the attribute; the critic will mark it needs-info. Writing "the webhook is unauthenticated" would assert a fact the model does not contain.
 
 ```json
 {
   "title": "Forged settlement callbacks if the webhook's authentication is absent",
-  "description": "`flow:entity:payments-provider>process:web-api>settlement-webhook` crosses from `boundary:public-internet` into `boundary:dmz` with `authentication: unknown`. If that unknown resolves to no verification — no signature, no mutual TLS — anyone who learns the endpoint URL can impersonate `entity:payments-provider` and post fabricated settlement confirmations to `process:web-api`. Second-order: the ledger acts on those confirmations, so forged settlements become balance changes in `store:accounts-db`. This draft is conditional on the `authentication` attribute of that flow; it is not a claim that the control is missing.",
+  "description": "`flow:entity:payments-provider>process:web-api>settlement-webhook` crosses from `boundary:public-internet` into `boundary:dmz` with `authentication` state `unknown`. If that unknown resolves to no verification — no signature, no mutual TLS — anyone who learns the endpoint URL can impersonate `entity:payments-provider` and post fabricated settlement confirmations to `process:web-api`. Second-order: the ledger acts on those confirmations, so forged settlements become balance changes in `store:accounts-db`. This draft is conditional on the `authentication` attribute of that flow; it is not a claim that the control is missing.",
   "affected_element_ids": [
     "entity:payments-provider",
     "process:web-api",
@@ -124,14 +124,14 @@ Written against exemplar system B, to show the same reasoning on an event-driven
 
 ## Trust by network position: a caller the ledger never verifies
 
-`flow:process:web-api>process:ledger-service>post-transfer` carries `authentication: none`, and it crosses from `boundary:dmz` into `boundary:core`. The ledger accepts a transfer instruction because of where it comes from. An attacker who reaches the ledger holds no credential to present, so the verb is `impersonate`: posing as a party without its credential. Both facts are catalogued, so this draft quotes nothing.
+`flow:process:web-api>process:ledger-service>post-transfer` carries `authentication` state `absent`, and it crosses from `boundary:dmz` into `boundary:core`. The ledger accepts a transfer instruction because of where it comes from. An attacker who reaches the ledger holds no credential to present, so the verb is `impersonate`: posing as a party without its credential. Both facts are catalogued, so this draft quotes nothing.
 
 Lane contrast: altering an instruction the web API sent is tampering, and reaching transfer authority the attacker's position does not carry is elevation of privilege. Being accepted *as* the web API is yours.
 
 ```json
 {
   "title": "A dmz foothold can send transfers to the ledger as the web API",
-  "description": "`process:ledger-service` accepts transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer`, which crosses from `boundary:dmz` into `boundary:core` with `authentication: none`. Nothing in the request says who sent it, so the ledger treats any caller that reaches it as `process:web-api`. An attacker with a foothold in `boundary:dmz` (a compromised neighbour, or a request forged from inside the web tier) sends instructions in the web API's place, and the ledger acts on them as genuine. Second-order: the ledger executes them with its own authority over `store:accounts-db`, so the impersonation moves money between accounts the attacker chooses.",
+  "description": "`process:ledger-service` accepts transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer`, which crosses from `boundary:dmz` into `boundary:core` with `authentication` state `absent`. Nothing in the request says who sent it, so the ledger treats any caller that reaches it as `process:web-api`. An attacker with a foothold in `boundary:dmz` (a compromised neighbour, or a request forged from inside the web tier) sends instructions in the web API's place, and the ledger acts on them as genuine. Second-order: the ledger executes them with its own authority over `store:accounts-db`, so the impersonation moves money between accounts the attacker chooses.",
   "affected_element_ids": [
     "process:web-api",
     "flow:process:web-api>process:ledger-service>post-transfer",
@@ -160,12 +160,12 @@ Lane contrast: altering an instruction the web API sent is tampering, and reachi
 
 ## Same verb, same place, another control: a fake ledger the web API never checks
 
-This draft shares its verb and its elements with the one above, and it is still a second threat. Draft 4 rests on the ledger never checking its caller (`authentication`). This one rests on the web API never checking the server it reached (`encryption_in_transit: none`, so no certificate proves which endpoint answered). The impersonated party is the other end, and the fix is at the other end: caller authentication at the ledger does not stop a fake ledger. Cite each draft's own control, and keep both.
+This draft shares its verb and its elements with the one above, and it is still a second threat. Draft 4 rests on the ledger never checking its caller (`authentication`). This one rests on the web API never checking the server it reached (`encryption_in_transit` state `absent`, so no certificate proves which endpoint answered). The impersonated party is the other end, and the fix is at the other end: caller authentication at the ledger does not stop a fake ledger. Cite each draft's own control, and keep both.
 
 ```json
 {
   "title": "A dmz foothold can answer the web API as the ledger",
-  "description": "`process:web-api` sends transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer`, which crosses from `boundary:dmz` into `boundary:core` with `encryption_in_transit: none`, so no certificate tells the web API which endpoint it reached. An attacker with a foothold in `boundary:dmz` who can redirect that call (a poisoned name lookup, or a neighbour that takes the ledger's address) poses as `process:ledger-service` and receives each instruction in its place. Second-order: the attacker collects the customer IDs and transfer details in every instruction, and the transfers it swallows never reach `store:accounts-db`, although the web API sent them.",
+  "description": "`process:web-api` sends transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer`, which crosses from `boundary:dmz` into `boundary:core` with `encryption_in_transit` state `absent`, so no certificate tells the web API which endpoint it reached. An attacker with a foothold in `boundary:dmz` who can redirect that call (a poisoned name lookup, or a neighbour that takes the ledger's address) poses as `process:ledger-service` and receives each instruction in its place. Second-order: the attacker collects the customer IDs and transfer details in every instruction, and the transfers it swallows never reach `store:accounts-db`, although the web API sent them.",
   "affected_element_ids": [
     "process:web-api",
     "flow:process:web-api>process:ledger-service>post-transfer",

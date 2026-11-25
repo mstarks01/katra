@@ -4,7 +4,7 @@ Two drafts against exemplar system A. This is the chapter the System Model answe
 
 ## V12.3.3 — The transfer path to the ledger service runs unencrypted
 
-`none` on an internal crossing between two HTTP-based services — gRPC runs over HTTP/2. The submitter answered, so the ruling is written plainly and cites the `absent:` row rather than the sentence behind it.
+The state `absent` on an internal crossing between two HTTP-based services — gRPC runs over HTTP/2. The submitter answered, so the ruling is written plainly and cites the `absent:` row rather than the sentence behind it.
 
 ```json
 {
@@ -26,7 +26,7 @@ Two drafts against exemplar system A. This is the chapter the System Model answe
 ```
 ## V12.3.1 — Transport protection on the database link is never stated
 
-A database connection is not an HTTP service, so the requirement for it is the one that names databases. The flow's attribute is `unknown`, and the remedy differs from the draft above — one is a fix, the other is a question — so the two are never written the same way. The question goes to `prose`, because the draft above settles the same attribute on a different flow from the description alone: a submitter who writes what protects this link answers it the same way. `config` is for a question no description could answer, and "a statement does not verify the setting" is true of every stated control here — it is what **Never report a pass** already covers, not a reason to route the question away from the person who can answer it.
+A database connection is not an HTTP service, so the requirement for it is the one that names databases. The flow's control state is `unknown`, and the remedy differs from the draft above — one is a fix, the other is a question — so the two are never written the same way. The question goes to `prose`, because the draft above settles the same attribute on a different flow from the description alone: a submitter who writes what protects this link answers it the same way. `config` is for a question no description could answer, and "a statement does not verify the setting" is true of every stated control here — it is what **Never report a pass** already covers, not a reason to route the question away from the person who can answer it.
 
 ```json
 {

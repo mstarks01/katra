@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from katra.analysis import held_text
 from katra.system_model import Element, SystemModel
 
 __all__ = ["DETECTORS", "MAX_PACKS", "pack_evidence", "select_domain_packs"]
@@ -156,6 +157,5 @@ def _scanned(element: Element) -> str:
 
 def _field_values(element: Element) -> Iterable[str]:
     for field in _SCANNED_FIELDS:
-        value = getattr(element, field, None)
-        if isinstance(value, str):
-            yield value
+        if field in type(element).model_fields:
+            yield held_text(getattr(element, field))

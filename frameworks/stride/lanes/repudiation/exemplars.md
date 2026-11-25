@@ -98,12 +98,12 @@ Written against exemplar system B. Repudiation does not require anyone to tamper
 
 ## Unknown-conditional: undisputable settlement callbacks
 
-`flow:entity:payments-provider>process:web-api>settlement-webhook` carries `authentication: unknown`. Write the evidence gap conditionally on that attribute and let the critic mark it needs-info — the model does not say the callback is unverified, only that nobody recorded what verifies it.
+`flow:entity:payments-provider>process:web-api>settlement-webhook` carries `authentication` state `unknown`. Write the evidence gap conditionally on that attribute and let the critic mark it needs-info — the model does not say the callback is unverified, only that nobody recorded what verifies it.
 
 ```json
 {
   "title": "Settlement confirmations may be unattributable to the payments provider",
-  "description": "`flow:entity:payments-provider>process:web-api>settlement-webhook` crosses from `boundary:public-internet` into `boundary:dmz` with `authentication: unknown`. If that unknown resolves to an unsigned callback, nothing in the received settlement confirmation ties it to `entity:payments-provider`: the operator cannot prove to the provider that a given settlement was sent, and the provider can deny having sent one that was acted on. Disputes over money already moved through `process:ledger-service` would have no evidence on either side. This draft is conditional on the `authentication` attribute of that flow; it is not a claim that the callback is unsigned.",
+  "description": "`flow:entity:payments-provider>process:web-api>settlement-webhook` crosses from `boundary:public-internet` into `boundary:dmz` with `authentication` state `unknown`. If that unknown resolves to an unsigned callback, nothing in the received settlement confirmation ties it to `entity:payments-provider`: the operator cannot prove to the provider that a given settlement was sent, and the provider can deny having sent one that was acted on. Disputes over money already moved through `process:ledger-service` would have no evidence on either side. This draft is conditional on the `authentication` attribute of that flow; it is not a claim that the callback is unsigned.",
   "affected_element_ids": [
     "entity:payments-provider",
     "process:web-api",

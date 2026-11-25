@@ -14,7 +14,7 @@ from typing import get_args
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from katra.analysis import ABSENT_WORD
+from katra.analysis import held_state
 from katra.assertions import (
     _QUALIFIED_BECAUSE,
     ABSENT,
@@ -40,6 +40,7 @@ from katra.assertions import (
     Basis,
     CatalogIssueCode,
     CatalogProposal,
+    Projection,
     ProjectionReason,
     Qualifier,
     QualifierKind,
@@ -57,11 +58,13 @@ from katra.assertions import (
     contradiction_issues,
     contradictions,
     disputed,
+    graph_value,
     identity_parts,
     offered,
     project,
     projected_attribute,
     projection_fields,
+    qualified,
     quarantine,
     read_assertion_id,
     referent_type,
@@ -76,14 +79,18 @@ from katra.deployment import DEFAULT_PROMPTS_DIR
 from katra.evidence import evidence_catalog, unknown_evidence_ref
 from katra.sources import ANSWERS_LABEL
 from katra.system_model import (
+    ABSENT_WORD,
+    CONTROL_VALUE_MAX_CHARS,
     EXCERPT_MAX_CHARS,
     UNKNOWN,
     CapabilityStatement,
     DataFlow,
+    ElementControl,
     ExternalEntity,
     Process,
     SystemModel,
     all_attribute_names,
+    control_text,
 )
 
 SOURCE_LABEL = "System description"
@@ -146,9 +153,9 @@ def shop_model():
                     "source": "entity:shopper",
                     "destination": "process:storefront-api",
                     "protocol": "https",
-                    "authentication": "session cookie",
+                    "authentication": {"state": "stated", "detail": "session cookie"},
                     "data_description": "an order",
-                    "encryption_in_transit": "TLS",
+                    "encryption_in_transit": {"state": "stated", "detail": "TLS"},
                 }
             ],
         }
@@ -188,9 +195,9 @@ def gate_model():
                     source="entity:card-processor",
                     destination="process:settlement-webhook",
                     protocol="https",
-                    authentication=UNKNOWN,
+                    authentication=ElementControl(state="unknown"),
                     data_description="a settlement",
-                    encryption_in_transit="TLS",
+                    encryption_in_transit=ElementControl(state="stated", detail="TLS"),
                 ),
             ],
         }
@@ -1976,6 +1983,10 @@ class TestTheOneReaderOfAReferentType:
         assert referent_type(REGISTRY[row.predicate]) is None
 
 
+#: The control the contradiction fixture's flow states unless a test says other.
+SESSION_COOKIE = ElementControl(state="stated", detail="session cookie")
+
+
 class TestAGraphAttributeAndItsRowsStatingOpposites:
     """The audit's own defect: an explicit absence standing in the graph as a control.
 
@@ -1984,7 +1995,7 @@ class TestAGraphAttributeAndItsRowsStatingOpposites:
     twice, and reporting those would put a finding on every run.
     """
 
-    def model(self, authentication="session cookie"):
+    def model(self, authentication: ElementControl = SESSION_COOKIE):
         return SystemModel.model_validate(
             {
                 "external_entities": [
@@ -2018,7 +2029,7 @@ class TestAGraphAttributeAndItsRowsStatingOpposites:
                         "protocol": "https",
                         "authentication": authentication,
                         "data_description": "an order",
-                        "encryption_in_transit": "TLS",
+                        "encryption_in_transit": {"state": "stated", "detail": "TLS"},
                     }
                 ],
             }
@@ -2034,7 +2045,10 @@ class TestAGraphAttributeAndItsRowsStatingOpposites:
 
     def test_a_graph_absence_under_a_stated_row_is_reported_too(self):
         """The mirror, because either side can be the wrong one."""
-        found = contradictions(catalog([stated()]), self.model(authentication="none"))
+        found = contradictions(
+            catalog([stated()]),
+            self.model(authentication=ElementControl(state="absent")),
+        )
         assert len(found) == 1 and found[0].values == ("email and password",)
 
     def test_two_wordings_of_one_mechanism_are_not_a_contradiction(self):
@@ -2043,7 +2057,12 @@ class TestAGraphAttributeAndItsRowsStatingOpposites:
 
     def test_silence_on_either_side_is_not_an_opposite(self):
         """A graph attribute nobody stated is the projection doing its job."""
-        assert contradictions(catalog([stated()]), self.model(UNKNOWN)) == ()
+        assert (
+            contradictions(
+                catalog([stated()]), self.model(ElementControl(state="unknown"))
+            )
+            == ()
+        )
 
     def test_an_issue_names_both_values_so_a_reader_can_see_the_pair(self):
         """Which of the two is wrong is not decidable here.
@@ -2133,9 +2152,12 @@ class TestTheProjectionBecomesTheGraphsValue:
                         "source": "entity:shopper",
                         "destination": "process:storefront-api",
                         "protocol": "https",
-                        "authentication": "session cookie",
+                        "authentication": {
+                            "state": "stated",
+                            "detail": "session cookie",
+                        },
                         "data_description": "an order",
-                        "encryption_in_transit": "TLS",
+                        "encryption_in_transit": {"state": "stated", "detail": "TLS"},
                     }
                 ],
             }
@@ -2148,8 +2170,35 @@ class TestTheProjectionBecomesTheGraphsValue:
         """The 7 corrections: the graph hid an absence the sources stated."""
         updated, applied = apply_projection(self.model(), self.catalog_of(ABSENT))
 
-        assert self._flow(updated).authentication == ABSENT_WORD
+        assert control_text(self._flow(updated).authentication) == ABSENT_WORD
         assert [entry.reason for entry in applied] == ["absent"]
+
+    @pytest.mark.parametrize(
+        ("value", "state", "detail"),
+        [
+            (
+                "none; accepted by network position",
+                "absent",
+                "accepted by network position",
+            ),
+            ("None", "absent", ""),
+            ("Unknown", "unknown", ""),
+            ("unknown; not sure", "unknown", "not sure"),
+        ],
+    )
+    def test_a_row_value_reaches_a_control_by_the_first_word_rule(
+        self, value, state, detail
+    ):
+        """The projection reads a row's text through ``control_from_text``, as
+        an answer and an archived field are read, so a sentinel with a reason
+        or in capitals is never a stated mechanism."""
+        assert graph_value("authentication", value) == ElementControl(
+            state=state, detail=detail
+        )
+        updated, _ = apply_projection(self.model(), self.catalog_of(value))
+
+        assert held_state(self._flow(updated).authentication) != "stated"
+        assert graph_value("exposure", value) == value
 
     def test_a_compatible_projection_leaves_the_attribute_alone(self):
         """Two predicates on one attribute that both hold: one string cannot
@@ -2173,7 +2222,7 @@ class TestTheProjectionBecomesTheGraphsValue:
         )
         updated, applied = apply_projection(self.model(), held)
 
-        assert self._flow(updated).authentication == "session cookie"
+        assert control_text(self._flow(updated).authentication) == "session cookie"
         assert applied == ()
 
     def test_an_empty_catalog_returns_the_model_unchanged(self):
@@ -2270,7 +2319,7 @@ class TestTheImplementationAudit:
 
         (projection,) = applied
         assert projection.reason == reason
-        written = self._flow(updated).authentication
+        written = control_text(self._flow(updated).authentication)
         assert written.startswith(f"{UNKNOWN}; ")
         assert unknown_evidence_ref(FLOW, "authentication") in evidence_catalog(
             updated, catalog(entries)
@@ -2281,7 +2330,7 @@ class TestTheImplementationAudit:
         updated, _ = apply_projection(self.model(), catalog([scoped]))
 
         assert "email and password (principal admins)" in (
-            self._flow(updated).authentication
+            control_text(self._flow(updated).authentication)
         )
 
     def test_a_scoped_row_is_cited_as_itself(self):
@@ -2333,7 +2382,7 @@ class TestTheImplementationAudit:
         updated, applied = apply_projection(self.model(), held)
 
         assert [p.reason for p in applied] == ["hedged"]
-        written = self._flow(updated).authentication
+        written = control_text(self._flow(updated).authentication)
         assert written.startswith(f"{UNKNOWN}; the sources voice uncertainty")
         assert '"we have not rolled out MFA"' in written
         assert unknown_evidence_ref(FLOW, "authentication") in evidence_catalog(
@@ -2343,7 +2392,7 @@ class TestTheImplementationAudit:
     def test_a_hedge_without_words_still_qualifies(self):
         updated, _ = apply_projection(self.model(), catalog([self.hedge(support=[])]))
 
-        assert self._flow(updated).authentication == (
+        assert control_text(self._flow(updated).authentication) == (
             f"{UNKNOWN}; the sources voice uncertainty about this"
         )
 
@@ -2355,7 +2404,7 @@ class TestTheImplementationAudit:
 
         assert [p.reason for p in project(held)] == ["unknown"]
         assert applied == ()
-        assert self._flow(updated).authentication == "session cookie"
+        assert control_text(self._flow(updated).authentication) == "session cookie"
 
     def test_one_hedge_among_silent_rows_is_a_hedge(self):
         held = catalog(
@@ -2479,7 +2528,7 @@ class TestTheImplementationAudit:
         held = catalog([stated()])
         updated, _ = apply_projection(self.model(), held)
 
-        assert self._flow(updated).authentication == "email and password"
+        assert control_text(self._flow(updated).authentication) == "email and password"
         assert offered(held, updated) == ()
 
     def test_a_projected_row_the_graph_does_not_hold_is_cited(self):
@@ -2502,7 +2551,7 @@ class TestTheImplementationAudit:
         )
         updated, _ = apply_projection(self.model(), held)
 
-        assert self._flow(updated).authentication == "session cookie"
+        assert control_text(self._flow(updated).authentication) == "session cookie"
         assert offered(held, updated) == (mechanism, credential)
 
     # --- 6: a merge that crosses the span bound says so ---
@@ -2629,3 +2678,22 @@ def test_a_row_quote_two_sources_hold_finds_no_span_under_a_wrong_label():
     )
 
     assert record.catalog.entries == []
+
+
+@pytest.mark.parametrize("attribute", ["authentication", "data_classification"])
+def test_a_qualified_unknown_fills_its_own_bound(attribute):
+    """A control's reason is its ``detail``, so the bound cuts the reason, and a
+    text field's bound cuts the sentinel and the reason together."""
+    projection = Projection(
+        element_id=FLOW,
+        attribute=attribute,
+        value=UNKNOWN,
+        reason="unsupported",
+        rows=(),
+    )
+    written = qualified(projection, [], {}, because="x" * 300)
+
+    text = written.detail if isinstance(written, ElementControl) else written
+    assert len(text) == CONTROL_VALUE_MAX_CHARS
+    assert text.endswith("…")
+    assert isinstance(written, ElementControl) == (attribute == "authentication")

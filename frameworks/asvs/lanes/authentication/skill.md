@@ -10,7 +10,7 @@ Chapter boundaries: what happens once identity is established is chapter V7. Wha
 
 The service decides which requirements of this chapter apply, and the scope line lists the ones it rules in and the ones it leaves open. The password requirements, for example, stay open until the input says whether an in-scope component handles passwords.
 
-Read the model's `DataFlow.authentication` values, its `ExternalEntity` kinds, and any `assets` tag naming credentials. An `authentication` reading `unknown` means the question is open, never that the control is absent — that distinction decides between a ruling you write conditionally and one you write plainly.
+Read the model's `DataFlow.authentication` values, its `ExternalEntity` kinds, and any `assets` tag naming credentials. An `authentication` whose state is `unknown` means the question is open, never that the control is absent — that distinction decides between a ruling you write conditionally and one you write plainly.
 
 ### The requirements of this chapter
 
@@ -91,16 +91,16 @@ Read the model's `DataFlow.authentication` values, its `ExternalEntity` kinds, a
 
 The recurring ways this chapter's requirements go unanswered in a system description. Each names what to look for; none is a finding on its own.
 
-**Authentication is named without its mechanism.** `authentication: unknown` on a flow from a human entity puts every requirement in this chapter into needs-info at once. Rule them one at a time and name the same attribute in each.
+**Authentication is named without its mechanism.** `authentication` state `unknown` on a flow from a human entity puts every requirement in this chapter into needs-info at once. Rule them one at a time and name the same attribute in each.
 **A password is named and its rules are not.** Minimum length, breach screening, storage algorithm and rotation policy are separate requirements. The input almost never carries any of them, and each is its own ruling.
-**Multi-factor is stated as absent.** `none` is the submitter answering the question. Write that ruling plainly rather than conditionally.
+**Multi-factor is stated as absent.** The state `absent` is the submitter answering the question. Write that ruling plainly rather than conditionally.
 **No password anywhere.** A service authenticating only with mutual TLS or a federated token rules out the password requirements. Name the mechanism the model states, and rule them out on it.
 **Recovery and lifecycle go unmentioned.** Password reset, account recovery and credential change are requirements here even where the input describes only the login path.
 
 ## Guardrails
 
 - **Rule the requirement, do not restate it.** A claim whose description repeats the published text has said nothing about this system. Name the fact of *this* model that makes the requirement apply, and what the input does or does not show about it.
-- **Unknown is not absent.** When an attribute reads `unknown`, the control is unverified. Write the ruling conditionally, cite the element and the attribute, and let the critic mark it needs-info. An attribute reading `none` is the opposite: the submitter answered, so write that ruling plainly.
+- **Unknown is not absent.** When an attribute reads `unknown`, or a control's state is `unknown`, the control is unverified. Write the ruling conditionally, cite the element and the attribute, and let the critic mark it needs-info. A control whose state is `absent` is the opposite: the submitter answered, so write that ruling plainly.
 - **Never report a pass.** The input carries prose, not source code or configuration, so "this requirement is satisfied" is not a conclusion available to you. Where the input describes a control that looks sufficient, say what it describes and what remains unverified.
 - **Never use the word compliance.** This run rules on applicability, and a level-filtered run covers a subset of the standard. Neither is a compliance result.
 - **Stay in the model.** Reference only element IDs the System Model carries. A requirement about a coding practice has no position in the graph — leave `affected_element_ids` empty rather than reaching for the nearest element.

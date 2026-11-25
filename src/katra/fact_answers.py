@@ -79,7 +79,13 @@ from katra.open_facts import element_names, label_of, routed
 from katra.parsing import table_entry
 from katra.question_kinds import QUESTION_KINDS, Facet, parse_question_kind
 from katra.sources import ANSWERS_LABEL, FORMATTING_CATEGORIES, plain_name, quotable
-from katra.system_model import SystemModel
+from katra.system_model import (
+    ABSENT_WORD,
+    ElementControl,
+    SystemModel,
+    control_from_text,
+)
+from katra.validation import ambiguous_lead
 
 __all__ = [
     "FACT_VALUE_MAX_CHARS",
@@ -91,10 +97,12 @@ __all__ = [
     "FactStatus",
     "SkipKey",
     "answer_facets",
+    "answered_control",
     "answered_keys",
     "answered_row",
     "asked_facets",
     "attribute_place",
+    "control_answer_issue",
     "control_line",
     "covers",
     "detail_note",
@@ -163,6 +171,38 @@ def read_back(info: ValidationInfo) -> bool:
 
 #: The longest value of one answer to an open fact.
 FACT_VALUE_MAX_CHARS = 1000
+
+
+def answered_control(value: str) -> ElementControl:
+    """The control an answer to a control field states.
+
+    The HTTP API takes the answer as
+    one line: ``none`` where there is none, with an optional reason after it,
+    or the mechanism. :func:`~katra.system_model.control_from_text` reads it.
+    """
+    return control_from_text(value)
+
+
+def control_answer_issue(value: str) -> str | None:
+    """Why an answer to a control field is refused, or ``None``.
+
+    A value that opens with a negation other than ``none``, or with a doubt
+    (:func:`~katra.validation.ambiguous_lead`), does not say which state the
+    submitter means, so the submitter chooses one.
+    """
+    if not value.strip():
+        return (
+            f"the answer is empty: write {UNKNOWN!r} where nobody knows, which is"
+            " a value an analyst can act on"
+        )
+    lead = ambiguous_lead(value)
+    if lead is None:
+        return None
+    return (
+        f"the answer opens with {lead!r}: write {ABSENT_WORD!r} where there is"
+        f" none, {UNKNOWN!r} where nobody knows, and otherwise name the"
+        " mechanism first"
+    )
 
 
 class FactAnswer(BaseModel):

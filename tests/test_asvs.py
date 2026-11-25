@@ -24,7 +24,7 @@ from typing import Any, get_args
 import pytest
 from pydantic import ValidationError
 
-from katra.analysis import TEXT_ATTRIBUTES, WHOLE_WORD, matches_term
+from katra.analysis import TEXT_ATTRIBUTES, WHOLE_WORD, held_text, matches_term
 from katra.capabilities import CAPABILITIES
 from katra.claims import (
     Ground,
@@ -1388,9 +1388,9 @@ class TestTheTermScreenKeepsEveryHit:
                 every_term = []
                 for element in model.elements():
                     for attribute in test.attributes:
-                        value = getattr(element, attribute, "")
-                        if not isinstance(value, str):
+                        if attribute not in type(element).model_fields:
                             continue
+                        value = held_text(getattr(element, attribute))
                         term = next(
                             (t for t in test.terms if matches_term(t, value.lower())),
                             "",

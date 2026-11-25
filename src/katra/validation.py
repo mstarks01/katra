@@ -29,7 +29,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from katra.analysis import CONTROL_ATTRIBUTES, control_state, leading_word
+from katra.analysis import CONTROL_ATTRIBUTES, held_state
 from katra.capabilities import CAPABILITIES, parse_capability_key
 from katra.diagrams import DiagramReading, DiagramStructure, node_names
 from katra.grounding import (
@@ -42,11 +42,14 @@ from katra.grounding import (
     repair_deadline,
     verify_normalized,
 )
+from katra.parsing import leading_word
 from katra.references import canonical
 from katra.sources import ANSWERS_LABEL
 from katra.system_model import (
+    CONTROL_FIELDS,
     CORE_ASSET_TAGS,
     ELEMENT_GROUPS,
+    LIVE_CONTEXT,
     UNKNOWN,
     Assumption,
     CapabilityStatement,
@@ -376,26 +379,30 @@ def _slug_or_none(name: str) -> str | None:
         return None
 
 
+def _text_controls(element: Element) -> list[str]:
+    """The control attributes of ``element`` that hold text.
+
+    A :class:`~katra.system_model.ElementControl` field states its state as a field,
+    so neither a blank nor an ambiguous lead applies to it. The text
+    attributes of :data:`~katra.analysis.CONTROL_ATTRIBUTES` remain.
+    """
+    return [
+        attribute
+        for attribute in CONTROL_ATTRIBUTES
+        if attribute in type(element).model_fields and attribute not in CONTROL_FIELDS
+    ]
+
+
 def _blank_control_issues(element: Element) -> list[ValidationIssue]:
-    """Every control attribute this element leaves blank, addressed to repair.
+    """Every text control attribute this element leaves blank, addressed to repair.
 
-    The free-text control fields carry a maximum length and no minimum, so an
-    empty ``authentication`` passes the shape gate. Read as ``stated`` by
-    :func:`~katra.analysis.control_state`, it would suppress the
-    candidate rules that ask about a missing control and the evidence row
-    beside them. A model whose gate said *ready* would assert a control nobody
-    described.
-
-    ``unknown`` is the value ``prompts/extract.md`` asks for, and it is not the
-    same fact as an empty string, so this reports rather than rewrites: the
-    repair pass writes the sentinel and the source of the blank stays visible.
-    ``control_state`` reads a blank as ``unverified`` whatever happens here,
-    so the two answers agree if one arrives anyway.
-
-    Walks :data:`~katra.analysis.CONTROL_ATTRIBUTES` — the one
-    registry of which attributes are controls — rather than testing every string
-    field: ``technology`` and ``data_description`` are prose about the element,
-    and neither states a control whose absence is a finding.
+    A text control field carries a maximum length and no minimum, so a blank
+    value passes the shape gate. ``unknown`` is the value
+    ``prompts/extract.md`` asks for, and it is not the same fact as an empty
+    string, so this reports rather than rewrites: the repair pass writes the
+    sentinel and the source of the blank stays visible.
+    :func:`~katra.analysis.control_state` reads a blank as ``unverified``
+    whatever happens here, so the two answers agree if one arrives anyway.
     """
     return [
         ValidationIssue(
@@ -406,9 +413,8 @@ def _blank_control_issues(element: Element) -> list[ValidationIssue]:
             element_id=element.id,
             field=attribute,
         )
-        for attribute in CONTROL_ATTRIBUTES
-        if attribute in type(element).model_fields
-        and not str(getattr(element, attribute)).strip()
+        for attribute in _text_controls(element)
+        if not str(getattr(element, attribute)).strip()
     ]
 
 
@@ -484,32 +490,26 @@ def ambiguous_lead(value: str) -> str | None:
 
 
 def _ambiguous_control_issues(element: Element) -> list[ValidationIssue]:
-    """Every control whose leading word is a negation other than ``none``, or a doubt.
+    """Every text control whose leading word is a negation other than ``none``, or a doubt.
 
-    The extraction contract gives a control three shapes: ``unknown`` for a
-    control the input never mentions, ``none`` for one it says is not there,
-    and otherwise the mechanism, named first. A value leading with ``no`` or
-    ``not`` is none of the three and is read differently by a person and by
-    :func:`~katra.analysis.control_state` (#675 D02). Refused here
-    rather than reclassified: which of the three the writer meant is a fact
-    about the input, and the repair pass has the input in front of it.
+    A text control has three shapes: ``unknown`` for a fact the input never
+    mentions, ``none`` for one it says is not there, and otherwise the value.
+    A value leading with ``no`` or ``not`` is none of the three and is read
+    differently by a person and by :func:`~katra.analysis.control_state`
+    (#675 D02). Refused here rather than reclassified: which of the three the
+    writer meant is a fact about the input, and the repair pass has the input
+    in front of it.
     """
     issues = []
-    for attribute in CONTROL_ATTRIBUTES:
-        if attribute not in type(element).model_fields:
-            continue
-        # Through the same reader ``control_state`` uses for its two
-        # sentinels, so "where a word ends" has one answer: ``no-mfa`` and
-        # ``no/unknown`` open with ``no`` here exactly as ``none;`` opens with
-        # ``none`` there.
+    for attribute in _text_controls(element):
         lead = ambiguous_lead(str(getattr(element, attribute)))
         if lead is not None:
             issues.append(
                 ValidationIssue(
                     code="ambiguous-control",
                     message=f"{attribute!r} opens with {lead!r}: write {UNKNOWN!r} for a"
-                    " control the input never mentions, 'none' for one it says is not"
-                    " there, and otherwise name the mechanism first",
+                    " fact the input never mentions, 'none' for one it says is not"
+                    " there, and otherwise name the value first",
                     element_id=element.id,
                     field=attribute,
                 )
@@ -520,17 +520,16 @@ def _ambiguous_control_issues(element: Element) -> list[ValidationIssue]:
 def _states_nothing(value: object) -> bool:
     """Whether an attribute holds no value for an assumption to have inferred.
 
-    Two shapes, because the schema has two. ``assets`` is a list and states
-    nothing when it is empty — ``extract.md`` rule 6 makes an empty list the
-    honest answer where no tag applies, exactly as ``unknown`` is for a string.
-    Every other attribute is a string, and
-    :func:`~katra.analysis.control_state` is the classifier the rest
-    of the repo reads it with, so a decorated hedge is refused with the bare
-    word.
+    ``assets`` is a list and states nothing when it is empty —
+    ``extract.md`` rule 6 makes an empty list the honest answer where no tag
+    applies, exactly as ``unknown`` is for a string. Every other attribute is
+    text or a :class:`~katra.system_model.ElementControl`, and
+    :func:`~katra.analysis.held_state` reads both, so a decorated hedge is
+    refused with the bare word.
     """
     if isinstance(value, list):
         return not value
-    return control_state(str(value)) == "unverified"
+    return held_state(value) == "unverified"
 
 
 def _assumption_issues(
@@ -552,7 +551,7 @@ def _assumption_issues(
     ``unknown`` and goes in ``notes``, never here — and this is where the
     prompt's rule stops being wording and becomes a rule.
 
-    :func:`~katra.analysis.control_state` classifies rather than an
+    :func:`~katra.analysis.held_state` classifies rather than an
     equality test against the sentinel, so a decorated hedge
     (``"unknown; possibly a shared group account"``) is refused with the bare
     word. A control the input states is *absent* is left alone: "there is no
@@ -837,6 +836,8 @@ def parse_and_validate(
     normalize_ids: bool = False,
     sources: Mapping[str, str] = MappingProxyType({}),
     diagrams: Mapping[str, DiagramReading] = MappingProxyType({}),
+    *,
+    archived: bool = False,
 ) -> tuple[SystemModel | None, list[ValidationIssue]]:
     """Parse raw extraction output and run the validity gate.
 
@@ -858,6 +859,12 @@ def parse_and_validate(
     drops: same flag, same reason, so a model arriving from a model has one
     policy about its spellings rather than two.
 
+    ``archived`` says that ``data`` is a recorded emission. Only then does a
+    control field written as a string read through the archive reader
+    (:func:`~katra.system_model.control_from_text`). Otherwise the parse
+    runs under :data:`~katra.system_model.LIVE_CONTEXT`, and a control written
+    as a string is a ``schema`` issue that goes to repair.
+
     ``sources`` maps each of the job's source labels to that source's text. The
     keys are what a ``source_label`` must name; the values are what a
     ``source_excerpt`` must be found in. Empty — the default — runs neither
@@ -874,7 +881,9 @@ def parse_and_validate(
     references, which is the narrowest repair that can answer it (#961).
     """
     try:
-        model = SystemModel.model_validate(data)
+        model = SystemModel.model_validate(
+            data, context=None if archived else LIVE_CONTEXT
+        )
     except ValidationError as exc:
         issues = [
             ValidationIssue(

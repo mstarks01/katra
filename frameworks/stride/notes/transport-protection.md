@@ -2,7 +2,7 @@
 
 ## When this applies
 
-A flow's `encryption_in_transit` is `unknown` or absent, and the flow either crosses a trust boundary or touches an element holding a graded asset.
+A flow's `encryption_in_transit` state is `unknown` or `absent`, and the flow either crosses a trust boundary or touches an element holding a graded asset.
 
 ## What to look for
 

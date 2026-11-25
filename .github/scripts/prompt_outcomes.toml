@@ -138,14 +138,6 @@ check = "an_empty_control_is_refused"
 issue_codes = ["blank-control"]
 
 [[outcome]]
-prompt = "prompts/extract.md"
-sentence = """Otherwise name the mechanism first: never open a control with
-`no`, `not` or `without`."""
-modules = ["src/katra/validation.py"]
-check = "a_control_that_opens_with_a_negation_is_refused"
-issue_codes = ["ambiguous-control"]
-
-[[outcome]]
 prompt = "prompts/extract-compact.md"
 sentence = """An omitted attribute, or a flow with no `operations`, is worse: the
 schema refuses the whole object, and the job ends with no repair."""

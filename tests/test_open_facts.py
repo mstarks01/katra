@@ -23,7 +23,7 @@ from katra.open_facts import (
     reference_labels,
 )
 from katra.report import Report
-from katra.system_model import CORE_ASSET_TAGS
+from katra.system_model import CORE_ASSET_TAGS, control_from_text, control_text
 from tests.factories import valid_model
 from tests.test_evidence import assertions, row
 
@@ -129,8 +129,8 @@ def test_an_attribute_a_model_names_reads_as_words():
     name = element_names(model)[flow.id]
     assert labels[f"{flow.id}.authentication"] == f"{name}: authentication"
     assert (
-        labels[f"authentication: {flow.authentication}"]
-        == f"authentication: {flow.authentication}"
+        labels[f"authentication: {control_text(flow.authentication)}"]
+        == f"authentication: {control_text(flow.authentication)}"
     )
 
 
@@ -204,7 +204,7 @@ def test_a_field_that_hides_its_qualification_is_a_gap():
         subjects=(Subject(id=store, type="component", label="orders database"),),
     )
     model = valid_model()
-    model.get(store).encryption_at_rest = "none"
+    model.get(store).encryption_at_rest = control_from_text("none")
 
     def listed(held):
         return {

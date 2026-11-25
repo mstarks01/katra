@@ -24,6 +24,7 @@ from katra.graph import (
 from katra.jobs import Checkpoint, JobRecord, Resumption
 from katra.links import ANSWERS_LABEL
 from katra.pipeline import _seeded_state
+from katra.system_model import control_text
 from tests.factories import sample_selection
 from tests.test_evals_modes import build, case  # noqa: F401  (fixture)
 
@@ -41,7 +42,7 @@ def test_the_lanes_read_the_answers_and_the_model_holds_them(case):  # noqa: F81
     report = asyncio.run(modes.run_answered(case, pipeline, [AT_REST, KIND])).report
 
     store = report.system_model.get(STORE)
-    assert store is not None and store.encryption_at_rest == "AES-256"
+    assert store is not None and control_text(store.encryption_at_rest) == "AES-256"
     assert ANSWERS_LABEL in {source.label for source in report.input.sources}
     spoofing = models[Lane("stride", "spoofing").node_name].seen[0]
     assert "an append-only audit table" in spoofing
