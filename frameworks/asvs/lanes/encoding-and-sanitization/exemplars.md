@@ -2,7 +2,7 @@
 
 Two drafts against exemplar system A, the payments platform. Follow the reasoning, not the wording.
 
-Exemplar system B is not used here. Its flows speak MQTT and a time-series write API, so its precondition refutes ASVS outright and no lane of this framework ever runs against it. That is worth knowing: the tier-0 question is settled before you are asked anything.
+Exemplar system B is not used here. Both of its processes present a non-web interface, so its precondition refutes ASVS outright and no lane of this framework ever runs against it. That is worth knowing: the tier-0 question is settled before you are asked anything.
 
 ## V1.2.4 — Query construction against the accounts database is undescribed
 
