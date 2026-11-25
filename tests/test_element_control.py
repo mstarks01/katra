@@ -13,7 +13,6 @@ from katra.analysis import control_reading, held_state, held_text
 from katra.compact import FULL_FORMAT, parse_extraction
 from katra.fact_answers import (
     answered_control,
-    control_answer,
     control_answer_issue,
 )
 from katra.system_model import (
@@ -125,12 +124,6 @@ def test_the_extraction_gate_refuses_it_and_a_replay_reads_it():
     )
 
 
-def test_an_assignment_holds_an_element_control():
-    flow = valid_model().data_flows[0]
-    flow.authentication = ElementControl(state="absent")
-    assert isinstance(flow.authentication, ElementControl)
-
-
 def test_held_text_and_held_state_refuse_a_value_of_another_shape():
     with pytest.raises(TypeError):
         held_state(["pii"])
@@ -158,14 +151,8 @@ def test_an_answer_reads_as_a_control(answer, control):
         ElementControl(state="stated", detail="company SSO"),
     ],
 )
-def test_control_answer_is_the_inverse_of_answered_control(control):
-    answer = control_answer(control)
-    assert answer is not None
-    assert answered_control(answer) == control
-
-
-def test_an_unknown_control_has_no_answer():
-    assert control_answer(ElementControl(state="unknown", detail="why")) is None
+def test_control_text_is_the_answer_that_states_a_control(control):
+    assert answered_control(control_text(control)) == control
 
 
 @pytest.mark.parametrize("answer", ["no MFA", "not encrypted", "TBD", "I don't know"])

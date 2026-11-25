@@ -84,7 +84,6 @@ from katra.system_model import (
     ElementControl,
     SystemModel,
     control_from_text,
-    control_text,
 )
 from katra.validation import ambiguous_lead
 
@@ -103,7 +102,6 @@ __all__ = [
     "answered_row",
     "asked_facets",
     "attribute_place",
-    "control_answer",
     "control_answer_issue",
     "control_line",
     "covers",
@@ -183,17 +181,6 @@ def answered_control(value: str) -> ElementControl:
     or the mechanism. :func:`~katra.system_model.control_from_text` reads it.
     """
     return control_from_text(value)
-
-
-def control_answer(control: ElementControl) -> str | None:
-    """The answer that states ``control``, or ``None`` for an unknown control.
-
-    The inverse of :func:`answered_control`, through
-    :func:`~katra.system_model.control_text`.
-    """
-    if control.state == "unknown":
-        return None
-    return control_text(control)
 
 
 def control_answer_issue(value: str) -> str | None:

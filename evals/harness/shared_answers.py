@@ -44,9 +44,9 @@ from evals.harness.run_record import run_record
 from katra.analysis import control_state
 from katra.claims import FrameworkName
 from katra.early_questions import QUESTION_PRIOR, EarlyQuestion
-from katra.fact_answers import attribute_place, control_answer, key_ref
+from katra.fact_answers import attribute_place, key_ref
 from katra.frameworks import PACKAGES
-from katra.system_model import UNKNOWN, ElementControl, SystemModel
+from katra.system_model import UNKNOWN, ElementControl, SystemModel, control_text
 
 #: The options each framework is read with, keyed by framework. ASVS sets no
 #: default level, so the instrument names one.
@@ -89,9 +89,8 @@ def blanked(blessed: SystemModel) -> tuple[SystemModel, dict[tuple[str, str], st
         for field in sorted(fields):
             value = getattr(element, field)
             if isinstance(value, ElementControl):
-                answer = control_answer(value)
-                if answer is not None:
-                    truth[(element.id, field)] = answer
+                if value.state != "unknown":
+                    truth[(element.id, field)] = control_text(value)
                     setattr(element, field, ElementControl(state="unknown"))
             elif isinstance(value, str) and control_state(value) != "unverified":
                 truth[(element.id, field)] = value
