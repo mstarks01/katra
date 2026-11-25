@@ -1,2 +1,2 @@
-{"attempts": 1, "audit_id": "QA-2026-11-25-01", "budget_usd": 1.0, "mode": "audit", "recorded": "2026-11-25T18:36:42Z", "words": "$1.00 approved"}
-{"attempts": 0, "audit_id": "QA-2026-11-25-01", "budget_usd": 0.0, "mode": "implement", "recorded": "2026-11-25T18:54:12Z", "words": "Implement (Recommended)"}
+{"attempts": 0, "audit_id": "QA-2026-11-25-01", "budget_usd": 1.0, "mode": "audit", "recorded": "2026-11-25T18:36:42Z", "words": "$1.00 approved"}
+{"attempts": 1, "audit_id": "QA-2026-11-25-01", "budget_usd": 0.0, "mode": "implement", "recorded": "2026-11-25T18:54:12Z", "words": "Implement (Recommended)"}
