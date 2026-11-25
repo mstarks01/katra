@@ -47,10 +47,11 @@ reader.**
   string by `first_word_state`: blank or `unknown` is `unknown`, `none` is
   `absent`, and any other value is `stated` with the whole string as its
   `detail`. After a sentinel, the rest of the string is the reason.
-- Recorded emissions, Baselines and experiments keep the string. The replay of
-  emissions and the reader of a corpus case at an earlier revision pass
-  `archived=True`. `evals/verify_corpus.py` holds the current corpus to the new
-  shape, and the corpus models are rewritten.
+- Recorded emissions, Baselines, experiments and the corpus models keep the
+  string. The corpus is reference data, like a Baseline, so every reader of
+  it passes `archived=True`: the case loader, `evals/verify_corpus.py` and the
+  emission replay. A corpus `model.json` keeps its bytes, so the digest that
+  each Case Sitting recorded still clears its case.
 - A stored 3.5 job record gets 409 `UnreadableSchema`, as for every version
   change. The report page reads a control of either shape, because the report
   route serves a stored report of any version.
@@ -71,7 +72,8 @@ qualified projection therefore read as they did.
   reverse. The gate refuses a string and does not guess.
 - Code decides nothing from the words of a control field. A mechanism that
   opens with "no" is a mechanism, because the model said `stated`.
-- The corpus rewrite changes the digest of each case's `model.json`, so each
-  merged Case Sitting no longer clears its case.
+- The corpus stays in the string shape and reads through the archive reader.
+  A test fixture that stands for a model's output, such as the exemplar
+  systems, holds the new shape.
 - The fix is verified by the listed offline evidence; its live quality effect
   remains unmeasured.

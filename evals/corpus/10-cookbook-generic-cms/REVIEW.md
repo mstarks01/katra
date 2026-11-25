@@ -72,10 +72,10 @@ Not part of the question, but the records cite these names, so you need them.
 | id | source | destination | protocol | authentication | in transit |
 |---|---|---|---|---|---|
 | flow:entity:reader>process:web-server>page-requests | entity:reader | process:web-server | HTTPS | sign-in exists for some readers; the mechanism, its strength and how sessions are handled are not stated | HTTPS |
-| flow:entity:reader>entity:cdn>asset-fetch | entity:reader | entity:cdn | HTTP | unknown | none; readers fetch these over HTTP |
+| flow:entity:reader>entity:cdn>asset-fetch | entity:reader | entity:cdn | HTTP | unknown | none — readers fetch these over HTTP |
 | flow:process:web-server>store:mysql-database>cms-data | process:web-server | store:mysql-database | MySQL | unknown | unknown |
 | flow:process:web-server>store:cdn-bucket>asset-publish | process:web-server | store:cdn-bucket | unknown | unknown | unknown |
-| flow:entity:admin>store:mysql-database>direct-administration | entity:admin | store:mysql-database | MySQL | unknown | none; an unsecured MySQL connection, no TLS on it |
+| flow:entity:admin>store:mysql-database>direct-administration | entity:admin | store:mysql-database | MySQL | unknown | none — an unsecured MySQL connection, no TLS on it |
 
 **Trust boundaries**
 
@@ -410,7 +410,7 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "11d2a58f0e1d5773054f0a72d222b3cc96f889cdd0206dd3656495a3d5fe8313",
-      "model.json": "b9754432ce51ad0e51861e85fd0116d4a7a55ddc8e4364af41617bf87b27c24c",
+      "model.json": "b65455924d2682e8d7ffd3f60cc9c5a29d7b5ff3335fbba4e5ad9ade51c1c5d0",
       "claims/asvs.json": "94a4b8bb0cc5e626225766a800eafa32eb85fe99ff00af49f5f8cc7e477ea19f",
       "claims/stride.json": "fc616a1f4fedde30448b15e09cd98a12b4b5037dc41ffd8e7083ed0b5ff465d0"
       }

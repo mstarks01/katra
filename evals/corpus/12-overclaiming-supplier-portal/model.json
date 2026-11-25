@@ -79,10 +79,7 @@
       "notes": "A logical store for the documents retained in the vendor platform, and deliberately not a separately identified database, bucket or service: the source says only that the documents stay in the platform, and names no store of its own. So this carries no reviewed alias \u2014 naming it after the platform would collapse it into boundary:vendor-platform, which is the zone that contains it. Enterprise-grade encryption throughout is a vendor marketing claim about the platform, not a stated property of this store, so encryption_at_rest is unknown rather than encrypted.",
       "trust_zone": "boundary:vendor-platform",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:landing-bucket",
@@ -97,10 +94,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:cloud-account",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:supplier-database",
@@ -115,10 +109,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:cloud-account",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -135,15 +126,9 @@
       "source": "entity:supplier",
       "destination": "process:supplier-portal",
       "protocol": "unknown",
-      "authentication": {
-        "state": "stated",
-        "detail": "username and password issued by the vendor"
-      },
+      "authentication": "username and password issued by the vendor",
       "data_description": "insurance certificates, food safety audits, and supplier staff contact details",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -160,15 +145,9 @@
       "destination": "process:supplier-portal",
       "protocol": "unknown",
       "notes": "All access is fully authenticated and audited is a datasheet claim covering the platform generally; the source states how suppliers sign in and never states how category managers do, so this stays unknown.",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "document reviews, approvals and rejections",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -184,15 +163,9 @@
       "source": "process:supplier-portal",
       "destination": "store:document-store",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "uploaded compliance documents",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -209,15 +182,9 @@
       "destination": "store:landing-bucket",
       "protocol": "unknown",
       "notes": "The source leaves this open: we were told the extract is encrypted end to end, and the landing bucket runbook says the file arrives as a plain CSV picked up as-is. The first names no layer and the second describes the file at rest in the bucket, so they are in tension without settling whether the channel was protected. Nothing in the source resolves it, so this is unknown rather than either encrypted or unencrypted, and the open question is itself a finding.",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "the nightly supplier data extract",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -233,15 +200,9 @@
       "source": "process:supplier-master-service",
       "destination": "store:landing-bucket",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "the nightly supplier data extract",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -257,15 +218,9 @@
       "source": "process:supplier-master-service",
       "destination": "store:supplier-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "supplier records",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     }
   ],

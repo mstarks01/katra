@@ -106,10 +106,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:school-cloud-account",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -125,15 +122,9 @@
       "source": "entity:student",
       "destination": "process:coursework-service",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "submissions",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "The source says students sign in with their school accounts and names no mechanism, so authentication reads unknown."
     },
@@ -149,15 +140,9 @@
       "source": "entity:teacher",
       "destination": "process:coursework-service",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "submissions, marks and comments",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "The source says teachers sign in with their school accounts and names no mechanism, so authentication reads unknown."
     },
@@ -173,15 +158,9 @@
       "source": "process:coursework-service",
       "destination": "store:coursework-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "submissions, marks and comments",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "The source states a database account limited to the submissions, marks and comments tables, and names no mechanism behind it, so authentication reads unknown."
     },
@@ -198,15 +177,9 @@
       "source": "entity:office-staff",
       "destination": "process:admin-console",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "classes, accounts and final grades",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -222,15 +195,9 @@
       "source": "entity:teacher",
       "destination": "process:admin-console",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "classes, accounts and final grades",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -246,15 +213,9 @@
       "source": "process:admin-console",
       "destination": "store:coursework-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "classes, accounts and final grades",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -269,15 +230,9 @@
       "source": "process:grade-export",
       "destination": "store:coursework-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "final grades",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -292,15 +247,9 @@
       "source": "process:grade-export",
       "destination": "entity:district-records-system",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "final grades",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     }
   ],

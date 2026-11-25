@@ -63,10 +63,7 @@
       "technology": "object storage bucket",
       "trust_zone": "boundary:model-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:redis-feature-store",
@@ -81,10 +78,7 @@
       "technology": "Redis",
       "trust_zone": "boundary:model-network",
       "data_classification": "confidential",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:inference-log",
@@ -98,10 +92,7 @@
       "technology": "BigQuery",
       "trust_zone": "boundary:serving-edge",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -117,15 +108,9 @@
       "source": "entity:calling-service",
       "destination": "process:inference-gateway",
       "protocol": "unknown",
-      "authentication": {
-        "state": "stated",
-        "detail": "per-team API key in a header; operator reports never having expired a key"
-      },
+      "authentication": "per-team API key in a header; operator reports never having expired a key",
       "data_description": "inference request including end-user text",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -140,15 +125,9 @@
       "source": "process:inference-gateway",
       "destination": "process:model-server",
       "protocol": "unknown",
-      "authentication": {
-        "state": "absent",
-        "detail": "accepted by network position"
-      },
+      "authentication": "none; accepted by network position",
       "data_description": "inference request payload",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -163,15 +142,9 @@
       "source": "process:model-server",
       "destination": "store:model-registry-bucket",
       "protocol": "object storage API",
-      "authentication": {
-        "state": "stated",
-        "detail": "model server's own service account"
-      },
+      "authentication": "model server's own service account",
       "data_description": "model artifact",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -187,15 +160,9 @@
       "source": "process:model-server",
       "destination": "store:redis-feature-store",
       "protocol": "Redis protocol",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "account age and spend bands per customer",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read",
       "notes": "The source says Redis has no password on it, which establishes the absence of password authentication and not the absence of every mechanism."
     },
@@ -211,15 +178,9 @@
       "source": "process:inference-gateway",
       "destination": "store:inference-log",
       "protocol": "BigQuery API",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "raw prompts and model responses",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -234,15 +195,9 @@
       "source": "entity:ml-engineer",
       "destination": "store:model-registry-bucket",
       "protocol": "object storage API",
-      "authentication": {
-        "state": "unknown",
-        "detail": "possibly a shared group account"
-      },
+      "authentication": "unknown; possibly a shared group account",
       "data_description": "model artifact",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     }
   ],

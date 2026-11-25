@@ -1148,7 +1148,9 @@ def check_case(case_dir: Path, raised: set[tuple[str, tuple[str, ...]]]) -> list
     raw_model = _load_json(case_dir / "model.json")
     problems.extend(_check_citations(raw_model, declared_sources(case_dir, meta)))
 
-    model, issues = parse_and_validate(raw_model)
+    # The corpus is reference data, so a control written as a string reads
+    # through the archive reader.
+    model, issues = parse_and_validate(raw_model, archived=True)
     problems.extend(f"model.json: {issue.code}: {issue.message}" for issue in issues)
     if model is None:
         return problems
@@ -1316,7 +1318,9 @@ def calibration_inputs() -> tuple[
             for record in records
             if isinstance(record, dict)
         }
-        model, _ = parse_and_validate(_load_json(case_dir / "model.json"))
+        model, _ = parse_and_validate(
+            _load_json(case_dir / "model.json"), archived=True
+        )
         elements[case_dir.name] = (
             {element.id for element in model.elements()} if model else set()
         )

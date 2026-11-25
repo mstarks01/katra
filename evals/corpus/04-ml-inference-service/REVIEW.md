@@ -442,7 +442,7 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "3da14d8d61e45baa73b0a7ee2b6935b0da3c1d47c62fdf9cb30ef4a09d6c67b6",
-      "model.json": "3156bf0a9f4e7d99e161e188e2f62d7faccc34c3fe5cb78fc83afc1ef2722c7c",
+      "model.json": "78c74d4f13767bb8ae4acdb04af4b44975a91fe074927e0c76a70c2f5214bd82",
       "claims/asvs.json": "0cb9e82391d0647fccc20a8d022b8e3a6287058ee2086b86999f1bab22cf7254",
       "claims/stride.json": "4a8a17637e863c3dfc81b84a252f1587ab25eb3d0841c2960c64619cf52266e5"
       }

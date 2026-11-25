@@ -72,10 +72,7 @@
       "technology": "Firestore",
       "trust_zone": "boundary:ingest-edge",
       "data_classification": "confidential",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:telemetry-lake",
@@ -90,10 +87,7 @@
       "technology": "BigQuery",
       "trust_zone": "boundary:analytics-core",
       "data_classification": "confidential",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:firmware-bucket",
@@ -107,10 +101,7 @@
       "technology": "Cloud Storage bucket",
       "trust_zone": "boundary:ingest-edge",
       "data_classification": "public",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:pub-sub",
@@ -124,10 +115,7 @@
       "technology": "Pub/Sub",
       "trust_zone": "boundary:ingest-edge",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -143,15 +131,9 @@
       "source": "entity:sensor-node",
       "destination": "process:device-gateway",
       "protocol": "MQTT",
-      "authentication": {
-        "state": "stated",
-        "detail": "fleet-wide pre-shared key, shared by every device and never rotated"
-      },
+      "authentication": "fleet-wide pre-shared key, shared by every device and never rotated",
       "data_description": "sensor readings tagged with a device identifier",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -166,15 +148,9 @@
       "source": "process:device-gateway",
       "destination": "store:device-registry",
       "protocol": "Firestore API",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "device identifier, key material, customer assignment",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -189,15 +165,9 @@
       "source": "process:telemetry-normalizer",
       "destination": "store:telemetry-lake",
       "protocol": "BigQuery API",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "site addresses, occupancy patterns, readings",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -212,15 +182,9 @@
       "source": "entity:sensor-node",
       "destination": "store:firmware-bucket",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "absent",
-        "detail": "the bucket is public read"
-      },
+      "authentication": "none; the bucket is public read",
       "data_description": "firmware image",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -233,15 +197,9 @@
       "source": "entity:field-technician",
       "destination": "entity:sensor-node",
       "protocol": "local serial console",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "device configuration and diagnostics",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -256,29 +214,17 @@
       "source": "entity:fleet-operator",
       "destination": "store:telemetry-lake",
       "protocol": "BigQuery API",
-      "authentication": {
-        "state": "stated",
-        "detail": "company SSO"
-      },
+      "authentication": "company SSO",
       "data_description": "aggregated and raw customer readings",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
       "id": "flow:process:device-gateway>store:pub-sub>forward-readings",
       "name": "forward readings",
       "description": "The gateway publishes accepted readings onto the broker.",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
+      "encryption_in_transit": "unknown",
       "assets": [
         "pii"
       ],
@@ -294,14 +240,8 @@
       "id": "flow:process:telemetry-normalizer>store:pub-sub>pick-up-readings",
       "name": "pick up readings",
       "description": "The normalizer consumes readings from the broker.",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
+      "encryption_in_transit": "unknown",
       "assets": [
         "pii"
       ],

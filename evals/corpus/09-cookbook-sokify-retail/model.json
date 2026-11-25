@@ -107,10 +107,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:sokify-internal-systems",
       "data_classification": "confidential",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:delivery-address-flat-file",
@@ -125,10 +122,7 @@
       "technology": "flat file",
       "trust_zone": "boundary:sokify-internal-systems",
       "data_classification": "confidential",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -145,15 +139,9 @@
       "source": "entity:customer",
       "destination": "process:mobile-app",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "Browsing activity and order details",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -169,15 +157,9 @@
       "source": "process:mobile-app",
       "destination": "process:web-api",
       "protocol": "HTTP",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "Order placement traffic carrying customer details",
-      "encryption_in_transit": {
-        "state": "absent",
-        "detail": "the app talks to the web API over HTTP, not HTTPS"
-      },
+      "encryption_in_transit": "none \u2014 the app talks to the web API over HTTP, not HTTPS",
       "operations": "unknown"
     },
     {
@@ -193,15 +175,9 @@
       "source": "process:catalogue-spreadsheet",
       "destination": "process:web-api",
       "protocol": "SQL statements over an unstated transport",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "SQL statements changing prices and product copy",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -218,15 +194,9 @@
       "source": "process:web-api",
       "destination": "store:user-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "Customer name, address, and the card they paid with",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -243,15 +213,9 @@
       "source": "process:web-api",
       "destination": "process:sims",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "The placed order, including the delivery address and the number stored against it",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -267,15 +231,9 @@
       "source": "process:sims",
       "destination": "store:delivery-address-flat-file",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "Delivery address only",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -291,15 +249,9 @@
       "source": "process:sims",
       "destination": "process:fax-gateway",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "Dispatch note carrying the customer's name and address",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -315,15 +267,9 @@
       "source": "process:fax-gateway",
       "destination": "entity:customer",
       "protocol": "fax",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "Order confirmation carrying the customer's name and address",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     }
   ],

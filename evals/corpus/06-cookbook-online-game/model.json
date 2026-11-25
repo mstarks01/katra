@@ -91,10 +91,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:production-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:stats-database",
@@ -108,10 +105,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:production-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -125,15 +119,9 @@
       "source": "entity:player",
       "destination": "process:game-client",
       "protocol": "local",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "player input and game output",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -146,15 +134,9 @@
       "source": "process:game-client",
       "destination": "process:lobby",
       "protocol": "TCP 1234",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "matchmaking requests and match assignments",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "unknown"
     },
     {
@@ -167,15 +149,9 @@
       "source": "process:game-client",
       "destination": "process:game-server",
       "protocol": "TCP 1235",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "gameplay actions and state updates",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "unknown"
     },
     {
@@ -188,15 +164,9 @@
       "source": "process:lobby",
       "destination": "process:game-server",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "match composition and player identifiers",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -211,15 +181,9 @@
       "source": "process:lobby",
       "destination": "store:player-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "player account records",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -234,15 +198,9 @@
       "source": "process:game-server",
       "destination": "store:stats-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "match statistics",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -258,15 +216,9 @@
       "source": "process:game-server",
       "destination": "store:player-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "player progression and match results",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -281,15 +233,9 @@
       "source": "entity:customer-support-staff",
       "destination": "process:moderation-website",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "moderation actions on player accounts",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -304,15 +250,9 @@
       "source": "process:moderation-website",
       "destination": "store:player-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "player account records and moderation state",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     }
   ],

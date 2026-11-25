@@ -101,10 +101,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:city-cloud-account",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:plan-store",
@@ -118,10 +115,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:city-cloud-account",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -138,15 +132,9 @@
       "source": "entity:applicant",
       "destination": "process:permit-gateway",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "permit application requests",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -162,15 +150,9 @@
       "source": "process:permit-gateway",
       "destination": "process:permit-service",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "permit application requests",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -186,15 +168,9 @@
       "source": "process:permit-service",
       "destination": "store:permit-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "applications, their status and inspectors' decisions",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -209,15 +185,9 @@
       "source": "entity:applicant",
       "destination": "process:plan-upload-service",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "plan drawings as PDF files",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -232,15 +202,9 @@
       "source": "process:plan-upload-service",
       "destination": "store:plan-store",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "plan drawings as PDF files",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -255,15 +219,9 @@
       "source": "process:plan-upload-service",
       "destination": "process:plan-renderer",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "plan drawings as PDF files",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -278,15 +236,9 @@
       "source": "process:plan-renderer",
       "destination": "store:plan-store",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "image tiles made from plan drawings",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -302,15 +254,9 @@
       "source": "entity:inspector",
       "destination": "process:permit-service",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "applications and inspectors' decisions",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "\"All inspectors in a district use one shared inspector login.\" The source does not name the mechanism behind the login."
     }

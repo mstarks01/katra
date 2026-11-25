@@ -497,7 +497,7 @@ def control_from_text(value: str) -> ElementControl:
     It reads by :func:`first_word_state`. A stated value keeps the whole string as its
     mechanism. After a sentinel, the rest of the string is the reason. Two
     kinds of value are text: an archived control field, which a recorded
-    emission, a Baseline and a stored report hold (the archive reader,
+    emission, a Baseline, a corpus case and a stored report hold (the archive reader,
     :func:`_control_field`), and the value of an answer to a control field,
     which the HTTP API takes as one line
     (:func:`~katra.fact_answers.answered_control`).

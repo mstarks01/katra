@@ -85,10 +85,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:corporate-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:key-store",
@@ -102,10 +99,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:corporate-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:audit-log",
@@ -119,10 +113,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:corporate-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -138,15 +129,9 @@
       "source": "entity:colleague",
       "destination": "process:identity-broker",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "the colleague's sign-in, and back to them a signed token carrying their staff id and group list, good for twelve hours with no way to pull it back before it expires",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "unknown"
     },
     {
@@ -161,15 +146,9 @@
       "source": "entity:franchise-identity-provider",
       "destination": "process:identity-broker",
       "protocol": "unknown",
-      "authentication": {
-        "state": "stated",
-        "detail": "the broker accepts the provider's assertion as a sign-in; which colleagues the provider may vouch for is not written down"
-      },
+      "authentication": "the broker accepts the provider's assertion as a sign-in; which colleagues the provider may vouch for is not written down",
       "data_description": "an assertion vouching for a franchise colleague",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -185,15 +164,9 @@
       "source": "entity:colleague",
       "destination": "process:store-admin-console",
       "protocol": "unknown",
-      "authentication": {
-        "state": "stated",
-        "detail": "the token alone: its store-manager group decides, the colleague's own store is never checked, and nothing calls back to the broker to re-check them"
-      },
+      "authentication": "the token alone: its store-manager group decides, the colleague's own store is never checked, and nothing calls back to the broker to re-check them",
       "data_description": "price changes and transaction voids against any store",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -206,15 +179,9 @@
       "source": "process:store-admin-console",
       "destination": "process:identity-broker",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "the public half of the token signing key",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -229,15 +196,9 @@
       "source": "process:identity-broker",
       "destination": "entity:hr-system",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "group membership changes and leavers, applied once a night",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -252,15 +213,9 @@
       "source": "process:identity-broker",
       "destination": "store:directory",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "colleague records and group memberships",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -275,15 +230,9 @@
       "source": "process:identity-broker",
       "destination": "store:key-store",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "the token signing key",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -298,15 +247,9 @@
       "source": "process:identity-broker",
       "destination": "store:audit-log",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "sign-in records of unstated content",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     }
   ],

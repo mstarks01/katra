@@ -1,8 +1,9 @@
 """A control field holds its state as a field (#2366).
 
 The model writes ``state`` and ``detail``, and the live gate refuses a control
-written as one string. A recorded emission, a Baseline and a stored report
-hold the string, and one archive reader reads it by the first-word rule.
+written as one string. A recorded emission, a Baseline, a corpus case and a
+stored report hold the string, and one archive reader reads it by the
+first-word rule.
 """
 
 import pytest

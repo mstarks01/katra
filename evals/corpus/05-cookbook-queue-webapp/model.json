@@ -52,10 +52,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:backend-tier",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:database",
@@ -69,10 +66,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:backend-tier",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:web-application-config",
@@ -87,10 +81,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:web-tier",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     },
     {
       "id": "store:worker-config",
@@ -105,10 +96,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:backend-tier",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -122,15 +110,9 @@
       "source": "entity:browser",
       "destination": "process:web-application",
       "protocol": "HTTP/S",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "application requests and responses",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "encrypted (marked as the one encrypted link)"
-      },
+      "encryption_in_transit": "encrypted (marked as the one encrypted link)",
       "operations": "unknown"
     },
     {
@@ -145,15 +127,9 @@
       "source": "process:web-application",
       "destination": "store:message-queue",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "job messages",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -168,15 +144,9 @@
       "source": "process:background-worker-process",
       "destination": "store:message-queue",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "job messages",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -191,15 +161,9 @@
       "source": "process:background-worker-process",
       "destination": "store:database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "application records and log records",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -214,15 +178,9 @@
       "source": "process:web-application",
       "destination": "store:web-application-config",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "settings and message-queue credentials",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -237,15 +195,9 @@
       "source": "process:background-worker-process",
       "destination": "store:worker-config",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "settings and database credentials",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     }
   ],

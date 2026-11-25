@@ -346,7 +346,7 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "df7757178c394258cbcf1643e81fca5b01f324058a0841824f008e74346da2d0",
-      "model.json": "61eb16ebc9b3cd35d0f4cfa6254da19b938a9975159b884319f7bf97c35d3829",
+      "model.json": "3800082a9fa433aff29c46f4b0e170d578d64b05bde8186dff0d11b0252ce73d",
       "claims/stride.json": "56b82a9dac716a4e2c9a88083931f4408edcb575377f0ab1706f72cb91163179"
       }
     }

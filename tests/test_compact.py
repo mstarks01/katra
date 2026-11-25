@@ -61,8 +61,8 @@ from katra.system_model import (
     _Element,
     normalize_element_ids,
 )
-from katra.validation import repair_scope
-from tests.factories import valid_model
+from katra.validation import parse_and_validate, repair_scope
+from tests.factories import emitted, valid_model
 from tests.test_validation import codes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -187,9 +187,15 @@ class TestTheTransportCarriesTheSameFacts:
         The hand-written fixture above proves the shape; this proves it on the
         only data in the repo that looks like what a model actually emits —
         every element type, parallel flows, assumptions, long descriptions and
-        excerpts.
+        excerpts. The corpus holds each control as an archived string, so the
+        archive reader reads it first, and both routes take the shape a model
+        writes.
         """
-        blessed = json.loads(path.read_text(encoding="utf-8"))
+        archived, _ = parse_and_validate(
+            json.loads(path.read_text(encoding="utf-8")), archived=True
+        )
+        assert archived is not None
+        blessed = json.loads(emitted(archived))
         expected, _ = parse_extraction(blessed, FULL_FORMAT, sources={}, diagrams={})
         through_the_wire, issues = parse_extraction(
             as_compact(blessed), COMPACT_FORMAT, sources={}, diagrams={}

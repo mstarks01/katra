@@ -96,10 +96,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:rewards-cloud",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_at_rest": "unknown",
       "notes": "The source states nobody recorded how any of the three stores is protected at rest."
     },
     {
@@ -115,10 +112,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:rewards-cloud",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_at_rest": "unknown",
       "notes": "The source states nobody recorded how any of the three stores is protected at rest."
     },
     {
@@ -134,10 +128,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:rewards-cloud",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_at_rest": "unknown",
       "notes": "The source states nobody recorded how any of the three stores is protected at rest."
     }
   ],
@@ -155,15 +146,9 @@
       "source": "entity:member",
       "destination": "process:authorization-server",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "stated",
-        "detail": "password; no idle timeout"
-      },
+      "authentication": "password; no idle timeout",
       "data_description": "the member's email address, password and consent",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "HTTPS"
-      },
+      "encryption_in_transit": "HTTPS",
       "operations": "write"
     },
     {
@@ -179,15 +164,9 @@
       "source": "entity:member",
       "destination": "entity:partner-app",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "absent",
-        "detail": "redirect URI matched by prefix"
-      },
+      "authentication": "none; redirect URI matched by prefix",
       "data_description": "the authorization code",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "HTTPS"
-      },
+      "encryption_in_transit": "HTTPS",
       "operations": "unknown"
     },
     {
@@ -203,15 +182,9 @@
       "source": "process:mobile-app",
       "destination": "process:authorization-server",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "stated",
-        "detail": "refresh token never expires"
-      },
+      "authentication": "refresh token never expires",
       "data_description": "authorization codes, refresh tokens and the access tokens returned",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "HTTPS"
-      },
+      "encryption_in_transit": "HTTPS",
       "operations": "unknown"
     },
     {
@@ -228,15 +201,9 @@
       "source": "entity:partner-app",
       "destination": "process:authorization-server",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "stated",
-        "detail": "client secret"
-      },
+      "authentication": "client secret",
       "data_description": "authorization codes, refresh tokens and the access tokens returned",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "HTTPS"
-      },
+      "encryption_in_transit": "HTTPS",
       "operations": "unknown"
     },
     {
@@ -253,15 +220,9 @@
       "source": "process:mobile-app",
       "destination": "process:rewards-api",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "stated",
-        "detail": "bearer JWT; audience not checked"
-      },
+      "authentication": "bearer JWT; audience not checked",
       "data_description": "balance reads, points transactions and gift-card redemptions",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "HTTPS"
-      },
+      "encryption_in_transit": "HTTPS",
       "operations": "read-write"
     },
     {
@@ -278,15 +239,9 @@
       "source": "entity:partner-app",
       "destination": "process:rewards-api",
       "protocol": "HTTPS",
-      "authentication": {
-        "state": "stated",
-        "detail": "bearer JWT; audience not checked"
-      },
+      "authentication": "bearer JWT; audience not checked",
       "data_description": "balance reads, points transactions and gift-card redemptions",
-      "encryption_in_transit": {
-        "state": "stated",
-        "detail": "HTTPS"
-      },
+      "encryption_in_transit": "HTTPS",
       "operations": "read-write"
     },
     {
@@ -302,15 +257,9 @@
       "source": "process:authorization-server",
       "destination": "store:identity-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "member accounts, password hashes, authorization codes, refresh tokens and consents",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -326,15 +275,9 @@
       "source": "process:rewards-api",
       "destination": "store:points-ledger",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "balances and points transactions, each recording the client that made it",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -350,15 +293,9 @@
       "source": "process:rewards-api",
       "destination": "store:api-log-store",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "every request with its headers, including bearer access tokens",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -374,15 +311,9 @@
       "source": "process:support-console",
       "destination": "store:identity-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "account closures",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     }
   ],

@@ -111,10 +111,7 @@
       "technology": "unknown",
       "trust_zone": "boundary:private-database-network",
       "data_classification": "unknown",
-      "encryption_at_rest": {
-        "state": "unknown",
-        "detail": ""
-      }
+      "encryption_at_rest": "unknown"
     }
   ],
   "data_flows": [
@@ -130,15 +127,9 @@
       "source": "entity:pet-owner",
       "destination": "process:owner-api",
       "protocol": "unknown",
-      "authentication": {
-        "state": "stated",
-        "detail": "password sign-in with an email address"
-      },
+      "authentication": "password sign-in with an email address",
       "data_description": "appointments and pet records",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
     {
@@ -153,15 +144,9 @@
       "source": "process:owner-api",
       "destination": "store:records-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "appointments and pet records",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "The source states the account, \"the database's admin account\", and names no mechanism behind it, so authentication reads unknown."
     },
@@ -178,15 +163,9 @@
       "source": "entity:clinic-staff",
       "destination": "process:clinic-api",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "owners, pets, appointments and medical notes",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "The source says the clinic API checks that a staff account has signed in, and names no sign-in mechanism, so authentication reads unknown."
     },
@@ -203,15 +182,9 @@
       "source": "process:clinic-api",
       "destination": "store:records-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "owners, pets, appointments and medical notes",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read-write",
       "notes": "The source states the account, \"the database's admin account\", and names no mechanism behind it, so authentication reads unknown."
     },
@@ -227,15 +200,9 @@
       "source": "entity:partner-lab",
       "destination": "process:lab-results-importer",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "test results",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -250,15 +217,9 @@
       "source": "process:lab-results-importer",
       "destination": "store:records-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "test results",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -273,15 +234,9 @@
       "source": "process:billing-service",
       "destination": "store:records-database",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "appointments",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     },
     {
@@ -297,15 +252,9 @@
       "source": "process:billing-service",
       "destination": "entity:pet-owner",
       "protocol": "email",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "invoices",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "write"
     },
     {
@@ -321,15 +270,9 @@
       "source": "entity:clinic-staff",
       "destination": "process:billing-service",
       "protocol": "unknown",
-      "authentication": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "authentication": "unknown",
       "data_description": "owners' invoices",
-      "encryption_in_transit": {
-        "state": "unknown",
-        "detail": ""
-      },
+      "encryption_in_transit": "unknown",
       "operations": "read"
     }
   ],
