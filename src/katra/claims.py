@@ -250,8 +250,9 @@ class Severity(BaseModel):
     OpenAI's strict structured outputs require *every* property to be listed as
     required, so ADK's converter marks even an optional one as such. A ``level``
     the model must emit is a model asserting the band — against the validator
-    below, which raises when the assertion contradicts the matrix. Leaving it in the schema makes a
-    contradiction the model is *obliged* to risk on every threat it rules.
+    below, which raises when the assertion contradicts the matrix. Leaving it
+    in the schema makes a contradiction the model is *obliged* to risk on every
+    threat it rules.
 
     So the rule "derived, never asserted" is enforced where it becomes
     unbreakable: the model is never given the field to fill in. The raise below
