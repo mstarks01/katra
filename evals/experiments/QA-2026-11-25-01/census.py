@@ -19,6 +19,7 @@ from typing import Any
 
 from evals.harness.assertion_use import report_paths
 from evals.harness.bundle import UnreadableReport, read_report
+from evals.harness.descendants import FRAMEWORK
 from evals.harness.lane_replay import prepare_today
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, load_case
@@ -31,8 +32,10 @@ from katra.system_model import SystemModel
 
 def signed_rows(state: dict[str, Any]) -> AssertionCatalog:
     """The rows today's ``prepare`` parked on the signed arm, read as the
-    fan-in reads them (``evals/harness/descendants.py``)."""
-    session = GraphKeys.of(["stride"]).state(SimpleNamespace(state=state))
+    fan-in reads them (``evals/harness/descendants.py``). ``FRAMEWORK`` is the
+    package whose drafts ``lane_must_finds`` scores, which the paid design
+    reads."""
+    session = GraphKeys.of([FRAMEWORK]).state(SimpleNamespace(state=state))
     rows = held_assertions(session)
     if rows is None:
         raise SystemExit("the signed arm parked no assertion rows")
@@ -73,7 +76,7 @@ def signed_cases() -> Counter[str]:
     counts: Counter[str] = Counter()
     for facts in sorted((REPO_ROOT / DEFAULT_CORPUS).glob("*/facts.json")):
         case = load_case(facts.parent)
-        rows = signed_rows(prepare_today(case, "stride", "signed").state)
+        rows = signed_rows(prepare_today(case, FRAMEWORK, "signed").state)
         counts["cases"] += 1
         count(prepared_model(case.model, rows), rows, counts)
     return counts

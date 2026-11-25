@@ -173,18 +173,6 @@ DECLARED: dict[str, str] = {
         " only the package whose identity is an action at a place has a rule"
         " set that leads a lane to the elements a reference names."
     ),
-    "evals/experiments/QA-2026-11-25-01/build.py": (
-        "This code is that framework's. It runs `prepare` for the package"
-        " whose lanes the audit's paid design replays: a threat there rests on"
-        " a control attribute, such as encryption at rest, that the changed"
-        " model sets absent."
-    ),
-    "evals/experiments/QA-2026-11-25-01/census.py": (
-        "This code is that framework's. It runs `prepare` for the package"
-        " whose lanes the audit's paid design replays: a threat there rests on"
-        " a control attribute, such as encryption at rest, that the changed"
-        " model sets absent."
-    ),
     "evals/experiments/QA-2026-11-06-02/zones.py": (
         "This code is that framework's. It reads the zone kinds that the"
         " privilege-crossing rule of the package with candidate leads reads."

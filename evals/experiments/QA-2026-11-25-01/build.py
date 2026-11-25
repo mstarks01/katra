@@ -15,7 +15,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from census import count, signed_rows
+from census import FRAMEWORK, count, signed_rows
 
 from evals.harness.lane_replay import prepare_today, with_system_model
 from evals.harness.provenance import REPO_ROOT
@@ -42,7 +42,7 @@ def main() -> None:
         setattr(elements[element_id], attribute, ElementControl(state="absent"))
     OUT.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
     case = with_system_model(case, OUT)
-    prepared = {arm: prepare_today(case, "stride", arm) for arm in ("none", "signed")}
+    prepared = {arm: prepare_today(case, FRAMEWORK, arm) for arm in ("none", "signed")}
     for arm, today in prepared.items():
         lines = (
             json.dumps(today.material, ensure_ascii=False)
