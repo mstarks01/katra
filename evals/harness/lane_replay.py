@@ -33,8 +33,8 @@ catalog, so a pair of replays measures what ``KATRA_ASSERTIONS`` can give a
 lane when its pass writes exactly the signed rows (#1231). The lane's drafts
 are then scored by :func:`~evals.harness.descendants.lane_must_finds`, for the
 package that scores drafts by an action and a place. ``--system-model`` puts a
-built input in place of the blessed model: the same elements, other attribute
-values.
+System Model file in place of the blessed model: the same elements, other
+attribute values.
 """
 
 from __future__ import annotations
@@ -303,7 +303,7 @@ def prepare_today(
     case: GoldenCase, framework: FrameworkName, arm: str
 ) -> PreparedToday:
     """Every lane input today's ``prepare`` writes over the case's model: the
-    blessed one, or a built input that :func:`built_input` put in its place.
+    blessed one, or the file that :func:`with_system_model` put in its place.
 
     The real node over a plain session, seeded by
     :func:`~katra.execution.seed_state` as a graph run is, with the
@@ -343,11 +343,11 @@ def prepare_today(
     )
 
 
-def built_input(case: GoldenCase, path: Path) -> GoldenCase:
+def with_system_model(case: GoldenCase, path: Path) -> GoldenCase:
     """``case`` with the System Model at ``path`` in place of its blessed one.
 
     The case's references and signed facts name the blessed model's elements,
-    so a built input holds the same element IDs; one that renames or drops an
+    so the file holds the same element IDs; one that renames or drops an
     element is refused, because its references would read as missed.
     """
     try:
@@ -358,7 +358,7 @@ def built_input(case: GoldenCase, path: Path) -> GoldenCase:
     blessed = {element.id for element in case.model.elements()}
     if built != blessed:
         raise EvalRunError(
-            f"{path}: a built input holds the blessed model's element IDs; it"
+            f"{path}: the file must hold the blessed model's element IDs; it"
             f" drops {sorted(blessed - built)} and adds {sorted(built - blessed)}"
         )
     return replace(case, model=model)
@@ -456,7 +456,7 @@ def command_lane_replay(args: argparse.Namespace) -> int:
         check_out(args.out)
         case = load_case(REPO_ROOT / DEFAULT_CORPUS / args.case)
         if args.system_model is not None:
-            case = built_input(case, args.system_model)
+            case = with_system_model(case, args.system_model)
             inputs[args.system_model] = {}
         if args.prepare_today is not None:
             prepared = prepare_today(case, args.framework, args.prepare_today)

@@ -3,8 +3,8 @@ govern: a field the rows hold open, and an absence the catalog drops.
 
 Each report's catalog is rebuilt with today's code, with and without its
 assertion rows, through the production readers. Then today's ``prepare`` runs
-over each case with signed facts, on both catalog arms, as ``lane-replay
---prepare-today`` runs it, and its model and rows are counted the same way.
+over each case with signed facts, on the signed arm, as ``lane-replay
+--prepare-today signed`` runs it, and its model and rows are counted the same way.
 It reads ``evals/runs/``, which git does not track, so the archive figures
 hold for this machine's archive. Run from the repository root:
 

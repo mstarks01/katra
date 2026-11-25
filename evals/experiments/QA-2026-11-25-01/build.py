@@ -1,4 +1,4 @@
-"""Write the built input of QA-2026-11-25-01: case 01's blessed model with two
+"""Write the changed model of QA-2026-11-25-01: case 01's blessed model with two
 stated controls set to ``absent``, as an extraction that missed them writes.
 
 The signed rows of case 01 state both controls, so today's ``prepare`` holds
@@ -17,7 +17,7 @@ from pathlib import Path
 
 from census import count
 
-from evals.harness.lane_replay import built_input, prepare_today
+from evals.harness.lane_replay import prepare_today, with_system_model
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, load_case
 from katra.graph import held_assertions
@@ -32,7 +32,7 @@ BUILT = (
         "encryption_in_transit",
     ),
 )
-OUT = Path(__file__).with_name("case01-built-model.json")
+OUT = Path(__file__).with_name("case01-system-model.json")
 
 
 def main() -> None:
@@ -42,10 +42,14 @@ def main() -> None:
     for element_id, attribute in BUILT:
         setattr(elements[element_id], attribute, ElementControl(state="absent"))
     OUT.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    case = built_input(case, OUT)
+    case = with_system_model(case, OUT)
     prepared = {arm: prepare_today(case, "stride", arm) for arm in ("none", "signed")}
     for arm, today in prepared.items():
-        lines = json.dumps(today.material).replace("\\n", "\n").split("\n")
+        lines = (
+            json.dumps(today.material, ensure_ascii=False)
+            .replace("\\n", "\n")
+            .split("\n")
+        )
         print(f"== {arm}")
         for line in sorted(set(lines)):
             about = "receipt-archive" in line and "encryption" in line

@@ -316,14 +316,14 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
     )
 
 
-def test_a_built_model_replaces_the_blessed_one(
+def test_a_system_model_file_replaces_the_blessed_model(
     case,  # noqa: F811
     tmp_path,
     monkeypatch,
 ):
-    """The lane reads the built model, and the record names its file."""
+    """The lane reads the System Model file, and the record names it."""
     built = case.model.model_copy(deep=True)
-    built.processes[0].notes = "a built input for the replay"
+    built.processes[0].notes = "a model in place of the blessed one"
     path = tmp_path / "model.json"
     path.write_text(built.model_dump_json(), encoding="utf-8")
     instructions: list[str] = []
@@ -349,7 +349,7 @@ def test_a_built_model_replaces_the_blessed_one(
     )
 
     (instruction,) = instructions
-    assert "a built input for the replay" in instruction
+    assert "a model in place of the blessed one" in instruction
     held = json.loads(written.read_text(encoding="utf-8"))
     assert held["record"]["table"]["system_model"] == str(path)
     digests = {one["path"]: one["sha256"] for one in held["record"]["inputs"]}
@@ -377,14 +377,14 @@ def test_a_model_the_gate_refuses_is_refused_before_the_call(
     assert f"{path} is not valid" in capsys.readouterr().err
 
 
-def test_a_built_model_reads_through_the_live_gate(
+def test_a_system_model_file_reads_through_the_live_gate(
     case,  # noqa: F811
     tmp_path,
     monkeypatch,
     capsys,
 ):
     """A control written as a string reads in the archived corpus, and the
-    live gate a built input passes refuses it."""
+    live gate that a ``--system-model`` file passes refuses it."""
     built = case.model.model_dump(mode="json")
     built["data_stores"][0]["encryption_at_rest"] = "none"
     path = tmp_path / "model.json"
@@ -400,7 +400,7 @@ def test_a_built_model_reads_through_the_live_gate(
     assert f"{path} is not valid" in capsys.readouterr().err
 
 
-def test_a_built_model_without_an_element_is_refused_before_the_call(
+def test_a_system_model_file_without_an_element_is_refused_before_the_call(
     case,  # noqa: F811
     tmp_path,
     monkeypatch,
@@ -431,7 +431,7 @@ def test_a_built_model_without_an_element_is_refused_before_the_call(
         )
         == 1
     )
-    assert "holds the blessed model's element IDs" in capsys.readouterr().err
+    assert "must hold the blessed model's element IDs" in capsys.readouterr().err
 
 
 def test_a_system_model_without_prepare_today_is_refused_before_the_call(

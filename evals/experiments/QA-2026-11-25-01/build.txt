@@ -2,8 +2,8 @@
 | `absent:flow:process:order-service>store:receipt-archive>append-receipt:encryption_in_transit` | `encryption_in_transit` stated absent |
 | `absent:store:receipt-archive:encryption_at_rest` | `encryption_at_rest` stated absent |
 == signed
-| `assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b` | `storage-encryption` on `store:receipt-archive`: the sources disagree; this row states `customer-managed key` \u2014 unchecked |
-| `assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b` | `transport-encryption` on `flow:process:order-service>store:receipt-archive>append-receipt`: the sources disagree; this row states `TLS` \u2014 unchecked |
+| `assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b` | `storage-encryption` on `store:receipt-archive`: the sources disagree; this row states `customer-managed key` — unchecked |
+| `assertion:transport-encryption~flow:process:order-service>store:receipt-archive>append-receipt~any~v.b7e651cbb43b` | `transport-encryption` on `flow:process:order-service>store:receipt-archive>append-receipt`: the sources disagree; this row states `TLS` — unchecked |
 == signed, counted
 rows: 25
 hidden qualifications: 0

@@ -820,14 +820,15 @@ def _read_json(path: Path) -> object:
 
 def load_model_file(path: Path, *, archived: bool) -> SystemModel:
     """A model file, put through the shipped validity gate: a case's blessed
-    model, or a built input that a lane replay reads in its place.
+    model, or a System Model file that a lane replay reads in its place.
 
     Lane agents only ever see valid models in production; a model the gate
     would reject there cannot ground a score or a replay here.
 
     ``archived``: true for the corpus, which is reference data like a
     Baseline, so a control written as a string reads through the archive
-    reader. False for a built input, which the live gate reads.
+    reader. False for a lane replay's ``--system-model`` file, which the live
+    gate reads.
     """
     model, issues = parse_and_validate(_read_json(path), archived=archived)
     if model is None or issues:
