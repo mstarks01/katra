@@ -1376,24 +1376,6 @@ class Claim(BaseModel):
         """
         return cls.text_of_unit(cls.unit_of(draft))
 
-    @classmethod
-    def lane_diagnostics(cls, drafts: Sequence[Claim]) -> list[str]:
-        """What this framework wants *logged* about one job's drafts. Nothing, here.
-
-        The one hook a package has into the fan-in, and it is deliberately
-        write-only: the fan-in logs whatever comes back and nothing else reads
-        it, so a package cannot reach a report or a verdict through this.
-
-        It exists because the observations worth making about an agent's output
-        are framework-specific in a way the neutral layer cannot reach. STRIDE's
-        is that a lane numbered its drafts ``01, 02, 05`` — a statement about its
-        own ``id_format``, which :class:`Claim` has none of, since ``id`` has no
-        shared grammar. A framework with nothing to say about its own IDs
-        inherits this and says nothing.
-        """
-        del drafts
-        return []
-
 
 class RuledClaim(Claim):
     """A :class:`Claim` a critic has ruled on: what a report carries.

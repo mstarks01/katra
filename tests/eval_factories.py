@@ -31,13 +31,13 @@ from katra.claims import (
     UnreconciledRuling,
     Verdict,
 )
+from katra.frameworks import PACKAGES
 from katra.frameworks.stride.record import (
     STRIDE_VERSION,
     AttackerPosition,
     DraftThreat,
     StrideCategory,
     Threat,
-    _threat_id,
 )
 from katra.identity import IDENTITY_VERSION, build_identity
 from katra.sampling import TierSampling
@@ -294,7 +294,7 @@ def draft_threat(
     one would be graded by nothing.
     """
     return DraftThreat(
-        id=_threat_id(category, sequence),
+        id=PACKAGES["stride"].compose_id(category, sequence),
         framework="stride",
         framework_version=STRIDE_VERSION,
         category=category,

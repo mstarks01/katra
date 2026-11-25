@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from typing import Literal, Self, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from katra.actions import ActionVerb
 from katra.claims import (
@@ -29,6 +30,7 @@ from katra.claims import (
     BlockSummary,
     Claim,
     FrameworkAnalysis,
+    InvalidProposal,
     MissingMitigation,
     Mitigation,
     Proposal,
@@ -131,22 +133,9 @@ CATEGORY_LETTERS: dict[StrideCategory, str] = {
 ID_FORMAT = "{prefix}-{key:02d}"
 
 #: The largest ``sequence`` :data:`ID_FORMAT` can render without widening. Sits
-#: here beside the format it is a property of, and bounds
-#: :class:`ThreatProposal`'s own field.
+#: here beside the format it is a property of. :class:`ThreatProposals` numbers
+#: a lane's drafts up to it and drops each draft past it.
 MAX_SEQUENCE = 99
-
-
-def _threat_id(lane: StrideCategory, sequence: int) -> str:
-    """One threat ID, composed the way the package's own ``IdRule`` composes it.
-
-    Only :meth:`DraftThreat.lane_diagnostics` needs this: everything on the
-    analysis path composes IDs through
-    :meth:`~katra.frameworks.FrameworkPackage.compose_id`, and the
-    diagnostic runs over drafts whose IDs already exist. Spelled from the same
-    two constants, so a message cannot describe an ID shape the resolver does not
-    produce.
-    """
-    return ID_FORMAT.format(prefix=CATEGORY_LETTERS[lane], key=sequence)
 
 
 #: The lanes each action verb may be filed in. **A table, checked against the
@@ -313,51 +302,6 @@ class DraftThreat(Claim):
             return None
         return ThreatRuling(id=ruling.id, verdict=ruling.verdict, confidence="low")
 
-    @classmethod
-    def lane_diagnostics(cls, drafts: Sequence[Claim]) -> list[str]:
-        """Every lane whose drafts are not numbered ``01..N``, as messages.
-
-        The prompt asks each agent for "a sequence starting at 1, numbered within
-        your lane only". A lane that emits ``S-01, S-02, S-05`` has not followed
-        it.
-
-        **Logged rather than raised, and deliberately not on the report.** A gap
-        breaks nothing: IDs are opaque handles, they are unique, their letters
-        match, and every downstream check passes. Renumbering would make them
-        comply, and is refused — rewriting a finding's identity to satisfy a
-        cosmetic rule is a bigger liberty than the rule is worth, and it would
-        move a threat's ID between two runs of the same input.
-
-        So this is a signal about the *agents*, not about the report, and it goes
-        where the other operational facts about a run go rather than to a reader
-        who can do nothing with it. Worth having because it is free and because
-        nothing else in the graph would ever mention it: an agent quietly
-        drifting from its output contract is the kind of thing that is obvious in
-        hindsight and invisible in advance.
-
-        **STRIDE's, not the service's**, which is why it is here. "Numbered
-        ``01..N``" is a statement about :data:`ID_FORMAT` and a two-digit integer
-        key, and :class:`~katra.claims.Claim` has neither — ``id`` has no
-        shared grammar, so a framework keyed by requirement number has no gaps to
-        have. The neutral hook it overrides says nothing at all.
-        """
-        numbers_by_lane: dict[StrideCategory, list[int]] = {}
-        for draft in drafts:
-            # Not every Claim is one of ours: the hook's signature is the
-            # neutral one, and a caller holding a mixed list is a defect
-            # elsewhere rather than something to report from here.
-            if isinstance(draft, DraftThreat):
-                numbers_by_lane.setdefault(draft.category, []).append(
-                    int(draft.id.split("-", 1)[1])
-                )
-        return [
-            f"the {lane} lane numbered its {len(numbers)} drafts"
-            f" {', '.join(sorted(_threat_id(lane, n) for n in numbers))},"
-            f" not 01..{len(numbers):02d}"
-            for lane, numbers in numbers_by_lane.items()
-            if sorted(numbers) != list(range(1, len(numbers) + 1))
-        ]
-
 
 class RecommendationReading(BaseModel):
     """What the critic made of a threat's recommendations, as its own fact.
@@ -440,17 +384,15 @@ class ThreatProposal(Proposal):
 
     model_config = ConfigDict(extra="forbid")
 
-    # A number, not an ID, and no category beside it. There is one node per
-    # STRIDE category and the lane is the graph's fact: an agent restating it is
-    # an agent given a constant to contradict, and the ID's letter is a pure
-    # function of what it would be restating.
-    # :func:`~katra.evidence.resolve_proposals` composes both from the
-    # lane it is resolving and this package's ``id_format``.
-    #
-    # An integer rather than a two-digit string, because a string reintroduces
-    # what this removes: ``"1"`` against a ``^\d{2}$`` pattern is a spelling
-    # error that fails the node, and a sequence has no spelling.
-    sequence: int = Field(ge=1, le=MAX_SEQUENCE)
+    # The draft's place in its lane, which code writes and the agent never
+    # sees. There is one node per STRIDE category and the lane is the graph's
+    # fact, so :func:`~katra.evidence.resolve_proposals` composes the ID from
+    # the lane and this number. :class:`ThreatProposals` sets it from the
+    # draft's place in the batch: a number the agent counted could repeat, and a
+    # repeated number dropped the second draft as a duplicate ID (#2355). Kept
+    # out of the JSON schema, so the provider never asks for it; a value an
+    # agent writes anyway is replaced.
+    sequence: SkipJsonSchema[int] = 0
     affected_element_ids: list[str] = Field(
         min_length=1, max_length=MAX_ELEMENTS_PER_PROPOSAL
     )
@@ -499,6 +441,41 @@ class ThreatProposals(ProposalBatch):
     # No length bound, for the reason `ProposalBatch` gives: `fan_in` carries
     # MAX_CLAIMS_PER_BATCH, so a narrowing cannot drop it.
     claims: list[ThreatProposal]  # type: ignore[assignment]
+
+    @model_validator(mode="after")
+    def _number_by_place(self) -> Self:
+        """Number each draft by its place in the lane, and drop those past the cap.
+
+        Code holds the order the agent wrote its drafts in, so the number is
+        that order and not a count the agent kept. A batch read back from state
+        is already numbered and capped, so a second pass changes nothing.
+
+        A draft past :data:`MAX_SEQUENCE` has no ID :data:`ID_FORMAT` can
+        render, so it goes to ``invalid`` under its place in the emission, as a
+        draft that fails its schema does.
+        """
+        emitted = len(self.claims) + len(self.invalid)
+        failed = {entry.index for entry in self.invalid}
+        places = [index for index in range(emitted) if index not in failed]
+        past = [
+            InvalidProposal(
+                index=place,
+                scalars={"title": proposal.title[:200]},
+                error=(
+                    f"a lane numbers at most {MAX_SEQUENCE} drafts,"
+                    f" and this is draft {position}"
+                ),
+            )
+            for position, (place, proposal) in enumerate(
+                zip(places, self.claims, strict=True), start=1
+            )
+            if position > MAX_SEQUENCE
+        ]
+        del self.claims[MAX_SEQUENCE:]
+        for position, proposal in enumerate(self.claims, start=1):
+            proposal.sequence = position
+        self.invalid = sorted([*self.invalid, *past], key=lambda entry: entry.index)
+        return self
 
 
 class ArchivedThreatProposal(ThreatProposal):

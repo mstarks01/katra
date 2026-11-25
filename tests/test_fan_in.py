@@ -1,5 +1,6 @@
 """Tests for the fan-in: one framework's lane batches merged into its critic's drafts."""
 
+import json
 import time
 
 import pytest
@@ -595,64 +596,49 @@ class TestMissingMitigations:
         assert [draft.id for draft in joined.drafts] == ["S-01"]
 
 
-class TestNumberingGaps:
-    """A lane's own drafts should run 01..N; a gap is reported, never repaired."""
+class TestNumberingByPosition:
+    """Code numbers a lane's drafts by their place in the batch (#2355)."""
 
-    def test_a_contiguous_lane_reports_nothing(self):
-        assert (
-            DraftThreat.lane_diagnostics([sample_draft("S-01"), sample_draft("S-02")])
-            == []
+    def test_two_drafts_an_agent_numbered_alike_both_reach_the_critic(self):
+        first = sample_proposal("S-01", title="Forged session")
+        second = sample_proposal("S-01", title="Replayed token")
+
+        merged = fan_in.fan_in(
+            batches(spoofing=[first, second]),
+            STRIDE,
+            valid_model(),
+            SOURCES,
+            assertions=None,
         )
 
-    def test_a_gap_is_named_with_the_ids_that_produced_it(self):
-        [gap] = DraftThreat.lane_diagnostics(
-            [sample_draft("S-01"), sample_draft("S-02"), sample_draft("S-05")]
-        )
-        assert "spoofing" in gap
-        assert "S-01, S-02, S-05" in gap
-        assert "01..03" in gap
+        assert [draft.id for draft in merged.drafts] == ["S-01", "S-02"]
+        assert merged.marks.dropped_claims == []
 
-    def test_a_lane_not_starting_at_01_is_a_gap(self):
-        assert DraftThreat.lane_diagnostics(
-            [sample_draft("S-02"), sample_draft("S-03")]
+    def test_the_lane_schema_asks_for_no_number(self):
+        assert "sequence" not in json.dumps(SCHEMAS.proposals.model_json_schema())
+
+    def test_a_number_the_agent_wrote_anyway_is_replaced_by_its_place(self):
+        batch = SCHEMAS.proposals.model_validate_json(
+            json.dumps({"claims": [sample_proposal("S-07").model_dump(mode="json")]})
         )
 
-    def test_lanes_are_numbered_independently(self):
-        """Each agent numbers within its own category, so each is judged alone."""
-        assert (
-            DraftThreat.lane_diagnostics(
-                [
-                    sample_draft("S-01"),
-                    sample_draft("T-01", "tampering"),
-                    sample_draft("T-02", "tampering"),
-                ]
-            )
-            == []
-        )
+        assert [proposal.sequence for proposal in batch.claims] == [1]
 
-    def test_only_the_offending_lane_is_named(self):
-        gaps = DraftThreat.lane_diagnostics(
-            [
-                sample_draft("S-01"),
-                sample_draft("T-01", "tampering"),
-                sample_draft("T-03", "tampering"),
-            ]
-        )
-        assert len(gaps) == 1
-        assert "tampering" in gaps[0]
-
-    def test_the_ids_are_left_exactly_as_the_agent_wrote_them(self, model):
-        """Reported, never renumbered: an ID must not move between two runs."""
-        drafts = {"spoofing": [sample_draft("S-01"), sample_draft("S-05")]}
-        assert [
-            d.id
-            for d in join_drafts(
-                drafts, STRIDE, model, sources={}, assertions=None
-            ).drafts
-        ] == [
-            "S-01",
-            "S-05",
+    def test_a_draft_past_the_lane_cap_is_dropped_and_named(self):
+        proposals = [
+            sample_proposal("S-01", title=f"Threat {place}")
+            for place in range(1, MAX_SEQUENCE + 2)
         ]
+
+        batch = SCHEMAS.proposals.model_validate(
+            {"claims": [proposal.model_dump(mode="json") for proposal in proposals]}
+        )
+
+        assert len(batch.claims) == MAX_SEQUENCE
+        [past] = batch.invalid
+        assert past.index == MAX_SEQUENCE
+        assert past.scalars["title"] == f"Threat {MAX_SEQUENCE + 1}"
+        assert str(MAX_SEQUENCE) in past.error
 
 
 class TestQuoteVerification:
@@ -1455,7 +1441,7 @@ class TestTheEmissionBound:
     def test_a_batch_at_the_cap_is_analyzed(self, model):
         batch = self._batch(MAX_CLAIMS_PER_BATCH, 0)
 
-        assert len(batch.claims) == MAX_CLAIMS_PER_BATCH
+        assert len(batch.claims) + len(batch.invalid) == MAX_CLAIMS_PER_BATCH
         assert fan_in.fan_in(
             {"spoofing": batch}, STRIDE, model, sources={}, assertions=None
         ).drafts
@@ -1484,8 +1470,9 @@ class TestTheEmissionBound:
         half = MAX_CLAIMS_PER_BATCH // 2 + 1
         batch = self._batch(half, half)
 
-        assert len(batch.claims) == half
-        assert len(batch.invalid) == half
+        assert len(batch.claims) < MAX_CLAIMS_PER_BATCH
+        assert len(batch.invalid) < MAX_CLAIMS_PER_BATCH
+        assert len(batch.claims) + len(batch.invalid) == half * 2
         with pytest.raises(fan_in.DraftJoinError, match=f"emitted {half * 2}"):
             fan_in.fan_in(
                 {"spoofing": batch}, STRIDE, model, sources={}, assertions=None

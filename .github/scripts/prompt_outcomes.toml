@@ -156,13 +156,6 @@ check = "an_omitted_compact_attribute_ends_the_job_with_no_repair"
 
 [[outcome]]
 prompt = "frameworks/stride/output.md"
-sentence = """Two drafts sharing a number lose the second: the service keeps the
-first and records the rest on the report as dropped."""
-modules = ["src/katra/fan_in.py"]
-check = "a_repeated_threat_id_keeps_the_first_draft_and_drops_the_rest"
-
-[[outcome]]
-prompt = "frameworks/stride/output.md"
 sentence = """Two drafts may share both when each cites its own missing or
 unknown control and each needs its own fix: a fake server that the client never
 checks and a fake client that the server never checks are two threats."""
