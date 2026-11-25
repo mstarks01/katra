@@ -1,6 +1,6 @@
 """Read the case-level facts of the sweeps: invalid extractions and case 14 zones.
 
-usage: cases.py RUNS_DIR ARM... Each sweep wrote <arm>-r<n>.json and a
+usage: case_reads.py RUNS_DIR ARM... Each sweep wrote <arm>-r<n>.json and a
 <arm>-r<n>.reports folder of extractions.
 """
 

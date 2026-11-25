@@ -7,7 +7,8 @@ wt=$2
 out=${OUT:-$PWD/evals/runs/20261125T-qa-2026-11-25-02}
 mkdir -p "$out"
 cd "$wt" || exit 1
-# The extraction route has no price table, so --accept-cost unknown is what ran.
+# The OpenRouter tier routes have no price, so no estimate exists. The sweeps ran
+# with --accept-cost unknown, which sets no cap; read the charge from node_charges.
 for r in 1 2 3 4 5; do
   KATRA_TIERS_FILE=$HOME/.config/katra/model_tiers.toml PYTHONPATH=$wt/src:$wt \
     uv run --frozen --no-sync python -m evals.harness.run run --mode extraction \

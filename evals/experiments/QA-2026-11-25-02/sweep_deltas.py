@@ -1,6 +1,6 @@
 """Read the extraction sweeps of two arms: one row per sweep, then the arm deltas.
 
-usage: analyse.py RUNS_DIR BEFORE AFTER, where each arm wrote <arm>-r<n>.json.
+usage: sweep_deltas.py RUNS_DIR BEFORE AFTER, where each arm wrote <arm>-r<n>.json.
 A delta is in units of the BEFORE arm's sample standard deviation, or a raw
 change where that spread is zero.
 """
