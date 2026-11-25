@@ -14,6 +14,8 @@ hold for this machine's archive. Run from the repository root:
 import sys
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 from evals.harness.assertion_use import report_paths
 from evals.harness.bundle import UnreadableReport, read_report
@@ -22,9 +24,19 @@ from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, load_case
 from katra.assertions import AssertionCatalog, hidden_qualifications
 from katra.evidence import evidence_catalog
-from katra.graph import held_assertions
+from katra.graph import GraphKeys, held_assertions
 from katra.open_facts import prepared_model
 from katra.system_model import SystemModel
+
+
+def signed_rows(state: dict[str, Any]) -> AssertionCatalog:
+    """The rows today's ``prepare`` parked on the signed arm, read as the
+    fan-in reads them (``evals/harness/descendants.py``)."""
+    session = GraphKeys.of(["stride"]).state(SimpleNamespace(state=state))
+    rows = held_assertions(session)
+    if rows is None:
+        raise SystemExit("the signed arm parked no assertion rows")
+    return rows
 
 
 def count(model: SystemModel, rows: AssertionCatalog, counts: Counter[str]) -> None:
@@ -61,7 +73,7 @@ def signed_cases() -> Counter[str]:
     counts: Counter[str] = Counter()
     for facts in sorted((REPO_ROOT / DEFAULT_CORPUS).glob("*/facts.json")):
         case = load_case(facts.parent)
-        rows = held_assertions(prepare_today(case, "stride", "signed").state)
+        rows = signed_rows(prepare_today(case, "stride", "signed").state)
         counts["cases"] += 1
         count(prepared_model(case.model, rows), rows, counts)
     return counts

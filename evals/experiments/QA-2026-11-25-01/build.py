@@ -15,12 +15,11 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from census import count
+from census import count, signed_rows
 
 from evals.harness.lane_replay import prepare_today, with_system_model
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, load_case
-from katra.graph import held_assertions
 from katra.open_facts import prepared_model
 from katra.system_model import ElementControl
 
@@ -55,7 +54,7 @@ def main() -> None:
             about = "receipt-archive" in line and "encryption" in line
             if line.startswith("|") and about:
                 print(line)
-    rows = held_assertions(prepared["signed"].state)
+    rows = signed_rows(prepared["signed"].state)
     counts: Counter[str] = Counter()
     count(prepared_model(case.model, rows), rows, counts)
     print("== signed, counted")
