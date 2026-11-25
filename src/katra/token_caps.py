@@ -82,7 +82,11 @@ TOKEN_CAPS: dict[str, int] = {
     # identity digests the value and the scope, so the critic can read the
     # fact a claim rests on. ``held_open_facts`` names the value a cited field
     # shows while the assertion rows hold it open. All three are computed
-    # rather than drafted.
+    # rather than drafted. Step 1's definition of an open fact names
+    # ``held_open_facts`` too, so the definition and the key agree (#2307).
+    #
+    # ``recritic`` names each computed key a re-ruled draft carries, so a
+    # dropped draft is ruled with the keys the first pass read (#2307).
     #
     # ``analyze`` says what an absence establishes (#1110): an absence rules a
     # claim out and never holds one up, and a claim that asserts nothing
@@ -99,8 +103,8 @@ TOKEN_CAPS: dict[str, int] = {
     # and not instruction, and, in the critic, the rule that a source fact can
     # defeat a draft and never closes an open fact.
     "prompts/analyze": 5600,
-    "prompts/critic": 3500,
-    "prompts/recritic": 1400,
+    "prompts/critic": 3900,
+    "prompts/recritic": 1700,
     # ``extract`` carries the naming rule in rule 3. The extraction sweep of
     # 2026-09-12 lost 98 blessed elements by ID, 59 of them to a name the model
     # chose differently — a plural, an expanded abbreviation, a qualifier the
