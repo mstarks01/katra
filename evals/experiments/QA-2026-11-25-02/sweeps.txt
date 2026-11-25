@@ -1,0 +1,41 @@
+# arm A 2c29ad31 against arm B 294bee59 (-E1)
+{"sweep": "A-r1", "cases": 20, "agreement": 0.761, "endpoint_recall": 0.7858, "charged": 0.0621, "flow.authentication": 0.869, "flow.encryption_in_transit": 0.984, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7129, "zone_recall": 0.4917, "crossings_recall": 0.2738}
+{"sweep": "A-r2", "cases": 20, "agreement": 0.786, "endpoint_recall": 0.8032, "charged": 0.0593, "flow.authentication": 0.915, "flow.encryption_in_transit": 0.992, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7316, "zone_recall": 0.5125, "crossings_recall": 0.2939}
+{"sweep": "A-r3", "cases": 20, "agreement": 0.793, "endpoint_recall": 0.7623, "charged": 0.0587, "flow.authentication": 0.912, "flow.encryption_in_transit": 0.984, "store.encryption_at_rest": 1.0, "interaction_recall": 0.6874, "zone_recall": 0.5167, "crossings_recall": 0.2021}
+{"sweep": "A-r4", "cases": 20, "agreement": 0.781, "endpoint_recall": 0.7478, "charged": 0.0599, "flow.authentication": 0.908, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.6691, "zone_recall": 0.5208, "crossings_recall": 0.3031}
+{"sweep": "A-r5", "cases": 20, "agreement": 0.783, "endpoint_recall": 0.8044, "charged": 0.0602, "flow.authentication": 0.887, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7533, "zone_recall": 0.4917, "crossings_recall": 0.2606}
+{"sweep": "B-r1", "cases": 20, "agreement": 0.778, "endpoint_recall": 0.8095, "charged": 0.0651, "flow.authentication": 0.902, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7428, "zone_recall": 0.475, "crossings_recall": 0.277}
+{"sweep": "B-r2", "cases": 20, "agreement": 0.788, "endpoint_recall": 0.7588, "charged": 0.0628, "flow.authentication": 0.916, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.69, "zone_recall": 0.4292, "crossings_recall": 0.2322}
+{"sweep": "B-r3", "cases": 20, "agreement": 0.765, "endpoint_recall": 0.7901, "charged": 0.0638, "flow.authentication": 0.931, "flow.encryption_in_transit": 0.992, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7388, "zone_recall": 0.4875, "crossings_recall": 0.2295}
+{"sweep": "B-r4", "cases": 20, "agreement": 0.795, "endpoint_recall": 0.7975, "charged": 0.0621, "flow.authentication": 0.929, "flow.encryption_in_transit": 0.984, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7408, "zone_recall": 0.4386, "crossings_recall": 0.2734}
+{"sweep": "B-r5", "cases": 20, "agreement": 0.779, "endpoint_recall": 0.8257, "charged": 0.0631, "flow.authentication": 0.903, "flow.encryption_in_transit": 0.993, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7771, "zone_recall": 0.4875, "crossings_recall": 0.2898}
+agreement: A 0.7808 sd 0.0120  B 0.7810 sd 0.0113  delta +0.02 sd
+endpoint_recall: A 0.7807 sd 0.0251  B 0.7963 sd 0.0249  delta +0.62 sd
+flow.authentication: A 0.8982 sd 0.0197  B 0.9162 sd 0.0138  delta +0.92 sd
+flow.encryption_in_transit: A 0.9860 sd 0.0034  B 0.9878 sd 0.0043  delta +0.53 sd
+store.encryption_at_rest: A 1.0000 sd 0.0000  B 1.0000 sd 0.0000  delta +0.0000 raw, before spread 0
+interaction_recall: A 0.7109 sd 0.0337  B 0.7379 sd 0.0311  delta +0.80 sd
+zone_recall: A 0.5067 sd 0.0140  B 0.4636 sd 0.0278  delta -3.08 sd
+crossings_recall: A 0.2667 sd 0.0398  B 0.2604 sd 0.0277  delta -0.16 sd
+charged: {'A': 0.3002, 'B': 0.3169}
+
+# arm B 294bee59 against arm C 142d9807 (-E2)
+{"sweep": "B-r1", "cases": 20, "agreement": 0.778, "endpoint_recall": 0.8095, "charged": 0.0651, "flow.authentication": 0.902, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7428, "zone_recall": 0.475, "crossings_recall": 0.277}
+{"sweep": "B-r2", "cases": 20, "agreement": 0.788, "endpoint_recall": 0.7588, "charged": 0.0628, "flow.authentication": 0.916, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.69, "zone_recall": 0.4292, "crossings_recall": 0.2322}
+{"sweep": "B-r3", "cases": 20, "agreement": 0.765, "endpoint_recall": 0.7901, "charged": 0.0638, "flow.authentication": 0.931, "flow.encryption_in_transit": 0.992, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7388, "zone_recall": 0.4875, "crossings_recall": 0.2295}
+{"sweep": "B-r4", "cases": 20, "agreement": 0.795, "endpoint_recall": 0.7975, "charged": 0.0621, "flow.authentication": 0.929, "flow.encryption_in_transit": 0.984, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7408, "zone_recall": 0.4386, "crossings_recall": 0.2734}
+{"sweep": "B-r5", "cases": 20, "agreement": 0.779, "endpoint_recall": 0.8257, "charged": 0.0631, "flow.authentication": 0.903, "flow.encryption_in_transit": 0.993, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7771, "zone_recall": 0.4875, "crossings_recall": 0.2898}
+{"sweep": "C-r1", "cases": 20, "agreement": 0.773, "endpoint_recall": 0.7866, "charged": 0.0602, "flow.authentication": 0.911, "flow.encryption_in_transit": 0.978, "store.encryption_at_rest": 0.979, "interaction_recall": 0.7258, "zone_recall": 0.4959, "crossings_recall": 0.2447}
+{"sweep": "C-r2", "cases": 20, "agreement": 0.778, "endpoint_recall": 0.7514, "charged": 0.06, "flow.authentication": 0.92, "flow.encryption_in_transit": 0.993, "store.encryption_at_rest": 1.0, "interaction_recall": 0.6895, "zone_recall": 0.5083, "crossings_recall": 0.2613}
+{"sweep": "C-r3", "cases": 20, "agreement": 0.79, "endpoint_recall": 0.7974, "charged": 0.0574, "flow.authentication": 0.894, "flow.encryption_in_transit": 0.992, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7466, "zone_recall": 0.5042, "crossings_recall": 0.2856}
+{"sweep": "C-r4", "cases": 20, "agreement": 0.775, "endpoint_recall": 0.76, "charged": 0.06, "flow.authentication": 0.908, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.695, "zone_recall": 0.4792, "crossings_recall": 0.2198}
+{"sweep": "C-r5", "cases": 20, "agreement": 0.792, "endpoint_recall": 0.7967, "charged": 0.0598, "flow.authentication": 0.888, "flow.encryption_in_transit": 0.985, "store.encryption_at_rest": 1.0, "interaction_recall": 0.7466, "zone_recall": 0.5209, "crossings_recall": 0.3155}
+agreement: B 0.7810 sd 0.0113  C 0.7816 sd 0.0088  delta +0.05 sd
+endpoint_recall: B 0.7963 sd 0.0249  C 0.7784 sd 0.0214  delta -0.72 sd
+flow.authentication: B 0.9162 sd 0.0138  C 0.9042 sd 0.0130  delta -0.87 sd
+flow.encryption_in_transit: B 0.9878 sd 0.0043  C 0.9866 sd 0.0061  delta -0.28 sd
+store.encryption_at_rest: B 1.0000 sd 0.0000  C 0.9958 sd 0.0094  delta -0.0042 raw, before spread 0
+interaction_recall: B 0.7379 sd 0.0311  C 0.7207 sd 0.0274  delta -0.55 sd
+zone_recall: B 0.4636 sd 0.0278  C 0.5017 sd 0.0155  delta +1.37 sd
+crossings_recall: B 0.2604 sd 0.0277  C 0.2654 sd 0.0369  delta +0.18 sd
+charged: {'B': 0.3169, 'C': 0.2974}
