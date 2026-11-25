@@ -1747,6 +1747,16 @@ class Ruling(BaseModel):
     # to fail the node. assemble_claims builds the canonical Verdict.
     verdict: ProposedVerdict
 
+    def rated_as_conditional(self) -> Self:
+        """This ruling, with the rating its package gives a conditional claim.
+
+        :func:`~katra.critic.complete_rulings` calls it on each ruling that
+        reads ``needs-info``: the claim holds only if an open fact does, and a
+        package whose ruling rates grounding says what that earns. The neutral
+        ruling rates nothing, so it returns itself.
+        """
+        return self
+
 
 class RulingBatch(BaseModel):
     """What a critic node and its re-ask emit: one ruling per draft, wrapped.

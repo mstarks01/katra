@@ -620,6 +620,10 @@ def complete_rulings(
     ruling carries no package field, so a rating such as STRIDE's
     ``confidence`` stays empty: nobody rated the draft.
 
+    A ruling that reads ``needs-info`` also takes the rating its package gives
+    a conditional claim (:meth:`~katra.claims.Ruling.rated_as_conditional`):
+    STRIDE's ``confidence`` reads ``low``, whatever the critic rated.
+
     An ``immaterial_unknowns`` entry that names no unknown ground of the draft
     is removed. It dismisses nothing, and left in place it reads as though it
     answered a question. A near-miss spelling of a cited fact therefore leaves
@@ -677,7 +681,9 @@ def complete_rulings(
                 "reason": ruling.verdict.reason or rests_on(related),
             }
         )
-        completed.append(ruling.model_copy(update={"verdict": verdict}))
+        completed.append(
+            ruling.model_copy(update={"verdict": verdict}).rated_as_conditional()
+        )
     ruled = {ruling.id for ruling in rulings}
     completed += [
         Ruling(

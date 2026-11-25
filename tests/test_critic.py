@@ -1689,3 +1689,35 @@ def test_a_reference_is_sound_mixed_or_neither(ref, sound, mixed):
     neither with none. The one-reader row of the count holds the two
     properties to one count."""
     assert (ref.sound, ref.mixed) == (sound, mixed)
+
+
+class TestConfidenceOnAnOpenFact:
+    """A STRIDE threat that rests on an open fact is ``low`` (#2365)."""
+
+    def _completed(self, verdict, confidence="high"):
+        [ruling] = complete_rulings(
+            [sample_draft("S-01")],
+            [sample_ruling("S-01", verdict=verdict, confidence=confidence)],
+        )
+        return ruling
+
+    def test_a_needs_info_ruling_reads_low_whatever_the_critic_rated(self):
+        verdict = ProposedVerdict(
+            reason="encryption at rest is unknown",
+            related_unknowns=[
+                UnknownRef(element_id="store:orders-db", attribute="encryption_at_rest")
+            ],
+        )
+
+        ruling = self._completed(verdict)
+
+        assert ruling.verdict.status == "needs-info"
+        assert ruling.confidence == "low"
+
+    def test_a_confirmed_ruling_keeps_the_critic_s_rating(self):
+        assert self._completed(ProposedVerdict()).confidence == "high"
+
+    def test_a_rejected_ruling_keeps_the_critic_s_rating(self):
+        verdict = ProposedVerdict(rejected_because="reasoning", reason="no")
+
+        assert self._completed(verdict, confidence="medium").confidence == "medium"

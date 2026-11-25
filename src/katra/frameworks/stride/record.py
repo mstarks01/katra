@@ -516,6 +516,10 @@ class ThreatRuling(Ruling):
     #: measures rather than the service refusing.
     recommendation: RecommendationReading | None = None
 
+    def rated_as_conditional(self) -> Self:
+        """``low``: the critic's text rates a threat resting on an open fact so."""
+        return self.model_copy(update={"confidence": "low"})
+
 
 class ThreatRulings(RulingBatch):
     """What the critic and its re-ask emit, narrowed to STRIDE's own ruling.

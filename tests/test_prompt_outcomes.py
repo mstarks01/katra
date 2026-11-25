@@ -35,8 +35,9 @@ from katra.claim_identity import (
     finding_key,
     mechanism_of,
 )
-from katra.claims import AnalysisMarks, ProposedVerdict, Severity
+from katra.claims import AnalysisMarks, ProposedVerdict, Severity, UnknownRef
 from katra.compact import COMPACT_FORMAT
+from katra.critic import complete_rulings
 from katra.critic_round import CriticRound, Reask, rulings_of
 from katra.evidence import evidence_catalog, ground_gloss
 from katra.fan_in import join_drafts
@@ -321,6 +322,22 @@ def two_drafts_at_one_place_that_fail_two_controls_are_two_findings():
     assert distinct_mechanisms(
         mechanism_of(caller, flows, {}), mechanism_of(server, flows, {})
     )
+
+
+@decides
+def a_needs_info_threat_reads_low():
+    verdict = ProposedVerdict(
+        reason="encryption at rest is unknown",
+        related_unknowns=[
+            UnknownRef(element_id="store:orders-db", attribute="encryption_at_rest")
+        ],
+    )
+
+    [ruling] = complete_rulings(
+        [sample_draft()], [sample_ruling(verdict=verdict, confidence="high")]
+    )
+
+    assert ruling.confidence == "low"
 
 
 @decides
