@@ -11,6 +11,8 @@
 - **Relates to**: [ADR 0010](0010-package-cannot-extend-the-evidence-catalog.md),
   which named the service the catalog's owner and set the three tests any
   widening must pass. This is the first widening argued against them.
+- **Amended by**: [ADR 0134](0134-a-control-carries-its-state.md), which
+  moves the three states of a control field from its first word into a field.
 
 ## Context
 

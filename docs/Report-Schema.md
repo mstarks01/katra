@@ -31,7 +31,7 @@ framework's own findings sit in its own block under `analyses`.
 
 ```python
 class Report:
-    schema_version: str  # "3.5"
+    schema_version: str  # "4.0"
     disclaimer: str  # the SERVICE's: AI-generated, not human-reviewed
     job: Job  # id, status="completed", timestamps, revise_rounds, frameworks
     input: InputRef  # system_name + one ref per submitted source
@@ -40,6 +40,7 @@ class Report:
     ]  # per-node model, execution fingerprint, duration_ms, token usage
     sampling: dict[str, dict]  # per-tier resolved decoding params (provenance)
     system_model: SystemModel  # the ONE canonical model every framework ran on
+    # each control field holds {state, detail}; state is stated | absent | unknown
     boundary_crossings: list[BoundaryCrossing]
     shared_element_names: list[
         SharedElementName
@@ -428,8 +429,9 @@ than a tagged union, which it should be, is
 consumer must switch on `kind` rather than on which fields are populated.
 `unknown-attribute` is a question the submission left open — the threat resting
 on it is conditional and typically routes to `needs-info`. `absent-attribute`
-is the submission answering that question with *no*: `authentication: "none;
-accepted by network position"`. Folding the two would report a control the
+is the submission answering that question with *no*: `authentication` holds
+`{"state": "absent", "detail": "accepted by network position"}`. Folding the
+two would report a control the
 input described as missing as a gap in the description
 ([ADR 0012](adr/0012-the-catalog-carries-a-stated-absence.md)).
 
@@ -1330,4 +1332,13 @@ version before it. Read it when you load an archived report.
   only on a block written before 3.5. Additive for a consumer
   that reads only the 3.4 fields. A route that parses a stored 3.4 job record
   answers `409` (see
+  [HTTP-API](HTTP-API.md#a-job-from-an-older-schema-version)).
+- **Version 4.0:** each control field of `system_model` holds an object, not a
+  string: `authentication` and `encryption_in_transit` on a flow, and
+  `encryption_at_rest` on a store. The object is `{state, detail}`. `state` is
+  `stated`, `absent` or `unknown`. `detail` names the mechanism of a `stated`
+  control and is not empty there; on an `absent` or `unknown` control it is an
+  optional reason. Not additive: a consumer that read the string reads the
+  object now ([ADR 0134](adr/0134-a-control-carries-its-state.md)). A route
+  that parses a stored 3.5 job record answers `409` (see
   [HTTP-API](HTTP-API.md#a-job-from-an-older-schema-version)).
