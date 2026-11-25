@@ -69,7 +69,10 @@
       "technology": "object storage with an SFTP front end",
       "trust_zone": "boundary:landing-network",
       "data_classification": "confidential",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:airflow-metadata-database",
@@ -84,7 +87,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:landing-network",
       "data_classification": "confidential",
-      "encryption_at_rest": "unknown",
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      },
       "notes": "The source calls it Airflow's own metadata database and names no product."
     },
     {
@@ -101,7 +107,10 @@
       "technology": "BigQuery",
       "trust_zone": "boundary:warehouse-network",
       "data_classification": "confidential",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     }
   ],
   "data_flows": [
@@ -118,9 +127,15 @@
       "source": "entity:insurance-partner",
       "destination": "store:landing-bucket",
       "protocol": "SFTP",
-      "authentication": "static per-partner key issued at onboarding, never rotated",
+      "authentication": {
+        "state": "stated",
+        "detail": "static per-partner key issued at onboarding, never rotated"
+      },
       "data_description": "claim records with member names and dates of birth",
-      "encryption_in_transit": "SSH transport (SFTP)",
+      "encryption_in_transit": {
+        "state": "stated",
+        "detail": "SSH transport (SFTP)"
+      },
       "operations": "write"
     },
     {
@@ -136,9 +151,15 @@
       "source": "process:ingest-scheduler",
       "destination": "store:landing-bucket",
       "protocol": "object storage API",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "partner extract files",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -154,9 +175,15 @@
       "source": "process:ingest-scheduler",
       "destination": "store:airflow-metadata-database",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "connection strings, partner SFTP keys",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -169,9 +196,15 @@
       "source": "process:ingest-scheduler",
       "destination": "process:spark-transform-job",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "run request naming the file to process",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -187,9 +220,15 @@
       "source": "process:spark-transform-job",
       "destination": "store:claims-warehouse",
       "protocol": "BigQuery API",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "normalized claim records",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -205,9 +244,15 @@
       "source": "entity:data-analyst",
       "destination": "store:claims-warehouse",
       "protocol": "BigQuery API",
-      "authentication": "company SSO; dataset-wide grant with no column-level restriction",
+      "authentication": {
+        "state": "stated",
+        "detail": "company SSO; dataset-wide grant with no column-level restriction"
+      },
       "data_description": "claim records including member identifiers",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     }
   ],

@@ -81,7 +81,10 @@
       "technology": "self-hosted git server",
       "trust_zone": "boundary:corporate-network",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:image-registry",
@@ -95,7 +98,10 @@
       "technology": "container image registry",
       "trust_zone": "boundary:build-environment",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     }
   ],
   "data_flows": [
@@ -111,9 +117,15 @@
       "source": "entity:developer",
       "destination": "store:git-server",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "source code branches",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -126,9 +138,15 @@
       "source": "entity:developer",
       "destination": "process:build-runner",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "an interactive login and a rebuild of main that any developer may trigger, requiring no merge and receiving no review",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -143,9 +161,15 @@
       "source": "process:build-runner",
       "destination": "store:git-server",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the source of the merged commit",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -158,9 +182,15 @@
       "source": "process:build-runner",
       "destination": "entity:public-package-registry",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "dependency packages named by the lockfile, which is taken as given",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read",
       "notes": "The source states one verification gap: the runner does not verify signatures on what it downloads. That is artifact authenticity under a signing trust policy, not how the runner authenticates to the registry, which the source never describes. This prose is the only record of it \u2014 no rule reads notes, so the gap reaches no candidate and no evidence entry until the assertion layer in #926 gives it a field."
     },
@@ -176,9 +206,15 @@
       "source": "process:build-runner",
       "destination": "store:image-registry",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the built container image, tagged with the commit sha",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -194,9 +230,15 @@
       "source": "process:build-runner",
       "destination": "process:deploy-controller",
       "protocol": "unknown",
-      "authentication": "a shared build token, the same for every pipeline, never rotated since the pipeline was set up",
+      "authentication": {
+        "state": "stated",
+        "detail": "a shared build token, the same for every pipeline, never rotated since the pipeline was set up"
+      },
       "data_description": "the image sha that should become the current release",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -209,9 +251,15 @@
       "source": "process:store-server",
       "destination": "process:deploy-controller",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the image sha the estate should be on",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -226,9 +274,15 @@
       "source": "process:store-server",
       "destination": "store:image-registry",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the container image for the current release",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     }
   ],

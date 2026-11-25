@@ -67,7 +67,10 @@
       "technology": "PostgreSQL",
       "trust_zone": "boundary:core-services",
       "data_classification": "confidential",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:receipt-archive",
@@ -81,7 +84,10 @@
       "technology": "Cloud Storage bucket",
       "trust_zone": "boundary:core-services",
       "data_classification": "unknown",
-      "encryption_at_rest": "customer-managed key (CMEK)"
+      "encryption_at_rest": {
+        "state": "stated",
+        "detail": "customer-managed key (CMEK)"
+      }
     }
   ],
   "data_flows": [
@@ -98,9 +104,15 @@
       "source": "entity:shopper",
       "destination": "process:storefront-api",
       "protocol": "unknown",
-      "authentication": "session cookie issued after email and password login; no MFA",
+      "authentication": {
+        "state": "stated",
+        "detail": "session cookie issued after email and password login; no MFA"
+      },
       "data_description": "order contents, shipping address, card last-four",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -115,9 +127,15 @@
       "source": "entity:card-processor",
       "destination": "process:storefront-api",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "settlement confirmation for an order",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write",
       "notes": "The source says the processor POSTs the callback and names no transport, so the protocol is unknown; the word POST is kept in the description rather than read as a protocol."
     },
@@ -134,9 +152,15 @@
       "source": "process:storefront-api",
       "destination": "process:order-service",
       "protocol": "gRPC",
-      "authentication": "none; accepted by network position",
+      "authentication": {
+        "state": "absent",
+        "detail": "accepted by network position"
+      },
       "data_description": "order contents, shopper identifiers, shipping address",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -152,9 +176,15 @@
       "source": "process:order-service",
       "destination": "store:orders-db",
       "protocol": "unknown",
-      "authentication": "single application account with full read/write; password from an environment variable",
+      "authentication": {
+        "state": "stated",
+        "detail": "single application account with full read/write; password from an environment variable"
+      },
       "data_description": "order rows, shipping addresses, card last-four",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read-write"
     },
     {
@@ -169,9 +199,15 @@
       "source": "process:order-service",
       "destination": "store:receipt-archive",
       "protocol": "unknown",
-      "authentication": "order service's own service account",
+      "authentication": {
+        "state": "stated",
+        "detail": "order service's own service account"
+      },
       "data_description": "receipt recording the order written and that the order service wrote it",
-      "encryption_in_transit": "TLS",
+      "encryption_in_transit": {
+        "state": "stated",
+        "detail": "TLS"
+      },
       "operations": "write"
     }
   ],

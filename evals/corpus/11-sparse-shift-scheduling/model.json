@@ -78,7 +78,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:internal-network",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:file-share",
@@ -92,7 +95,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:internal-network",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     }
   ],
   "data_flows": [
@@ -108,9 +114,15 @@
       "source": "entity:colleague",
       "destination": "process:scheduling-web-app",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "a colleague's own shifts",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -126,9 +138,15 @@
       "source": "entity:store-manager",
       "destination": "process:scheduling-web-app",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "rota entries for a store",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -144,9 +162,15 @@
       "source": "process:scheduling-web-app",
       "destination": "process:scheduling-service",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "rota reads and writes",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read-write"
     },
     {
@@ -162,9 +186,15 @@
       "source": "process:scheduling-service",
       "destination": "store:rota-database",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "rota entries, colleague names, contact details and availability",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read-write"
     },
     {
@@ -179,9 +209,15 @@
       "source": "process:scheduling-service",
       "destination": "store:file-share",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the weekly payroll export",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -196,9 +232,15 @@
       "source": "entity:payroll-system",
       "destination": "store:file-share",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the weekly payroll export",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     }
   ],

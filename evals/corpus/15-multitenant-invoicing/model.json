@@ -94,7 +94,10 @@
       "technology": "PostgreSQL",
       "trust_zone": "boundary:cloud-platform",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown",
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      },
       "notes": "The source states nobody recorded how the database and the bucket are protected at rest."
     },
     {
@@ -107,7 +110,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:cloud-platform",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:pdf-bucket",
@@ -122,7 +128,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:cloud-platform",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown",
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      },
       "notes": "The source states nobody recorded how the database and the bucket are protected at rest."
     }
   ],
@@ -141,9 +150,15 @@
       "source": "entity:company-user",
       "destination": "process:billing-app",
       "protocol": "HTTPS",
-      "authentication": "password and session cookie; no second factor",
+      "authentication": {
+        "state": "stated",
+        "detail": "password and session cookie; no second factor"
+      },
       "data_description": "invoices, customers, payout bank details and PDF requests",
-      "encryption_in_transit": "HTTPS",
+      "encryption_in_transit": {
+        "state": "stated",
+        "detail": "HTTPS"
+      },
       "operations": "read-write"
     },
     {
@@ -160,9 +175,15 @@
       "source": "entity:payer",
       "destination": "process:billing-app",
       "protocol": "HTTPS",
-      "authentication": "none; the link ends in the invoice number",
+      "authentication": {
+        "state": "absent",
+        "detail": "the link ends in the invoice number"
+      },
       "data_description": "the invoice, the company's name and its bank details",
-      "encryption_in_transit": "HTTPS",
+      "encryption_in_transit": {
+        "state": "stated",
+        "detail": "HTTPS"
+      },
       "operations": "read"
     },
     {
@@ -180,9 +201,15 @@
       "source": "process:billing-app",
       "destination": "store:tenant-database",
       "protocol": "unknown",
-      "authentication": "one database account for all companies",
+      "authentication": {
+        "state": "stated",
+        "detail": "one database account for all companies"
+      },
       "data_description": "invoices, customers and payout bank details of every company",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read-write"
     },
     {
@@ -196,9 +223,15 @@
       "source": "process:billing-app",
       "destination": "store:render-queue",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "a company ID and an invoice number",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -212,9 +245,15 @@
       "source": "process:pdf-renderer",
       "destination": "store:render-queue",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "a company ID and an invoice number",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -231,9 +270,15 @@
       "source": "process:pdf-renderer",
       "destination": "store:tenant-database",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the invoice the job names",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -250,9 +295,15 @@
       "source": "process:pdf-renderer",
       "destination": "store:pdf-bucket",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "the rendered invoice PDF",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -269,9 +320,15 @@
       "source": "process:billing-app",
       "destination": "store:pdf-bucket",
       "protocol": "unknown",
-      "authentication": "one service credential for all companies",
+      "authentication": {
+        "state": "stated",
+        "detail": "one service credential for all companies"
+      },
       "data_description": "invoice PDFs of every company",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -286,9 +343,15 @@
       "source": "entity:support-agent",
       "destination": "process:admin-console",
       "protocol": "unknown",
-      "authentication": "own account and a one-time code",
+      "authentication": {
+        "state": "stated",
+        "detail": "own account and a one-time code"
+      },
       "data_description": "the agent's sign-in and the customer user to act as",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read-write"
     },
     {
@@ -304,9 +367,15 @@
       "source": "process:admin-console",
       "destination": "process:billing-app",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "a session as the chosen customer user",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read-write"
     }
   ],

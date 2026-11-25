@@ -111,7 +111,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:hosting-account",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:show-database",
@@ -125,7 +128,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:hosting-account",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     },
     {
       "id": "store:stats-database",
@@ -139,7 +145,10 @@
       "technology": "unknown",
       "trust_zone": "boundary:hosting-account",
       "data_classification": "unknown",
-      "encryption_at_rest": "unknown"
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
     }
   ],
   "data_flows": [
@@ -156,9 +165,15 @@
       "source": "entity:podcaster",
       "destination": "process:upload-api",
       "protocol": "unknown",
-      "authentication": "password sign-in with an email address",
+      "authentication": {
+        "state": "stated",
+        "detail": "password sign-in with an email address"
+      },
       "data_description": "episode audio files and episode details",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write",
       "notes": "\"Podcasters sign in with an email address and a password.\""
     },
@@ -174,9 +189,15 @@
       "source": "process:upload-api",
       "destination": "store:media-store",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "episode audio files",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -191,9 +212,15 @@
       "source": "process:upload-api",
       "destination": "store:show-database",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "episode details",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -208,9 +235,15 @@
       "source": "process:transcoder",
       "destination": "store:media-store",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "episode audio files",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -225,9 +258,15 @@
       "source": "entity:podcast-app",
       "destination": "process:feed-service",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "RSS feeds",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -242,9 +281,15 @@
       "source": "process:feed-service",
       "destination": "store:show-database",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "episode details",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "read"
     },
     {
@@ -259,9 +304,15 @@
       "source": "entity:ad-partner",
       "destination": "process:stats-importer",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "files of download counts",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     },
     {
@@ -276,9 +327,15 @@
       "source": "process:stats-importer",
       "destination": "store:stats-database",
       "protocol": "unknown",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "download counts",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "operations": "write"
     }
   ],

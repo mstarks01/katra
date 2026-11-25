@@ -41,7 +41,10 @@
       "technology": "time-series, one shared partition space keyed by tenant",
       "trust_zone": "boundary:platform",
       "data_classification": "confidential",
-      "encryption_at_rest": "unknown",
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      },
       "assets": [
         "business-critical-data"
       ],
@@ -56,9 +59,15 @@
       "source": "entity:sensor-gateway",
       "destination": "process:mqtt-broker",
       "protocol": "MQTT over TLS",
-      "authentication": "one client certificate shared by every device image",
+      "authentication": {
+        "state": "stated",
+        "detail": "one client certificate shared by every device image"
+      },
       "data_description": "telemetry; the payload carries the tenant_id",
-      "encryption_in_transit": "TLS",
+      "encryption_in_transit": {
+        "state": "stated",
+        "detail": "TLS"
+      },
       "source_excerpt": "Every sensor gateway publishes to our MQTT broker over TLS, but they all share one client certificate",
       "source_label": "Fleet telemetry platform notes",
       "operations": "write"
@@ -69,9 +78,15 @@
       "source": "process:mqtt-broker",
       "destination": "process:stream-processor",
       "protocol": "topic subscription",
-      "authentication": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
       "data_description": "raw device payloads",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "source_excerpt": "Its topics are consumed by the stream processor",
       "source_label": "Fleet telemetry platform notes",
       "operations": "write"
@@ -82,9 +97,15 @@
       "source": "process:stream-processor",
       "destination": "store:telemetry-store",
       "protocol": "time-series write API",
-      "authentication": "one service account holding write on every tenant partition",
+      "authentication": {
+        "state": "stated",
+        "detail": "one service account holding write on every tenant partition"
+      },
       "data_description": "device readings keyed by tenant_id",
-      "encryption_in_transit": "unknown",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
       "source_excerpt": "Its service account can write every tenant's partition.",
       "source_label": "Fleet telemetry platform notes",
       "operations": "write"

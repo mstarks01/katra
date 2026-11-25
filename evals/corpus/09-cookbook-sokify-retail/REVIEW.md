@@ -83,7 +83,7 @@ Not part of the question, but the records cite these names, so you need them.
 | id | source | destination | protocol | authentication | in transit |
 |---|---|---|---|---|---|
 | flow:entity:customer>process:mobile-app>browse-and-order | entity:customer | process:mobile-app | unknown | unknown | unknown |
-| flow:process:mobile-app>process:web-api>api-traffic | process:mobile-app | process:web-api | HTTP | unknown | none — the app talks to the web API over HTTP, not HTTPS |
+| flow:process:mobile-app>process:web-api>api-traffic | process:mobile-app | process:web-api | HTTP | unknown | none; the app talks to the web API over HTTP, not HTTPS |
 | flow:process:catalogue-spreadsheet>process:web-api>sql-statements | process:catalogue-spreadsheet | process:web-api | SQL statements over an unstated transport | unknown | unknown |
 | flow:process:web-api>store:user-database>customer-records | process:web-api | store:user-database | unknown | unknown | unknown |
 | flow:process:web-api>process:sims>order-handover | process:web-api | process:sims | unknown | unknown | unknown |
@@ -458,7 +458,7 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "603873a0d569ba3f0ac4a91a363086b54bae022cf432862d17be9eec9465e4ea",
-      "model.json": "d31cf0ff67c1b91da63c2973e0b21a57ae52dadbc55168073222882da6410ac2",
+      "model.json": "8b992edb4479309997027a8fbeef25be92857339d307af8307ebad998bac8d69",
       "claims/asvs.json": "fbc32dc14ac8a90e9bbb2bab6801dc704f2468a03e056d992f41564c9d8de41c",
       "claims/stride.json": "3c6cc2581eae539e4ac135dd37a0f933a2a8082f6bcf9cdf65112ab58c0ce5d8"
       }

@@ -428,7 +428,7 @@ your missing list, your notes and a digest of each file you read:
       "opened_digests": {
       "source.md": "8bc51704b4514584c02f95f04048086a70f43a3dbb2c40af53afe13b3f79e6a9",
       "transcript.md": "c48f8b9e53090b42971ffb548ed2302d0021a8c2b8539552973211c21df3f765",
-      "model.json": "36e77e5be6f65329a5ec73af880699c362dd140910c4163803f69f1ae508a0f7",
+      "model.json": "a79c68ba8833dc789824b997ce3f6a88f8707007dc7835a31231b37598ac6bed",
       "claims/asvs.json": "fca11a83b2576dc3b365da4924e21967e01c8c71cd55f1ac5ce6ebde6518e504",
       "claims/stride.json": "42b100c0ca56d7dcda8907c53f9abccd58957d0eeede0fbc6bf7403955e0827b"
       }
