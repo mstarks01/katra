@@ -169,6 +169,10 @@ PARTIAL: dict[tuple[str, str], str] = {
         "the kinds only archived reports carry, which is fewer than the kinds"
         " a live review writes"
     ),
+    ("katra.claims", "SETTLED_UNRECONCILED_KINDS"): (
+        "the kinds code settles without a re-ask, which is fewer than the kinds"
+        " a review writes"
+    ),
     ("katra.graph", "CATALOGUING_ENTRIES"): (
         "the entries whose graph ends in a resolved catalog, which is fewer"
         " than the entries that exist"

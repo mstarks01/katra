@@ -2146,8 +2146,8 @@ def route_review(
     to ``accept``, and so does a ruling code drops without a re-ask
     (:func:`~katra.critic.settle_in_code`). A critic that dropped a ruling,
     ruled one ID two different ways, or hung a ``needs-info`` verdict on an
-    element the model does not contain, routes to ``revise``, with the failing rulings and the problem list parked
-    where the re-ask prompt reads them.
+    element the model does not contain, routes to ``revise``, with the failing
+    rulings and the problem list parked where the re-ask prompt reads them.
 
     Both of a framework's review nodes run this same function. What differs
     is where their ``revise`` edge points (``recritic`` for the first look,

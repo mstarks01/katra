@@ -268,7 +268,8 @@
     // carries the lost quote or reference so a reader can judge the loss.
     const groundless = (block.dropped_claims || []);
     // How the critic's rulings failed to reconcile with its drafts: the
-    // first-pass problems the bounded re-ask was asked to fix, and the rulings
+    // first-pass problems the bounded re-ask was asked to fix, the changes the
+    // re-ask made that no problem named (unbriefed-change), and the rulings
     // code dropped without a re-ask (SETTLED_KINDS). These key to a claim that
     // may or may not be in the block -- a dropped draft is ruled on the second
     // pass and a ruling on an invented ID never had a claim -- so they render
@@ -1575,7 +1576,7 @@
     };
     if (marks.unreconciled.length) {
       byKindNote(marks.unreconciled,
-        `${counted(marks.unreconciled.length, "problem", "problems")} the review's first pass left for its re-ask`);
+        `${counted(marks.unreconciled.length, "problem", "problems")} the review left for its re-ask or found in it`);
     }
     if (marks.settled.length) {
       byKindNote(marks.settled,
