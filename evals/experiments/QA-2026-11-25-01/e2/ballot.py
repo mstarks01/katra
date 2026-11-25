@@ -10,13 +10,11 @@ import random
 import sys
 from pathlib import Path
 
-RUNS = Path(sys.argv[1])
-OUT = Path(sys.argv[2])
 TARGETS = {
     "store:receipt-archive",
     "flow:process:order-service>store:receipt-archive>append-receipt",
 }
-HELD_OPEN = (
+DROPPED_ABSENCES = (
     "absent:store:receipt-archive:encryption_at_rest",
     "absent:flow:process:order-service>store:receipt-archive>append-receipt:encryption_in_transit",
 )
@@ -29,8 +27,9 @@ def is_target(claim: dict) -> bool:
 
 
 def main() -> None:
+    runs, out_dir = Path(sys.argv[1]), Path(sys.argv[2])
     rows = []
-    for path in sorted(RUNS.glob("*.json")):
+    for path in sorted(runs.glob("*.json")):
         arm, rest = path.stem.split("-", 1)
         lane, run = rest.rsplit("-", 1)
         for claim in json.loads(path.read_text())["claims"]:
@@ -44,20 +43,20 @@ def main() -> None:
                         "description": claim["description"],
                         "evidence_refs": " ".join(claim["evidence_refs"]),
                         "cites_dropped_absence": any(
-                            r in HELD_OPEN for r in claim["evidence_refs"]
+                            r in DROPPED_ABSENCES for r in claim["evidence_refs"]
                         ),
                     }
                 )
     random.Random(20261125).shuffle(rows)
-    OUT.mkdir(parents=True, exist_ok=True)
-    with (OUT / "ballot-issued.csv").open("w", newline="") as handle:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / "ballot-issued.csv").open("w", newline="") as handle:
         out = csv.writer(handle)
         out.writerow(
             ["row", "lane", "title", "description", "ruling (plain or conditional)"]
         )
         for number, row in enumerate(rows, 1):
             out.writerow([number, row["lane"], row["title"], row["description"], ""])
-    with (OUT / "key.csv").open("w", newline="") as handle:
+    with (out_dir / "key.csv").open("w", newline="") as handle:
         out = csv.writer(handle)
         out.writerow(
             ["row", "arm", "lane", "pass", "cites_dropped_absence", "evidence_refs"]
