@@ -132,7 +132,7 @@
     {
       "id": "flow:entity:partner-system>process:export-api>request-exports",
       "name": "request exports",
-      "description": "The partner system swaps its client ID and secret for an access token that lasts one hour, asks for exports, asks for a job's status by its job ID and sets its callback URL. The client secret never expires and cannot be rotated without deleting the partner.",
+      "description": "The partner system swaps its client ID and secret for an access token that lasts one hour, asks for exports, asks for a job's status by its job ID and sets its callback URL. The client secret never expires and cannot be rotated without deleting the partner and approving it again.",
       "assets": [
         "credentials"
       ],
@@ -141,7 +141,7 @@
       "source": "entity:partner-system",
       "destination": "process:export-api",
       "protocol": "HTTPS",
-      "authentication": "client secret never expires and we cannot rotate it",
+      "authentication": "secret never expires; rotate it by deleting the partner",
       "data_description": "token requests, export requests for one brand, record type and date range, job status by job ID, and callback URLs",
       "encryption_in_transit": "HTTPS",
       "operations": "read-write"

@@ -142,7 +142,7 @@ def identity_key(case: GoldenCase, claim: ReferenceThreat) -> str:
     uses: a claim citing a flow and a claim citing the process at its end land
     on two keys there and on one in
     :func:`~evals.harness.fingerprint.components_for`. That read finds **five**
-    collisions where the shipped fold finds **fifteen**, so it hides ten keys
+    collisions where the shipped fold finds **sixteen**, so it hides eleven keys
     this file exists to surface.
     Resolving here is not a relaxation of the equality rule
     above; it is the same rule over the same spelling of a place.

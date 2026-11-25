@@ -133,7 +133,7 @@ Not part of the question, but the records cite these names, so you need them.
 
 | id | source | destination | protocol | authentication | in transit |
 |---|---|---|---|---|---|
-| flow:entity:partner-system>process:export-api>request-exports | entity:partner-system | process:export-api | HTTPS | client secret never expires and we cannot rotate it | HTTPS |
+| flow:entity:partner-system>process:export-api>request-exports | entity:partner-system | process:export-api | HTTPS | secret never expires; rotate it by deleting the partner | HTTPS |
 | flow:entity:partner-system>store:export-file-store>download-export | entity:partner-system | store:export-file-store | unknown | signed link | unknown |
 | flow:process:export-api>store:partner-registry>check-partners | process:export-api | store:partner-registry | unknown | unknown | unknown |
 | flow:process:export-api>store:export-queue>queue-export-job | process:export-api | store:export-queue | unknown | unknown | unknown |
@@ -578,7 +578,7 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "ab06a85e26f3af2be139b9b8d8b4c3bb84c0332ca49d134425b67d220283797f",
-      "model.json": "33bc78758a47838af34af50d30bce4c9337c12651e1f5a25d51fe7e71251cd6b",
+      "model.json": "cebf1820b42f42ffd5a2c9d7abb8c0a198c24227f7937faefe04602096a0d6da",
       "claims/asvs.json": "0442cd2dec7200471f23f657d447e1f096426b70e4ca73526593cbfc91919641",
       "claims/stride.json": "019399cd345279d3ce0d8d4768984a01b5393fb928d43d540e0a876ba1f163dc"
       }
