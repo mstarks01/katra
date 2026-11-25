@@ -1,0 +1,316 @@
+{
+  "external_entities": [
+    {
+      "id": "entity:shopper",
+      "name": "shopper",
+      "description": "A customer who browses the storefront and places orders.",
+      "assets": [
+        "pii"
+      ],
+      "source_excerpt": "Shoppers browse the storefront and place orders through the storefront API",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "kind": "human",
+      "trust_zone": "boundary:public-internet"
+    },
+    {
+      "id": "entity:card-processor",
+      "name": "card processor",
+      "description": "Third-party payment processor that settles payments and calls back on settlement.",
+      "assets": [
+        "financial"
+      ],
+      "source_excerpt": "Our card processor is a third party.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "kind": "external-system",
+      "trust_zone": "boundary:public-internet"
+    }
+  ],
+  "processes": [
+    {
+      "id": "process:storefront-api",
+      "name": "storefront API",
+      "description": "Node service on Cloud Run; the only internet-exposed component. Terminates shopper sessions and receives the processor's settlement webhook.",
+      "assets": [],
+      "source_excerpt": "the storefront API, a Node service running on Cloud Run. It is the only thing we expose to the internet.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "technology": "Node on Cloud Run",
+      "trust_zone": "boundary:storefront-dmz",
+      "exposure": "internet-facing",
+      "interface_kind": "web"
+    },
+    {
+      "id": "process:order-service",
+      "name": "order service",
+      "description": "Python worker that captures orders, persists them, and writes receipts.",
+      "assets": [
+        "financial"
+      ],
+      "source_excerpt": "The order service is a Python worker in our core network; it is not exposed outside.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "technology": "Python worker",
+      "trust_zone": "boundary:core-services",
+      "exposure": "internal",
+      "interface_kind": "non-web"
+    }
+  ],
+  "data_stores": [
+    {
+      "id": "store:orders-db",
+      "name": "orders db",
+      "description": "PostgreSQL database holding orders, shopper addresses and card last-four.",
+      "assets": [
+        "pii",
+        "financial"
+      ],
+      "source_excerpt": "Orders, shopper addresses and card-last-four live in a PostgreSQL database (orders-db)",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "technology": "PostgreSQL",
+      "trust_zone": "boundary:core-services",
+      "data_classification": "confidential",
+      "encryption_at_rest": {
+        "state": "unknown",
+        "detail": ""
+      }
+    },
+    {
+      "id": "store:receipt-archive",
+      "name": "receipt archive",
+      "description": "Cloud Storage bucket holding one receipt per completed order.",
+      "assets": [
+        "business-critical-data"
+      ],
+      "source_excerpt": "a receipt written to a Cloud Storage bucket we call the receipt archive",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "technology": "Cloud Storage bucket",
+      "trust_zone": "boundary:core-services",
+      "data_classification": "unknown",
+      "encryption_at_rest": {
+        "state": "absent",
+        "detail": ""
+      }
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "flow:entity:shopper>process:storefront-api>place-order",
+      "name": "place order",
+      "description": "Shopper submits an order over an authenticated session.",
+      "assets": [
+        "pii",
+        "financial"
+      ],
+      "source_excerpt": "Shoppers sign in with email and password and get a session cookie; we have not rolled out MFA for shopper accounts yet.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "source": "entity:shopper",
+      "destination": "process:storefront-api",
+      "protocol": "unknown",
+      "authentication": {
+        "state": "stated",
+        "detail": "session cookie issued after email and password login; no MFA"
+      },
+      "data_description": "order contents, shipping address, card last-four",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
+      "operations": "write"
+    },
+    {
+      "id": "flow:entity:card-processor>process:storefront-api>settlement-webhook",
+      "name": "settlement webhook",
+      "description": "Processor POSTs a settlement callback marking an order paid.",
+      "assets": [
+        "financial"
+      ],
+      "source_excerpt": "they POST a webhook back to the storefront API to tell us the order is paid. I would have to check how that callback is authenticated.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "The source says the processor POSTs the callback and names no transport, so the protocol is unknown; the word POST is kept in the description rather than read as a protocol.",
+      "source": "entity:card-processor",
+      "destination": "process:storefront-api",
+      "protocol": "unknown",
+      "authentication": {
+        "state": "unknown",
+        "detail": ""
+      },
+      "data_description": "settlement confirmation for an order",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
+      "operations": "write"
+    },
+    {
+      "id": "flow:process:storefront-api>process:order-service>submit-order",
+      "name": "submit order",
+      "description": "Storefront API forwards a submitted order into the core zone for capture.",
+      "assets": [
+        "pii",
+        "financial"
+      ],
+      "source_excerpt": "There is no auth on that gRPC call — the order service accepts anything that can reach it",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "source": "process:storefront-api",
+      "destination": "process:order-service",
+      "protocol": "gRPC",
+      "authentication": {
+        "state": "absent",
+        "detail": "accepted by network position"
+      },
+      "data_description": "order contents, shopper identifiers, shipping address",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
+      "operations": "write"
+    },
+    {
+      "id": "flow:process:order-service>store:orders-db>read-write-orders",
+      "name": "read write orders",
+      "description": "Order service reads and writes order rows.",
+      "assets": [
+        "pii",
+        "financial"
+      ],
+      "source_excerpt": "a single application account that has full read/write. The password comes from an environment variable on the worker.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "source": "process:order-service",
+      "destination": "store:orders-db",
+      "protocol": "unknown",
+      "authentication": {
+        "state": "stated",
+        "detail": "single application account with full read/write; password from an environment variable"
+      },
+      "data_description": "order rows, shipping addresses, card last-four",
+      "encryption_in_transit": {
+        "state": "unknown",
+        "detail": ""
+      },
+      "operations": "read-write"
+    },
+    {
+      "id": "flow:process:order-service>store:receipt-archive>append-receipt",
+      "name": "append receipt",
+      "description": "Order service writes one receipt object per completed order.",
+      "assets": [
+        "business-critical-data"
+      ],
+      "source_excerpt": "That is on TLS with the order service's own service account",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "source": "process:order-service",
+      "destination": "store:receipt-archive",
+      "protocol": "unknown",
+      "authentication": {
+        "state": "stated",
+        "detail": "order service's own service account"
+      },
+      "data_description": "receipt recording the order written and that the order service wrote it",
+      "encryption_in_transit": {
+        "state": "absent",
+        "detail": ""
+      },
+      "operations": "write"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "boundary:public-internet",
+      "name": "public internet",
+      "description": "Everything outside the storefront's control: shoppers and the card processor.",
+      "assets": [],
+      "source_excerpt": "It is the only thing we expose to the internet.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "kind": "network"
+    },
+    {
+      "id": "boundary:storefront-dmz",
+      "name": "storefront dmz",
+      "description": "The internet-exposed tier holding the storefront API.",
+      "assets": [],
+      "source_excerpt": "the storefront API, a Node service running on Cloud Run. It is the only thing we expose to the internet.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "kind": "network"
+    },
+    {
+      "id": "boundary:core-services",
+      "name": "core services",
+      "description": "Internal network holding the order service and its data.",
+      "assets": [],
+      "source_excerpt": "The order service is a Python worker in our core network; it is not exposed outside.",
+      "source_label": "System description",
+      "source_speaker": "",
+      "notes": "",
+      "kind": "network"
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption": "The shopper is placed on the public internet because the schema requires a zone; the source places shoppers nowhere.",
+      "element_id": "entity:shopper",
+      "attribute": "trust_zone",
+      "basis": "Shoppers reach the storefront API, the one component exposed to the internet. Reaching an exposed component says who can reach it and not where they sit."
+    },
+    {
+      "assumption": "The card processor is placed on the public internet because the schema requires a zone; the source places it nowhere.",
+      "element_id": "entity:card-processor",
+      "attribute": "trust_zone",
+      "basis": "A third party that calls back over the internet to the exposed component. The call says what it reaches and not where it runs."
+    },
+    {
+      "assumption": "The order service is reachable only from inside the core network, not from the internet.",
+      "element_id": "process:order-service",
+      "attribute": "exposure",
+      "basis": "Described as \"in our core network; it is not exposed outside\"."
+    },
+    {
+      "assumption": "The orders DB holds confidential data under the scheme in prompts/extract.md.",
+      "element_id": "store:orders-db",
+      "attribute": "data_classification",
+      "basis": "The source says it holds \"shopper addresses and card-last-four\", which is personal and payment-related data, so disclosure harms the people described."
+    },
+    {
+      "assumption": "The storefront API is placed in its own DMZ zone because the schema requires a zone; the source names no such zone.",
+      "element_id": "process:storefront-api",
+      "attribute": "trust_zone",
+      "basis": "Internet exposure does not establish a DMZ or a separate network zone. The value is a placement the schema requires, not a source-backed fact."
+    },
+    {
+      "assumption": "The orders DB is placed in the core services zone because the schema requires a zone; the source does not place it.",
+      "element_id": "store:orders-db",
+      "attribute": "trust_zone",
+      "basis": "The order service accessing the database does not establish that they share a network. The value is a placement the schema requires, not a source-backed fact."
+    },
+    {
+      "assumption": "The receipt archive is placed in the core services zone because the schema requires a zone; the source does not place it.",
+      "element_id": "store:receipt-archive",
+      "attribute": "trust_zone",
+      "basis": "Writing to the bucket does not place it in the service's network. The value is a placement the schema requires, not a source-backed fact."
+    }
+  ],
+  "capabilities": [],
+  "excerpt_repairs": []
+}

@@ -221,6 +221,7 @@ def test_the_command_refuses_a_failed_case_before_the_call(
         append=None,
         fresh_leads=False,
         prepare_today=None,
+        model=None,
         out=None,
     )
 
@@ -257,6 +258,7 @@ def test_the_out_file_starts_with_the_record_of_the_lane_material(
         append=None,
         fresh_leads=False,
         prepare_today=None,
+        model=None,
         out=written,
     )
 
@@ -309,6 +311,7 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
         append=None,
         fresh_leads=False,
         prepare_today="none",
+        model=None,
         out=written,
     )
 
@@ -323,6 +326,91 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
         digests[str(path)] == hashlib.sha256(path.read_bytes()).hexdigest()
         for path in named
     )
+
+
+def _todays_args(case_id, model, out=None, prepare_today="none"):
+    return argparse.Namespace(
+        artifact=None,
+        case=case_id,
+        lane="spoofing",
+        framework="stride",
+        accept_cost="unknown",
+        append=None,
+        fresh_leads=False,
+        prepare_today=prepare_today,
+        model=model,
+        out=out,
+    )
+
+
+def _no_call(*args, **kwargs):
+    raise AssertionError("the command reached the paid call")
+
+
+def test_a_built_model_replaces_the_blessed_one(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+):
+    """The lane reads the built model, and the record names its file."""
+    built = case.model.model_copy(deep=True)
+    built.processes[0].notes = "a built input for the replay"
+    path = tmp_path / "model.json"
+    path.write_text(built.model_dump_json(), encoding="utf-8")
+    instructions: list[str] = []
+
+    def scripted(*_):
+        async def call(instruction, turn):
+            instructions.append(instruction)
+            return json.dumps({"claims": []})
+
+        return call
+
+    monkeypatch.setattr(lane_replay, "node_call", scripted)
+    monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
+    written = tmp_path / "proposals.json"
+
+    assert lane_replay.command_lane_replay(_todays_args(case.id, path, written)) == 0
+
+    (instruction,) = instructions
+    assert "a built input for the replay" in instruction
+    held = json.loads(written.read_text(encoding="utf-8"))
+    assert held["record"]["table"]["model"] == str(path)
+    digests = {one["path"]: one["sha256"] for one in held["record"]["inputs"]}
+    assert digests[str(path)] == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_a_model_the_gate_refuses_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    built = case.model.model_dump(mode="json")
+    built["data_flows"][0]["source"] = "process:nowhere"
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert lane_replay.command_lane_replay(_todays_args(case.id, path)) == 1
+    assert "model.json is not valid" in capsys.readouterr().err
+
+
+def test_a_model_without_todays_prepare_is_refused_before_the_call(
+    recorded,
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    out, _ = recorded
+    finished(out, case.id)
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+    args = _todays_args(case.id, tmp_path / "model.json", prepare_today=None)
+    args.artifact = out
+
+    assert lane_replay.command_lane_replay(args) == 1
+    assert "--model replaces" in capsys.readouterr().err
 
 
 def test_material_without_the_user_turn_is_refused(tmp_path):

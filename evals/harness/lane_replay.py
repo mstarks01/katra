@@ -42,7 +42,7 @@ import asyncio
 import json
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal, get_args
@@ -68,6 +68,7 @@ from evals.harness.reference import (
     CorpusError,
     GoldenCase,
     load_case,
+    load_model_file,
     refuse_holdout,
 )
 from evals.harness.run_record import Selections, loaded, run_record_for
@@ -397,6 +398,12 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         " model, with no catalog or the case's signed facts, and score the drafts",
     )
     parser.add_argument(
+        "--model",
+        type=Path,
+        help="with --prepare-today: a System Model file that replaces the case's"
+        " blessed model, such as a built input. It passes the validity gate first",
+    )
+    parser.add_argument(
         "--out", type=Path, help="write the run record and the lane's proposals here"
     )
 
@@ -416,8 +423,13 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                 "--prepare-today builds the whole request, so it takes neither"
                 " --fresh-leads nor --append"
             )
+        if args.model is not None and args.prepare_today is None:
+            raise EvalRunError("--model replaces the model --prepare-today reads")
         check_out(args.out)
         case = load_case(REPO_ROOT / DEFAULT_CORPUS / args.case)
+        if args.model is not None:
+            case = replace(case, model=load_model_file(args.model))
+            inputs[args.model] = {}
         if args.prepare_today is not None:
             prepared = prepare_today(case, args.framework, args.prepare_today)
             material = prepared.material
@@ -454,6 +466,7 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                 "framework": args.framework,
                 "fresh_leads": args.fresh_leads,
                 "prepare_today": args.prepare_today,
+                "model": None if args.model is None else str(args.model),
                 "corpus_digest": corpus_digest(),
             },
             inputs,

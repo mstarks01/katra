@@ -818,21 +818,20 @@ def _read_json(path: Path) -> object:
         raise CorpusError(f"{path}: invalid JSON: {exc}") from exc
 
 
-def _load_model(case_dir: Path) -> SystemModel:
-    """The blessed model, put through the shipped validity gate.
+def load_model_file(path: Path) -> SystemModel:
+    """A model file, put through the shipped validity gate: a case's blessed
+    model, or a built input that a lane replay reads in its place.
 
-    Lane agents only ever see valid models in production; a case whose blessed
-    model would be rejected there cannot ground a score here.
+    Lane agents only ever see valid models in production; a model the gate
+    would reject there cannot ground a score or a replay here.
 
     ``archived``: the corpus is reference data, like a Baseline, so a
     control written as a string reads through the archive reader.
     """
-    model, issues = parse_and_validate(
-        _read_json(case_dir / "model.json"), archived=True
-    )
+    model, issues = parse_and_validate(_read_json(path), archived=True)
     if model is None or issues:
         detail = "; ".join(f"{issue.code}: {issue.message}" for issue in issues)
-        raise CorpusError(f"{case_dir.name}: model.json is not valid: {detail}")
+        raise CorpusError(f"{path} is not valid: {detail}")
     return model
 
 
@@ -937,7 +936,7 @@ def load_case(case_dir: Path | str, limits: SourceLimits | None = None) -> Golde
             " once; a framework has one reference set per case"
         )
 
-    model = _load_model(case_dir)
+    model = load_model_file(case_dir / "model.json")
     references = {
         declared.name: _load_references(case_dir, declared.name, model)
         for declared in meta.frameworks
