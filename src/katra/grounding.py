@@ -312,7 +312,8 @@ def holding_label(quote: str, folded: Mapping[str, str]) -> str:
     ``folded`` maps each label to its text as :func:`normalize` folded it. A
     model writes the label of the source it quoted, and code can find it:
     where exactly one source holds the quote, that source is the one. Where
-    several hold it, the model's label decides, so this answers nothing.
+    several hold it, code cannot say which, so this answers nothing and the
+    caller keeps only what the model's own label supports.
     """
     holders = [
         label for label, text in folded.items() if verify_normalized(quote, text)

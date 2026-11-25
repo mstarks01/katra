@@ -89,10 +89,10 @@ def with_stated_capabilities(
     """The model with each checked row of ``reading`` written as present.
 
     **The one writer of a capability the sources state.** A row is dropped
-    where its key is not in the table, no submitted source holds its quote, or
-    a statement already names its capability. Where the row's label names a
-    source that does not hold the quote, the one submitted source that does is
-    the label (:func:`~katra.grounding.holding_label`).
+    where its key is not in the table, a statement already names its
+    capability, or its label's source does not hold its quote and no single
+    other submitted source does. Where exactly one does, that source is the
+    label (:func:`~katra.grounding.holding_label`).
     """
     named = set(stated_keys(model))
     folded = {
