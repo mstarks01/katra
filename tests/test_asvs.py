@@ -1694,8 +1694,44 @@ class TestADraftStatesItsDirection:
     def test_the_agent_is_handed_the_field_and_must_answer_it(self):
         schema = RequirementProposal.model_json_schema()
 
-        assert "direction" in schema["properties"]
-        assert "direction" in schema["required"]
+        assert "direction_and_kind" in schema["properties"]
+        assert "direction_and_kind" in schema["required"]
+
+    def test_the_agent_cannot_write_a_direction_and_a_kind_that_disagree(self):
+        """One field holds both, so no pairing can disagree (#2356)."""
+        properties = RequirementProposal.model_json_schema()["properties"]
+
+        assert "direction" not in properties
+        assert "needs_evidence" not in properties
+
+    def test_the_one_field_names_each_direction_and_each_kind(self):
+        from typing import get_args
+
+        from katra.frameworks.asvs.record import (
+            Direction,
+            DirectionAndKind,
+            NeededEvidence,
+        )
+
+        joined = {
+            f"{direction}-{kind}" if kind else direction
+            for direction in get_args(Direction)
+            for kind in get_args(NeededEvidence)
+            if (direction == "question") == bool(kind)
+        }
+        assert set(get_args(DirectionAndKind)) == joined
+
+    def test_code_splits_the_field_for_every_reader(self):
+        proposal = self._proposal("question", "code", absent_elements=["ldap"])
+
+        assert (proposal.direction, proposal.needs_evidence) == ("question", "code")
+
+    def test_a_proposal_read_back_from_state_reads_as_it_was_written(self):
+        proposal = self._proposal("question", "code", absent_elements=["ldap"])
+
+        again = RequirementProposal.model_validate(proposal.model_dump())
+
+        assert again == proposal
 
     def test_the_draft_carries_the_direction_to_the_critic(self):
         from katra.critic import critic_view

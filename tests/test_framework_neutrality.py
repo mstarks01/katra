@@ -1460,7 +1460,7 @@ def test_a_package_that_rules_on_a_unit_declares_a_direction():
 
     for name, schemas in SCHEMAS.items():
         draft = schemas.proposals.model_fields["claims"].annotation.__args__[0]
-        emitted = "direction" in draft.model_json_schema()["properties"]
+        emitted = "direction" in {**draft.model_fields, **draft.model_computed_fields}
         names_a_unit = (
             PACKAGES[name].record.unit_of.__func__ is not Claim.unit_of.__func__
         )

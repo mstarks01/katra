@@ -33,9 +33,9 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, Literal, Self
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from katra.bands import Band
@@ -113,6 +113,25 @@ ASVS_ID_FORMAT = f"v{ASVS_VERSION}-{{prefix}}.{{key}}"
 #: it, exactly as a STRIDE agent never spells its category.
 REQUIREMENT_KEY_PATTERN = r"^\d{1,2}\.\d{1,2}$"
 
+#: What a draft says of its requirement (ADR 0028).
+Direction = Literal["gap", "question", "excluded"]
+
+#: The kind of evidence that would settle a ``question``, or ``""`` for a
+#: ``gap`` or an ``excluded``.
+NeededEvidence = Literal["", "prose", EvidenceClass]
+
+#: The one field a lane writes for both: the direction, and for a question
+#: the kind, joined by a hyphen. ``tests/test_asvs.py`` holds it to
+#: :data:`Direction` and :data:`NeededEvidence`.
+DirectionAndKind = Literal[
+    "gap",
+    "excluded",
+    "question-prose",
+    "question-code",
+    "question-config",
+    "question-people",
+]
+
 _ID_PREFIX = f"v{ASVS_VERSION}-"
 
 
@@ -176,7 +195,7 @@ class DraftRequirementRuling(Claim):
     # as ``rejected_because`` is: the service fills it from the
     # proposal, whose schema requires it, and recording nothing is truthful
     # where inventing a direction the lane never stated is not.
-    direction: Literal["", "gap", "question", "excluded"] = ""
+    direction: Literal["", Direction] = ""
     # The claim side of the pair narrowed on the proposal above, and it has to
     # move with it: a proposal that validates must resolve into a claim that
     # validates, which is the rule `Proposal.verb`'s own comment states.
@@ -454,27 +473,52 @@ class RequirementProposal(Proposal):
     # output model omits a field that carries a default, and a prompt alone does
     # not oblige it to answer; a required field does.
     #
-    # `""` is a legal value — it is the ordinary answer, meaning the agent
-    # ruled — but it must be *chosen* rather than fallen into. The enum is
-    # what keeps a required field from becoming an invented one.
-    needs_evidence: Literal["", "prose", EvidenceClass]
-    # REQUIRED, WITH NO DEFAULT, for the reason ``needs_evidence`` is: the
-    # schema obliges an answer where a prompt alone does not. Closed, so a
-    # spelling outside the three is an invalid proposal rather than a fourth
-    # direction nobody declared.
-    direction: Literal["gap", "question", "excluded"]
+    # One field holds the direction and, for a question, the kind of evidence
+    # that would settle it, so a pair that disagrees cannot be written (#2356).
+    # Code splits it into :attr:`direction` and :attr:`needs_evidence`, which
+    # every reader reads, and the field itself is not dumped.
+    direction_and_kind: DirectionAndKind = Field(exclude=True)
 
-    @model_validator(mode="after")
-    def _direction_and_kind_agree(self) -> Self:
-        asks = self.direction == "question"
-        if asks != bool(self.needs_evidence):
+    @model_validator(mode="before")
+    @classmethod
+    def _joined_from_two_fields(cls, data: Any) -> Any:
+        """A proposal read back from state, or from a stored batch, spells the
+        field as its two halves, as :meth:`model_dump` writes them."""
+        if not isinstance(data, dict) or "direction_and_kind" in data:
+            return data
+        if "direction" not in data:
+            return data
+        rest = {
+            key: value
+            for key, value in data.items()
+            if key not in ("direction", "needs_evidence")
+        }
+        direction, kind = data["direction"], data.get("needs_evidence", "")
+        if (direction == "question") != bool(kind):
             raise ValueError(
-                f"the draft titled {self.title!r} says {self.direction!r} and"
-                f" needs_evidence={self.needs_evidence!r}: a question names the"
-                " kind of evidence that would settle it, and a gap or an"
-                " exclusion names none"
+                f"the draft titled {data.get('title')!r} says {direction!r} and"
+                f" needs_evidence={kind!r}: a question names the kind of evidence"
+                " that would settle it, and a gap or an exclusion names none"
             )
-        return self
+        return {
+            **rest,
+            "direction_and_kind": f"{direction}-{kind}" if kind else direction,
+        }
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def direction(self) -> Direction:
+        """What the draft says of its requirement: ``gap``, ``question`` or
+        ``excluded`` (ADR 0028)."""
+        return cast(Direction, self.direction_and_kind.split("-", 1)[0])
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def needs_evidence(self) -> NeededEvidence:
+        """For a ``question``, the kind of evidence that would settle it; ``""``
+        for a ``gap`` or an ``excluded``."""
+        _, _, kind = self.direction_and_kind.partition("-")
+        return cast(NeededEvidence, kind)
 
 
 class RequirementProposals(ProposalBatch):
