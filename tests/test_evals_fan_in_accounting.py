@@ -38,7 +38,7 @@ def test_every_package_has_a_stored_batch_type():
         assert issubclass(batch, schemas_for(name).proposals)
 
 
-def test_a_repeated_id_is_one_draft_and_one_drop():
+def test_two_drafts_an_agent_numbered_alike_are_two_drafts():
     row = _accounted(
         batches(
             spoofing=[sample_proposal("S-01"), sample_proposal("S-01")],
@@ -46,17 +46,15 @@ def test_a_repeated_id_is_one_draft_and_one_drop():
         )
     )
 
-    assert sorted(row.proposals) == ["S-01", "S-01", "T-01"]
-    assert row.kept == ("S-01", "T-01")
-    assert row.dropped == (
-        ("S-01", "repeats the ID of an earlier draft in this framework"),
-    )
+    assert sorted(row.proposals) == ["S-01", "S-02", "T-01"]
+    assert row.kept == ("S-01", "S-02", "T-01")
+    assert row.dropped == ()
     assert (row.unexplained, row.accounted) == ((), 3)
 
 
 def test_an_invalid_proposal_is_dropped_and_its_neighbour_kept():
     valid = sample_proposal("S-01").model_dump(mode="json")
-    stored = {"spoofing": {"claims": [valid, {**valid, "sequence": 2, "title": ""}]}}
+    stored = {"spoofing": {"claims": [valid, {**valid, "title": ""}]}}
     lanes = {
         lane: schemas_for("stride").proposals.model_validate(raw)
         for lane, raw in stored.items()
@@ -66,7 +64,7 @@ def test_an_invalid_proposal_is_dropped_and_its_neighbour_kept():
 
     assert row.kept == ("S-01",)
     [(claim_id, reason)] = row.dropped
-    assert claim_id == "S-02" and reason.startswith(
+    assert claim_id == "stride:spoofing:proposal-1" and reason.startswith(
         "fails the proposal schema at title"
     )
     assert (row.unexplained, row.accounted) == ((), 2)

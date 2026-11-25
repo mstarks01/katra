@@ -10,7 +10,6 @@ Note the phrasing. "The login flow lacks MFA" is a control observation and would
 
 ```json
 {
-  "sequence": 1,
   "title": "Credential stuffing lets an attacker transact as any customer",
   "description": "An attacker on the public internet replays credentials from breach corpora, or runs a real-time phishing proxy, against the login backing `flow:entity:customer>process:web-api>submit-payment`, which authenticates `entity:customer` with a password and a session cookie and no second factor. A successful login yields a session indistinguishable from the genuine customer's, so the attacker submits payment instructions on that customer's behalf through `process:web-api`. Second-order: the accepted instruction is written through to `store:accounts-db`, so the impersonation reaches the customer's balances and account-holder PII, not just the web tier.",
   "affected_element_ids": [
@@ -53,7 +52,6 @@ Written against exemplar system B, to show the same reasoning on an event-driven
 
 ```json
 {
-  "sequence": 2,
   "title": "One extracted device certificate lets an attacker publish as any fleet",
   "description": "`flow:entity:sensor-gateway>process:mqtt-broker>publish-telemetry` authenticates every `entity:sensor-gateway` with the same client certificate, burned into a device image an attacker can buy, dump, or pull from an update feed. `process:mqtt-broker` is `internet-facing`, so one extraction yields the ability to publish from anywhere as an apparently genuine gateway, and the certificate identifies the fleet software rather than a device. Second-order: the payload the impostor publishes names its own tenant, so `process:stream-processor` files the fabricated readings under whichever tenant the attacker chooses in `store:telemetry-store`, and the reach is every customer fleet on the platform rather than the one device that leaked. Revocation has the same shape: the certificate cannot be withdrawn from the impostor without cutting off every genuine gateway with it.",
   "affected_element_ids": [
@@ -96,7 +94,6 @@ Written against exemplar system B, to show the same reasoning on an event-driven
 
 ```json
 {
-  "sequence": 3,
   "title": "Forged settlement callbacks if the webhook's authentication is absent",
   "description": "`flow:entity:payments-provider>process:web-api>settlement-webhook` crosses from `boundary:public-internet` into `boundary:dmz` with `authentication: unknown`. If that unknown resolves to no verification — no signature, no mutual TLS — anyone who learns the endpoint URL can impersonate `entity:payments-provider` and post fabricated settlement confirmations to `process:web-api`. Second-order: the ledger acts on those confirmations, so forged settlements become balance changes in `store:accounts-db`. This draft is conditional on the `authentication` attribute of that flow; it is not a claim that the control is missing.",
   "affected_element_ids": [
@@ -133,7 +130,6 @@ Lane contrast: altering an instruction the web API sent is tampering, and reachi
 
 ```json
 {
-  "sequence": 4,
   "title": "A dmz foothold can send transfers to the ledger as the web API",
   "description": "`process:ledger-service` accepts transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer`, which crosses from `boundary:dmz` into `boundary:core` with `authentication: none`. Nothing in the request says who sent it, so the ledger treats any caller that reaches it as `process:web-api`. An attacker with a foothold in `boundary:dmz` (a compromised neighbour, or a request forged from inside the web tier) sends instructions in the web API's place, and the ledger acts on them as genuine. Second-order: the ledger executes them with its own authority over `store:accounts-db`, so the impersonation moves money between accounts the attacker chooses.",
   "affected_element_ids": [
@@ -168,7 +164,6 @@ This draft shares its verb and its elements with the one above, and it is still 
 
 ```json
 {
-  "sequence": 5,
   "title": "A dmz foothold can answer the web API as the ledger",
   "description": "`process:web-api` sends transfer instructions over `flow:process:web-api>process:ledger-service>post-transfer`, which crosses from `boundary:dmz` into `boundary:core` with `encryption_in_transit: none`, so no certificate tells the web API which endpoint it reached. An attacker with a foothold in `boundary:dmz` who can redirect that call (a poisoned name lookup, or a neighbour that takes the ledger's address) poses as `process:ledger-service` and receives each instruction in its place. Second-order: the attacker collects the customer IDs and transfer details in every instruction, and the transfers it swallows never reach `store:accounts-db`, although the web API sent them.",
   "affected_element_ids": [
@@ -197,4 +192,4 @@ This draft shares its verb and its elements with the one above, and it is still 
 }
 ```
 
-**A near-duplicate is one draft, not two.** A third candidate at the same place reads: "a compromised host in `boundary:core` sends transfers to the ledger as the web API". The attacker starts somewhere else, but the verb, the elements, the failed control (`authentication` on `post-transfer`) and the fix (the ledger refuses a caller it cannot verify) are all draft 4's. It is draft 4 again. Do not file it with a new `sequence`: name the second starting point in draft 4's `description`, beside the dmz foothold.
+**A near-duplicate is one draft, not two.** A third candidate at the same place reads: "a compromised host in `boundary:core` sends transfers to the ledger as the web API". The attacker starts somewhere else, but the verb, the elements, the failed control (`authentication` on `post-transfer`) and the fix (the ledger refuses a caller it cannot verify) are all draft 4's. It is draft 4 again. Do not file it as a new draft: name the second starting point in draft 4's `description`, beside the dmz foothold.

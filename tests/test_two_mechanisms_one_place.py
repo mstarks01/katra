@@ -66,10 +66,10 @@ CONTRACT_PHRASES = (
 
 
 def spoofing_drafts():
-    """The spoofing exemplar drafts as emitted JSON, by their ``sequence``."""
+    """The spoofing exemplar drafts as emitted JSON, by their place in the file."""
     text = PACKAGE_LOADERS["stride"].load(lane_exemplars_doc("spoofing"))
     drafts = (json.loads(body) for body in json_blocks(text))
-    return {draft["sequence"]: draft for draft in drafts}
+    return dict(enumerate(drafts, start=1))
 
 
 def pair():
@@ -81,7 +81,6 @@ def near_duplicate():
     """Draft 4 again, from another starting point: the paragraph's candidate."""
     return {
         **spoofing_drafts()[CALLER_DRAFT],
-        "sequence": 6,
         "title": "A compromised core host can send transfers to the ledger as the"
         " web API",
     }
@@ -105,7 +104,7 @@ def run_pair():
     replies = {
         "extract": emitted(fixture_model("A")),
         SPOOFING: json.dumps({"claims": pair()}),
-        CRITIC: claims_json(sample_ruling("S-04"), sample_ruling("S-05")),
+        CRITIC: claims_json(sample_ruling("S-01"), sample_ruling("S-02")),
     }
     pipeline, models = build(replies)
     outcome, _ = run(pipeline, system_a_job())
@@ -152,7 +151,7 @@ def test_both_drafts_survive_the_fan_in_with_their_own_controls():
     flows = ModelIndex.of(fixture_model("A")).flow_endpoints
     caller, server = result.drafts
 
-    assert [draft.id for draft in result.drafts] == ["S-04", "S-05"]
+    assert [draft.id for draft in result.drafts] == ["S-01", "S-02"]
     assert finding_key(caller, flows) == finding_key(server, flows)
     assert mechanism_of(caller, flows, {}) == {"authentication"}
     assert mechanism_of(server, flows, {}) == {"encryption_in_transit"}
@@ -176,9 +175,9 @@ def test_the_critic_reads_both_drafts_and_the_report_keeps_both():
     report, models = run_pair()
     (critic_instruction,) = models[CRITIC].seen
 
-    assert critic_instruction.count('"id": "S-04"') == 1
-    assert critic_instruction.count('"id": "S-05"') == 1
-    assert [claim.id for claim in block(report).claims] == ["S-04", "S-05"]
+    assert critic_instruction.count('"id": "S-01"') == 1
+    assert critic_instruction.count('"id": "S-02"') == 1
+    assert [claim.id for claim in block(report).claims] == ["S-01", "S-02"]
     flows = ModelIndex.of(report.system_model).flow_endpoints
     rows = report_rows(report)
     caller, server = block(report).claims
@@ -201,4 +200,4 @@ def test_a_follow_up_that_loses_one_end_reports_it_gone():
         change.claim_id: change.change for change in report_changes(report, caller_only)
     }
 
-    assert changes == {"S-04": "unchanged", "S-05": "gone"}
+    assert changes == {"S-01": "unchanged", "S-02": "gone"}

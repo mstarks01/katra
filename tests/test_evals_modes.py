@@ -39,7 +39,6 @@ from katra.evidence import evidence_catalog
 from katra.frameworks import package_for
 from katra.frameworks.stride.record import (
     STRIDE_CATEGORIES,
-    _threat_id,
 )
 from katra.graph import (
     ENTRY_ASSERT_ONLY,
@@ -176,7 +175,7 @@ def scripted_ruling(case, category) -> dict:
     refs = reaching_refs(case, reference.affected_element_ids)
     conditional = any(ref.startswith("unknown:") for ref in refs)
     return {
-        "id": _threat_id(category, 1),
+        "id": package_for("stride").compose_id(category, 1),
         "confidence": "low" if conditional else "high",
         "verdict": {},
     }

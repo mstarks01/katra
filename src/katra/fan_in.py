@@ -308,11 +308,6 @@ def fan_in(
     # Narrowed to the drafts that survived every pass above, once, after the
     # last producer. The block refuses a mark on a claim it does not carry.
     marks = marks.on_claims({draft.id for draft in merged})
-    # Logged rather than reported, and the package decides what is worth saying:
-    # a STRIDE lane that numbered its drafts 01, 02, 05 broke nothing a reader
-    # could act on, and the agents are who it is about.
-    for message in package.record.lane_diagnostics(merged):
-        logger.warning(message)
     # The candidates are regenerated rather than read back from state: they are
     # a pure function of the same validated model, the same package rules and
     # the same catalog, so the two derivations cannot disagree. The catalog is

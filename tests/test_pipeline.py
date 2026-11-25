@@ -423,29 +423,20 @@ def test_a_clean_model_carries_no_shared_name_marks():
     assert outcome.report.shared_element_names == []
 
 
-def test_a_lane_that_skips_a_number_is_logged_and_not_renumbered(caplog):
-    """The numbering rule is about the agents, so it lands in the log, not the report.
-
-    A gap breaks nothing downstream — the IDs are unique and their letters
-    match — so the drafts reach the report exactly as written, and the drift is
-    recorded where the run's other operational facts are.
-    """
-    import logging
-
+def test_a_lane_is_numbered_by_place_whatever_number_the_agent_wrote():
+    """Code numbers a lane's drafts by their place, so a number the agent wrote
+    anyway neither leaves a gap nor drops a draft (#2355)."""
     replies = happy_replies() | {
         graph.Lane("stride", "spoofing").node_name: claims_json(
-            sample_proposal("S-01"), sample_proposal("S-05")
+            sample_proposal("S-05"), sample_proposal("S-05")
         ),
-        CRITIC: claims_json(sample_ruling("S-01"), sample_ruling("S-05")),
+        CRITIC: claims_json(sample_ruling("S-01"), sample_ruling("S-02")),
     }
     pipeline, _ = build(replies)
 
-    with caplog.at_level(logging.WARNING, logger="katra.graph"):
-        outcome, _ = run(pipeline, job())
+    outcome, _ = run(pipeline, job())
 
-    assert [threat.id for threat in block(outcome.report).claims] == ["S-01", "S-05"]
-    assert any("S-01, S-05" in message for message in caplog.messages)
-    assert any("not 01..02" in message for message in caplog.messages)
+    assert [threat.id for threat in block(outcome.report).claims] == ["S-01", "S-02"]
 
 
 def test_a_threat_no_ground_supports_is_dropped_and_the_report_says_so():

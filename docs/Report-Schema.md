@@ -820,13 +820,6 @@ absence an empty `coverage` records.
 
 ## What is checked but never reported
 
-Threat IDs are asked to run `01..N` within each category. A lane that emits
-`S-01, S-02, S-05` has drifted from that, and the service **logs it and changes
-nothing** — the IDs are unique, their letters match, and every downstream check
-passes, so a gap costs a reader nothing and renumbering would move a finding's
-identity between two runs of the same input. It is a fact about the agents, and
-it lives in the run's logs rather than in this payload.
-
 Two things `grounds` is deliberately not:
 
 - **Not an element's `source_excerpt`.** An excerpt says why an *element* is in

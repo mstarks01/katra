@@ -313,24 +313,6 @@ def an_omitted_compact_attribute_ends_the_job_with_no_repair(pipeline):  # noqa:
 
 
 @decides
-def a_repeated_threat_id_keeps_the_first_draft_and_drops_the_rest():
-    drafts = {
-        "spoofing": [
-            sample_draft("S-01", title="first"),
-            sample_draft("S-01", title="second"),
-        ]
-    }
-
-    joined = join_drafts(
-        drafts, PACKAGES["stride"], valid_model(), sources={}, assertions=None
-    )
-
-    assert [draft.title for draft in joined.drafts] == ["first"]
-    (mark,) = joined.marks.dropped_claims
-    assert (mark.claim_id, mark.title) == ("S-01", "second")
-
-
-@decides
 def two_drafts_at_one_place_that_fail_two_controls_are_two_findings():
     caller, server = merged(pair()).drafts
     flows = ModelIndex.of(fixture_model("A")).flow_endpoints

@@ -1953,7 +1953,8 @@ def test_merge_refuses_a_draft_on_a_unit_the_rules_ruled_out(monkeypatch):
 
 def test_merge_drops_and_marks_a_proposal_that_fails_its_schema():
     """The node's own schema salvages: a verb outside the closed set drops
-    that proposal, and the mark names the claim the agent meant."""
+    that proposal, and the mark names it by its place in the lane, because
+    code numbers the kept drafts."""
     state = analyze_state(spoofing=[sample_proposal("S-01"), sample_proposal("S-02")])
     state[graph.Lane("stride", "spoofing").drafts_key]["claims"][0]["verb"] = (
         "not-a-verb"
@@ -1966,7 +1967,7 @@ def test_merge_drops_and_marks_a_proposal_that_fails_its_schema():
 
     assert output["draft_count"] == 1
     (mark,) = ctx.state[NODES.key("marks")]["dropped_claims"]
-    assert mark["claim_id"] == "S-01"
+    assert mark["claim_id"] == "stride:spoofing:proposal-0"
     assert "verb" in mark["reason"]
 
 

@@ -491,27 +491,6 @@ def test_each_exemplar_section_holds_exactly_one_json_block(framework, lane):
 
 
 @pytest.mark.parametrize("framework,lane", EXEMPLAR_LANES)
-def test_exemplar_drafts_are_numbered_from_01_without_gaps(framework, lane):
-    """The numbering rule the prompt states, demonstrated by its own drafts.
-
-    Asserted on ``sequence``, which is what an agent supplies and therefore what
-    it can get wrong. ``numbering_gaps`` asks the same question one seam later,
-    of the composed IDs the service builds out of these numbers.
-
-    **Keyed to the field, not to a framework name.** A package whose claims
-    compose an identity from an action and a place numbers its drafts, and one
-    whose claims name a catalog requirement heads them with that identifier
-    instead — so the rule runs exactly where the record carries ``sequence``,
-    and a package that does not carry it is skipped rather than exempted by
-    name.
-    """
-    if "sequence" not in proposal_type(framework).model_fields:
-        pytest.skip(f"{framework} claims carry no sequence to number")
-    sequences = sorted(p.sequence for p in exemplar_proposals(framework, lane))
-    assert sequences == list(range(1, len(sequences) + 1))
-
-
-@pytest.mark.parametrize("framework,lane", EXEMPLAR_LANES)
 def test_exemplar_descriptions_cite_only_ids_the_exemplar_system_has(framework, lane):
     """The prose half, through the extractor the service marks reports with.
 

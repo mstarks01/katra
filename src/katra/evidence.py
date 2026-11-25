@@ -135,7 +135,7 @@ from katra.claims import (
     UnresolvedEvidence,
 )
 from katra.field_capabilities import with_field_capabilities
-from katra.frameworks import FrameworkPackage, schemas_for
+from katra.frameworks import FrameworkPackage, agent_writes_key, schemas_for
 from katra.system_model import (
     UNKNOWN,
     DataFlow,
@@ -1210,14 +1210,17 @@ def invalid_proposal_marks(
     already dropped it (:class:`~katra.claims.ProposalBatch`), and
     this records it as a :class:`~katra.claims.DroppedClaim` with
     the first error pydantic reported. The ID is composed from the package's
-    rule where the key is readable, so the mark names the claim the agent
-    meant; where it is not, the mark is keyed by the lane and the position,
-    which is the only identity left.
+    rule where the agent writes the key and the key is readable, so the mark
+    names the claim the agent meant; where it is not, the mark is keyed by the
+    lane and the position, which is the only identity left.
     """
     key_field = schemas_for(package.name).key_field
+    # A key code writes, such as STRIDE's ``sequence``, may hold the number a
+    # kept draft now carries, so only a key the agent writes names the claim.
+    written = agent_writes_key(package.name)
     dropped: list[DroppedClaim] = []
     for entry in invalid:
-        key = entry.scalars.get(key_field)
+        key = entry.scalars.get(key_field) if written else None
         try:
             claim_id = package.compose_id(lane, key) if key is not None else ""
         except (TypeError, ValueError, KeyError):

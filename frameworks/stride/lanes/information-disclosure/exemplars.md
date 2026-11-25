@@ -10,7 +10,6 @@ Same path, two lanes: rewriting those messages is tampering, reading them is you
 
 ```json
 {
-  "sequence": 1,
   "title": "Transfer instructions readable on the wire between the web API and the ledger",
   "description": "`flow:process:web-api>process:ledger-service>post-transfer` carries gRPC transfer instructions — customer identifiers, amounts, destination accounts — from `boundary:dmz` into `boundary:core` with `encryption_in_transit: none`. Anyone able to observe that path (a compromised node in either zone, a misconfigured span port, a sidecar with packet capture) reads the payment activity of every customer in real time, without needing to authenticate to anything. Second-order: the observed identifiers are the inputs the ledger uses against `store:accounts-db`, so a passive observer accumulates the account mapping needed to target specific customers in later attacks.",
   "affected_element_ids": [
@@ -49,7 +48,6 @@ Same path, two lanes: rewriting those messages is tampering, reading them is you
 
 ```json
 {
-  "sequence": 2,
   "title": "A leaked static database password exposes every account holder's records",
   "description": "The shared static password on `flow:process:ledger-service>store:accounts-db>read-write-balances` lives in an environment variable of `process:ledger-service` and grants full read access to `store:accounts-db`. Environment variables surface in crash dumps, process listings, error pages, container image layers, and log output, so disclosure does not require compromising the process outright. An attacker holding the password queries the store directly from anywhere in `boundary:core`, reading balances and account-holder PII in bulk. Second-order: this is corpus-scale rather than per-request disclosure — one small leak yields the entire confidential dataset, and the read leaves no trace in `store:audit-log`, which only records transfers made through the ledger.",
   "affected_element_ids": [
@@ -90,7 +88,6 @@ Written against exemplar system B, and worth comparing with the canonical draft 
 
 ```json
 {
-  "sequence": 3,
   "title": "One snapshot exposes every tenant if the telemetry store is unencrypted at rest",
   "description": "`store:telemetry-store` is classified confidential and tagged `business-critical-data`, and its `encryption_at_rest` attribute is `unknown`. If that unknown resolves to unencrypted storage, anyone obtaining a copy of the media — an exported snapshot, a backup with broader read access, a replica in a lower environment — reads the readings directly, without presenting a credential to `process:stream-processor` or touching the platform's own access path. What makes this worse than the same gap on a single-tenant store is that the partitions share one space: the tenant key separates customers inside a live query, and a raw copy carries no query, so one exported artifact discloses every fleet's operating data at once. This draft is conditional on the `encryption_at_rest` attribute; it is not a claim that the store is unencrypted.",
   "affected_element_ids": [
@@ -131,7 +128,6 @@ Written against exemplar system B, and worth comparing with the canonical draft 
 
 ```json
 {
-  "sequence": 4,
   "title": "Code running in the ledger service reads every account through the service's own grant",
   "description": "`process:ledger-service` reads `store:accounts-db` over `flow:process:ledger-service>store:accounts-db>read-write-balances`, and its account has full read/write on every table. An attacker who runs code in the ledger service, for example through the unauthenticated call from the internet-facing `process:web-api` on `flow:process:web-api>process:ledger-service>post-transfer`, inherits that grant and reads the balances and account-holder PII of every customer over the connection the service already uses. Encryption at rest does not stop this attacker, because the database decrypts every row for an authorized session; that is what separates this draft from a storage-copy draft on the same store. Second-order: the reads look like the service's own queries, so `store:audit-log`, which records transfers only, holds no trace of them.",
   "affected_element_ids": [

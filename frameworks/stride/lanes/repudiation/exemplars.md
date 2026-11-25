@@ -10,7 +10,6 @@ The lane test: the harm here is not that someone impersonated a customer (spoofi
 
 ```json
 {
-  "sequence": 1,
   "title": "A customer can deny a transfer because audit records name only the ledger service",
   "description": "Transfers initiated by `entity:customer` over `flow:entity:customer>process:web-api>submit-payment` are recorded by `process:ledger-service` through `flow:process:ledger-service>store:audit-log>append-transfer-record`, whose entries are tagged with the ledger service identity only. No record in `store:audit-log` binds the transfer to the initiating customer, and the session cookie on the inbound flow is not carried through to the log entry: `flow:process:web-api>process:ledger-service>post-transfer` carries no authentication, so `process:ledger-service` holds no authenticated customer identity to write. A customer disputing a transfer — genuinely defrauded or acting in bad faith — cannot be contradicted by evidence, and the operator cannot distinguish the two cases. Second-order: chargeback and fraud handling has no factual basis, so `financial` losses are absorbed by the operator and `entity:customer` records are never conclusive.",
   "affected_element_ids": [
@@ -55,7 +54,6 @@ Written against exemplar system B. Repudiation does not require anyone to tamper
 
 ```json
 {
-  "sequence": 2,
   "title": "No stored reading can be tied to the device that produced it",
   "description": "Every `entity:sensor-gateway` authenticates on `flow:entity:sensor-gateway>process:mqtt-broker>publish-telemetry` with the same certificate, so the credential distinguishes the fleet software and not the device. The payload crosses into `boundary:platform` on `flow:process:mqtt-broker>process:stream-processor>consume-topic`, and `process:stream-processor` then files each reading in `store:telemetry-store` under a tenant the payload itself declared. Both halves of an attributable record are therefore missing: the transport identifies a population rather than a party, and the only party marking present is self-asserted by whoever published. A customer disputing a reading — a reported fault, a billed volume, an SLA breach — can say it was not their device, and the platform holds nothing that contradicts them. Second-order: this is not one unattributable event but a property of the whole store, so the first genuine dispute puts every historical reading for every tenant beyond defence, and an attacker publishing forged readings inherits that deniability rather than having to create it.",
   "affected_element_ids": [
@@ -104,7 +102,6 @@ Written against exemplar system B. Repudiation does not require anyone to tamper
 
 ```json
 {
-  "sequence": 3,
   "title": "Settlement confirmations may be unattributable to the payments provider",
   "description": "`flow:entity:payments-provider>process:web-api>settlement-webhook` crosses from `boundary:public-internet` into `boundary:dmz` with `authentication: unknown`. If that unknown resolves to an unsigned callback, nothing in the received settlement confirmation ties it to `entity:payments-provider`: the operator cannot prove to the provider that a given settlement was sent, and the provider can deny having sent one that was acted on. Disputes over money already moved through `process:ledger-service` would have no evidence on either side. This draft is conditional on the `authentication` attribute of that flow; it is not a claim that the callback is unsigned.",
   "affected_element_ids": [
