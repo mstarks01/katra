@@ -163,7 +163,12 @@ from katra.api import (
 from katra.assertions import FACET_ANSWERS
 from katra.budgets import BudgetPolicy
 from katra.certification import CertificationGate
-from katra.claims import UNIT_VERDICT_WORDS, VERDICT_LABELS, UnknownKey
+from katra.claims import (
+    SETTLED_UNRECONCILED_KINDS,
+    UNIT_VERDICT_WORDS,
+    VERDICT_LABELS,
+    UnknownKey,
+)
 from katra.config_files import (
     SETTINGS_FILE,
     SettingsFileError,
@@ -1172,6 +1177,7 @@ def render_report(
         question_fallback=script_json(question_fallback(report.analyses).to_json()),
         link_questions=script_json(asked["link_questions"]),
         final=script_json(asked["final"]),
+        settled_kinds=script_json(sorted(SETTLED_UNRECONCILED_KINDS)),
         asks=script_json(state.asks),
         resumed_by=script_json(asked["resumed_by"]),
         parent_run=script_json(parent),

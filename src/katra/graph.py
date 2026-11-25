@@ -2122,6 +2122,7 @@ def merge_drafts(
         held_assertions(state),
         controls,
         quotes_checked=merged.quotes_checked,
+        ruled_in=state.get(nodes.key("ruled_in")) or {},
     )
     state.prompt(nodes.key("draft_view"), render_fenced(critic_round.view()))
     return _routed(
@@ -2142,10 +2143,11 @@ def route_review(
     :class:`~katra.critic_round.Reask` or a
     :class:`~katra.critic_round.Failed`, and this function parks
     what the value carries and routes on which one it got. Clean output routes
-    to ``accept``; a critic that dropped, invented or duplicated a ruling, or
-    hung a ``needs-info`` verdict on an element the model does not contain,
-    routes to ``revise``, with the failing rulings and the problem list parked
-    where the re-ask prompt reads them.
+    to ``accept``, and so does a ruling code drops without a re-ask
+    (:func:`~katra.critic.settle_in_code`). A critic that dropped a ruling,
+    ruled one ID two different ways, or hung a ``needs-info`` verdict on an
+    element the model does not contain, routes to ``revise``, with the failing
+    rulings and the problem list parked where the re-ask prompt reads them.
 
     Both of a framework's review nodes run this same function. What differs
     is where their ``revise`` edge points (``recritic`` for the first look,
@@ -2204,6 +2206,9 @@ def route_review(
             state.prompt(nodes.key(artifact), text)
         state.put(nodes.key("first_review"), outcome.first.rulings)
         state.put(nodes.key("repairable"), outcome.first.repairable)
+    # What code dropped without a re-ask is recorded on every route, so the
+    # report says the critic returned it even when nothing else went wrong.
+    recorded += outcome.settled
     if isinstance(outcome, Accepted):
         # The marker ``assemble`` reads a framework as finished by. ``reviewed``
         # alone cannot say so: it holds the first critic's malformed rulings for
@@ -2248,6 +2253,7 @@ def _parked_round(
         held_assertions(state),
         held_controls(state),
         quotes_checked=parked_quotes_checked(state, nodes),
+        ruled_in=state.get(nodes.key("ruled_in")) or {},
     )
 
 

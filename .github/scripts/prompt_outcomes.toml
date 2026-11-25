@@ -244,6 +244,13 @@ the document with the same `sha256` in an earlier entry."""
 modules = ["src/katra/critic.py"]
 check = "an_evidence_entry_with_no_excerpt_names_an_earlier_entry"
 
+[[outcome]]
+prompt = "frameworks/stride/critic.md"
+sentence = """A threat that reads needs-info is low whatever you rate it,
+because the service sets that rating."""
+modules = ["src/katra/critic.py", "src/katra/frameworks/stride/record.py"]
+check = "a_needs_info_threat_reads_low"
+
 # --- Modules with no pinned sentence yet ---------------------------------------
 
 [[reader]]

@@ -137,6 +137,7 @@ def _view(drafts, controls: list[AppliedControl], framework="asvs") -> list[dict
         None,
         controls,
         quotes_checked=True,
+        ruled_in=(),
     )
     return critic_round.view()
 
@@ -253,6 +254,7 @@ class TestTheControlsKey:
             None,
             _applied(_db(_row("V11"))),
             quotes_checked=True,
+            ruled_in=(),
         )
 
         [view] = critic_round.view(only={drafts[1].id})
@@ -286,6 +288,7 @@ class TestTheControlsKey:
             None,
             controls,
             quotes_checked=True,
+            ruled_in=(),
         )
 
         assert critic_round.view(only={draft.id}) == critic_round.view()
@@ -304,6 +307,7 @@ def _round(*copies: CopiedControl) -> CriticRound:
         None,
         _applied(*copies),
         quotes_checked=True,
+        ruled_in=(),
     )
 
 
@@ -672,6 +676,7 @@ class TestTheUnDefer:
             None,
             _applied(_db(_row("V11.2.1"))),
             quotes_checked=merged.quotes_checked,
+            ruled_in=(),
         )
         outcome = critic_round.first([{"id": draft.id, "verdict": verdict}])
         assert isinstance(outcome, Accepted)
@@ -780,6 +785,7 @@ def test_the_verdict_and_the_seam_hold_one_row_rule(step, names_a_row):
         [Ruling(id=DRAFT.id, verdict=ProposedVerdict(**fields))],
         valid_model(),
         {DRAFT.id: {ControlRowRef(control=DB_CONTROL, unit="V11"): applied}},
+        ruled_in=(),
     )
     [completed] = seam.rulings
     try:

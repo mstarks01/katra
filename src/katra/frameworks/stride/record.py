@@ -175,6 +175,11 @@ LANES_OF_VERB: dict[ActionVerb, tuple[StrideCategory, ...]] = {
 }
 
 
+#: The confidence of a threat that rests on an open fact: the critic's text
+#: rates it so, and code writes it on each such ruling.
+CONDITIONAL_CONFIDENCE: Rating = "low"
+
+
 class DraftThreat(Claim):
     """One draft STRIDE finding: a claim plus what this framework judges.
 
@@ -300,7 +305,9 @@ class DraftThreat(Claim):
         ruling = super().settled_by_grounds(draft)
         if ruling is None:
             return None
-        return ThreatRuling(id=ruling.id, verdict=ruling.verdict, confidence="low")
+        return ThreatRuling(
+            id=ruling.id, verdict=ruling.verdict, confidence=CONDITIONAL_CONFIDENCE
+        )
 
 
 class RecommendationReading(BaseModel):
@@ -515,6 +522,10 @@ class ThreatRuling(Ruling):
     #: a surviving threat is a critic that did not look, which the eval
     #: measures rather than the service refusing.
     recommendation: RecommendationReading | None = None
+
+    def rated_as_conditional(self) -> Self:
+        """:data:`CONDITIONAL_CONFIDENCE`, whatever the critic rated."""
+        return self.model_copy(update={"confidence": CONDITIONAL_CONFIDENCE})
 
 
 class ThreatRulings(RulingBatch):

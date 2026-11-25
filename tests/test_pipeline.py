@@ -749,9 +749,9 @@ def test_a_mistyped_ruling_id_is_re_asked_rather_than_killing_the_job():
     """End to end, a malformed ID is reconciled rather than raised at the node.
 
     ``"S-1"`` fails ``ThreatRuling``'s pattern, and inside the node's
-    output_schema that would end the run. It reconciles as a drop plus an
-    invention — two problems the re-ask is already told how to fix, with no
-    prompt change needed for the new fault.
+    output_schema that would end the run. It reconciles as a drop, which the
+    re-ask repairs, and an invention, which code drops with a mark the report
+    keeps (#2360).
     """
     replies = happy_replies()
     replies[CRITIC] = json.dumps(
@@ -768,7 +768,31 @@ def test_a_mistyped_ruling_id_is_re_asked_rather_than_killing_the_job():
     assert CRITIC_FAILED not in visited
     re_ask = models[RECRITIC].seen[0]
     assert "dropped draft 'S-01'" in re_ask
-    assert "'S-1', which no lane agent drafted" in re_ask
+    assert "'S-1'" not in re_ask
+    marks = block(outcome.report).unreconciled_rulings
+    assert ("invented", "S-1") in [(mark.kind, mark.claim_id) for mark in marks]
+
+
+def test_an_invented_ruling_alone_makes_no_re_ask():
+    """Code drops a ruling on an ID no lane drafted, and a ruling that repeats
+    another word for word, so a paid re-ask runs only for what a model must
+    repair; the report records each drop (#2360)."""
+    replies = happy_replies()
+    replies[CRITIC] = claims_json(
+        sample_ruling("S-01"), sample_ruling("S-01"), sample_ruling("X-99")
+    )
+    pipeline, _ = build(replies)
+
+    outcome, visited = run(pipeline, job())
+
+    assert isinstance(outcome, PipelineCompleted)
+    assert [threat.id for threat in block(outcome.report).claims] == ["S-01"]
+    assert RECRITIC not in visited
+    marks = block(outcome.report).unreconciled_rulings
+    assert [(mark.kind, mark.claim_id) for mark in marks] == [
+        ("repeated-ruling", "S-01"),
+        ("invented", "X-99"),
+    ]
 
 
 def test_a_verdict_still_mis_shaped_after_the_re_ask_fails_as_critic_output():
@@ -797,13 +821,13 @@ def test_a_verdict_still_mis_shaped_after_the_re_ask_fails_as_critic_output():
 
 def test_a_critic_that_will_not_reconcile_after_the_re_ask_fails_the_job_loudly():
     replies = happy_replies()
-    invented = claims_json(sample_ruling("S-01"), sample_ruling("T-02"))
-    # Both the critic and its re-ask return a threat no category agent drafted.
-    replies[CRITIC] = invented
-    replies[RECRITIC] = invented
+    # Both the critic and its re-ask leave the one draft unruled.
+    unruled = claims_json()
+    replies[CRITIC] = unruled
+    replies[RECRITIC] = unruled
     pipeline, _ = build(replies)
 
-    with pytest.raises(Exception, match="T-02"):
+    with pytest.raises(Exception, match="dropped draft 'S-01'"):
         run(pipeline, job())
 
 
@@ -836,9 +860,9 @@ def test_a_failed_job_logs_the_input_digest(caplog):
     import logging
 
     replies = happy_replies()
-    invented = claims_json(sample_ruling("S-01"), sample_ruling("T-02"))
-    replies[CRITIC] = invented
-    replies[RECRITIC] = invented
+    unruled = claims_json()
+    replies[CRITIC] = unruled
+    replies[RECRITIC] = unruled
     pipeline, _ = build(replies)
     # Distinct from the shared text so the digest is this job's, but still
     # carrying the spans the scripted model's excerpts quote.
@@ -849,7 +873,7 @@ def test_a_failed_job_logs_the_input_digest(caplog):
 
     with (
         caplog.at_level(logging.WARNING, logger="katra.pipeline"),
-        pytest.raises(Exception, match="T-02"),
+        pytest.raises(Exception, match="dropped draft 'S-01'"),
     ):
         run(pipeline, record)
 

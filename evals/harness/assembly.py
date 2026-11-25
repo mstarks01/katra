@@ -302,6 +302,7 @@ def replay_case(
         None,
         (),
         quotes_checked=quote_check_ran(block.quotes_checked),
+        ruled_in=block.applied_units(),
     )
     outcome = critic_round.outcome(
         [ruling.model_dump(mode="json") for ruling in rulings]

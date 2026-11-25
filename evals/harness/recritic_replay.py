@@ -16,9 +16,7 @@ one fault of one shape (:data:`FaultShape`) on one draft:
   rejected for ``control`` on its first shown row, and then names no
   ``control_row``, or also refuses a row the draft was not shown;
 * ``dropped`` — the draft has no ruling;
-* ``invented`` — a copy of the draft's ruling stands under an ID no lane
-  drafted;
-* ``duplicate-id`` — the draft's ruling appears twice;
+* ``duplicate-id`` — the draft has two rulings that differ in their reason;
 * ``verdict-shape`` — the ruling is rejected for ``reasoning`` and still names
   its open facts;
 * ``confirmed-ruled-out`` — the ruling confirms a draft that rules its unit
@@ -104,7 +102,6 @@ FaultShape = Literal[
     "control-row-missing",
     "control-row-not-shown",
     "dropped",
-    "invented",
     "duplicate-id",
     "verdict-shape",
     "confirmed-ruled-out",
@@ -123,7 +120,6 @@ PROBLEMS_BY_SHAPE: Mapping[FaultShape, tuple[UnreconciledKind, ...]] = MappingPr
         "control-row-missing": ("control-row", "control-row"),
         "control-row-not-shown": ("control-row",),
         "dropped": ("dropped",),
-        "invented": ("invented",),
         "duplicate-id": ("duplicate-id",),
         "verdict-shape": ("verdict-shape",),
         "confirmed-ruled-out": ("verdict-shape",),
@@ -175,8 +171,6 @@ class FaultView:
     """One first pass with one injected fault, and the re-ask it routes to."""
 
     draft_id: str
-    #: The ID the fault names: ``draft_id``, or the invented ID.
-    faulted_id: str
     critic_round: CriticRound
     #: The first pass before the fault, accepted and assembled.
     clean: Accepted
@@ -284,18 +278,15 @@ def inject(
     shown: frozenset[ControlRowRef],
     draft_id: str,
     shape: FaultShape,
-) -> tuple[list[Ruling], str]:
-    """``rulings`` with one fault of ``shape`` on ``draft_id``, and the faulted ID.
+) -> list[Ruling]:
+    """``rulings`` with one fault of ``shape`` on ``draft_id``.
 
-    The faulted ID is ``draft_id``, except for ``invented``: that fault copies
-    the draft's ruling, with no Control row, under an ID no lane drafted, the
-    draft's ID with ``a`` added. ``shown`` is the rows the draft was shown.
+    ``shown`` is the rows the draft was shown.
     """
     index, ruling = next(
         (index, ruling) for index, ruling in enumerate(rulings) if ruling.id == draft_id
     )
     before, after = rulings[:index], rulings[index + 1 :]
-    faulted_id = draft_id
     refused = list(ruling.verdict.refused_controls)
     if shape == "row-unanswered":
         changed = [_with(ruling, refused_controls=refused[1:])]
@@ -308,14 +299,9 @@ def inject(
         changed = [_with(ruling, control_row=None)]
     elif shape == "dropped":
         changed = []
-    elif shape == "invented":
-        faulted_id = f"{draft_id}a"
-        if faulted_id in {draft.id for draft in drafts}:
-            raise EvalRunError(f"a lane drafted {faulted_id}, so it is not invented")
-        invented_ruling = _with(ruling, control_row=None, refused_controls=[])
-        changed = [ruling, invented_ruling.model_copy(update={"id": faulted_id})]
     elif shape == "duplicate-id":
-        changed = [ruling, ruling]
+        second = f"{ruling.verdict.reason} A second ruling.".strip()
+        changed = [ruling, _with(ruling, reason=second)]
     elif shape == "verdict-shape":
         if not ruling.verdict.related_unknowns:
             raise EvalRunError(f"{draft_id} names no open fact")
@@ -330,7 +316,7 @@ def inject(
         changed = [_with(ruling, related_unknowns=unknowns)]
     else:
         assert_never(shape)
-    return [*before, *changed, *after], faulted_id
+    return [*before, *changed, *after]
 
 
 def fault_view(
@@ -364,20 +350,19 @@ def fault_view(
             "the first pass before the fault does not reconcile: "
             + "; ".join(clean.messages)
         )
-    faulty, faulted_id = inject(
+    faulty = inject(
         archived.drafts, archived.model, rulings, faults, shown, draft_id, shape
     )
     outcome = critic_round.first(_emitted(faulty, archived.framework))
     if isinstance(outcome, Accepted):
         raise EvalRunError(f"the {shape} fault on {draft_id} gives no problem")
     named = [(problem.kind, problem.claim_id) for problem in outcome.problems]
-    if named != [(kind, faulted_id) for kind in PROBLEMS_BY_SHAPE[shape]]:
+    if named != [(kind, draft_id) for kind in PROBLEMS_BY_SHAPE[shape]]:
         raise EvalRunError(
             f"the {shape} fault on {draft_id} does not give the"
-            f" problems {list(PROBLEMS_BY_SHAPE[shape])} on {faulted_id}:"
-            f" {outcome.messages}"
+            f" problems {list(PROBLEMS_BY_SHAPE[shape])}: {outcome.messages}"
         )
-    return FaultView(draft_id, faulted_id, critic_round, clean, outcome)
+    return FaultView(draft_id, critic_round, clean, outcome)
 
 
 def stored(raw: str, framework: FrameworkName) -> list[Any]:
@@ -561,14 +546,13 @@ def command_recritic_replay(args: argparse.Namespace) -> int:
             "record": record,
             "draft": args.draft,
             "fault": args.fault,
-            "faulted_id": view.faulted_id,
             **result,
         }
         args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     if result["schema_error"] is not None:
         print(f"the answer was not read: {result['schema_error']}")
     print(
-        f"{args.draft} {args.fault} on {view.faulted_id}:"
+        f"{args.draft} {args.fault}:"
         f" {len(result['remaining'])} problems remain,"
         f" {len(result['unbriefed'])} unbriefed changes; status"
         f" {result['status']['answered']} -> {result['status']['repaired']}"

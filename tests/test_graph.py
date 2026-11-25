@@ -1762,6 +1762,7 @@ def test_merge_joins_drafts_in_canonical_order():
             None,
             (),
             quotes_checked=True,
+            ruled_in=(),
         ).summary()
     )
     # Two drafts on quotes and derived facts are the critic's to rule.
@@ -2168,7 +2169,9 @@ def test_a_duplicate_ruling_sends_no_draft_at_all():
     """Dropping one of two rulings on one ID is answerable from the rulings."""
     drafts = [sample_draft("S-01")]
 
-    state = _revise(drafts, [sample_ruling("S-01"), sample_ruling("S-01")])
+    state = _revise(
+        drafts, [sample_ruling("S-01"), sample_ruling("S-01", confidence="low")]
+    )
 
     assert fenced(state[NODES.key("unreconciled_drafts")]) == []
     assert fenced(state[NODES.key("draft_roster")]) == ["S-01"]

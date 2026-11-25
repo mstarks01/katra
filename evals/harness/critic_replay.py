@@ -199,7 +199,16 @@ def round_of(archived: Archived, controls: Sequence[AppliedControl]) -> CriticRo
         None if record is None else record.catalog,
         controls,
         quotes_checked=archived.quotes_checked,
+        ruled_in=ruled_in_of(archived),
     )
+
+
+def ruled_in_of(archived: Archived) -> frozenset[str]:
+    """The units the archived run's rule applied, from its block.
+
+    A failure dump holds no block, and so no applicability to read back.
+    """
+    return frozenset() if archived.block is None else archived.block.applied_units()
 
 
 def shared_keys(archived: Archived) -> dict[str, str]:
@@ -407,7 +416,9 @@ def command_critic_replay(args: argparse.Namespace) -> int:
         args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     for line in agreement_lines(compare(archived, rulings)):
         print(line)
-    problems = review_issues(archived.drafts, rulings, archived.model, {}).problems
+    problems = review_issues(
+        archived.drafts, rulings, archived.model, {}, ruled_in=ruled_in_of(archived)
+    ).problems
     kinds = Counter(problem.kind for problem in problems)
     print(
         f"{len(problems)} problems the re-ask would be sent"

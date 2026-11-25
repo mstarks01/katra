@@ -30,6 +30,8 @@
   const FALLBACK = JSON.parse(document.getElementById("question_fallback").textContent);
   // True for a report the follow-up wrote: it asks nothing more (ADR 0054).
   const FINAL = JSON.parse(document.getElementById("final").textContent);
+  // The review marks code settles without a re-ask, from the server.
+  const SETTLED_KINDS = JSON.parse(document.getElementById("settled_kinds").textContent);
   // False for an analysis submitted with no questions: its report has no
   // Questions section.
   const KATRA_ASKS = JSON.parse(document.getElementById("asks").textContent);
@@ -265,12 +267,17 @@
     // not hold. Dropped the same way, listed the same way, and the reason
     // carries the lost quote or reference so a reader can judge the loss.
     const groundless = (block.dropped_claims || []);
-    // How the first critic pass failed to reconcile with its drafts, before
-    // the bounded re-ask. These key to a claim that may or may not be in the
-    // block -- a dropped draft is ruled on the second pass and a ruling on an
-    // invented ID never had a claim -- so they render as a block-level note
-    // rather than on a finding, grouped by kind.
-    const unreconciled = (block.unreconciled_rulings || []);
+    // How the critic's rulings failed to reconcile with its drafts: the
+    // first-pass problems the bounded re-ask was asked to fix, the changes the
+    // re-ask made that no problem named (unbriefed-change), and the rulings
+    // code dropped without a re-ask (SETTLED_KINDS). These key to a claim that
+    // may or may not be in the block -- a dropped draft is ruled on the second
+    // pass and a ruling on an invented ID never had a claim -- so they render
+    // as block-level notes rather than on a finding, grouped by kind.
+    const unreconciled = (block.unreconciled_rulings || [])
+      .filter(m => !SETTLED_KINDS.includes(m.kind));
+    const settled = (block.unreconciled_rulings || [])
+      .filter(m => SETTLED_KINDS.includes(m.kind));
     // Claims the review kept against every Control row they were shown. The
     // job holds no evidence of the kind their unit needs, so the unit is listed
     // as needing other evidence, and the claim is gone from the block. Each
@@ -279,7 +286,7 @@
     // Whether the fan-in checked this block's quotes. Only `true` says it did:
     // a block from before schema 3.5 holds null, and it reads as unchecked.
     const unchecked = block.quotes_checked !== true;
-    return { unverified, repaired, references, mentions, composed, unmitigated, unknown, groundless, unreconciled, returned, unchecked };
+    return { unverified, repaired, references, mentions, composed, unmitigated, unknown, groundless, unreconciled, settled, returned, unchecked };
   }
 
   // The label of each severity level.
@@ -1550,12 +1557,11 @@
     }
     // A repaired run and a clean one read alike without this. The count per
     // kind is what a reader acts on, so the kinds are grouped.
-    if (marks.unreconciled.length) {
+    const byKindNote = (found, heading) => {
       const note = el("div", "dropped");
-      note.append(el("b", null,
-        `${counted(marks.unreconciled.length, "problem", "problems")} the review's first pass left for its re-ask`));
+      note.append(el("b", null, heading));
       const byKind = new Map();
-      marks.unreconciled.forEach(m => {
+      found.forEach(m => {
         if (!byKind.has(m.kind)) byKind.set(m.kind, []);
         byKind.get(m.kind).push(m.claim_id);
       });
@@ -1567,6 +1573,14 @@
       });
       note.append(list);
       notes.append(note);
+    };
+    if (marks.unreconciled.length) {
+      byKindNote(marks.unreconciled,
+        `${counted(marks.unreconciled.length, "problem", "problems")} the review left for its re-ask or found in it`);
+    }
+    if (marks.settled.length) {
+      byKindNote(marks.settled,
+        `${counted(marks.settled.length, "ruling", "rulings")} code dropped without a re-ask`);
     }
     $("framework-notes").append(notes);
   }

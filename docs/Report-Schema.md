@@ -874,11 +874,12 @@ while saying nothing.
 
 ### `unreconciled_rulings`
 
-How the *first* critic pass failed to reconcile with its drafts, one entry per
-problem, before the bounded re-ask repaired it. **Empty means the first pass
-was clean**, which is the reading that matters: a run that repaired itself is a
-successful run but not a clean one, and this list is the only artifact that
-tells the two apart.
+How the critic's rulings failed to reconcile with its drafts, one entry per
+problem. A first-pass problem is one the bounded re-ask was asked to fix. An
+`invented` or `repeated-ruling` entry is a ruling code dropped without a
+re-ask, on either look. **Empty means the critic's rulings were clean**, which
+is the reading that matters: a run that repaired itself is a successful run but
+not a clean one, and this list is the only artifact that tells the two apart.
 
 A framework whose first pass never reconciles is running on its single retry.
 That is worth knowing from a report rather than from a live run.
@@ -887,7 +888,7 @@ That is worth knowing from a report rather than from a live run.
 class UnreconciledRuling:
     claim_id: str  # the claim the problem is about
     kind: str  # which check found it, from the closed set below
-    message: str  # the sentence the re-ask was asked to fix it by
+    message: str  # the sentence: what the re-ask was asked to fix, or what code dropped
 ```
 
 The kinds. Each is a check the service distinguishes in code, except `confirmed-on-unknown`, `dismissal-off-grounds` and `duplicate-on-unit`, which only archived reports carry:
@@ -895,8 +896,9 @@ The kinds. Each is a check the service distinguishes in code, except `confirmed-
 | `kind` | What went wrong |
 | --- | --- |
 | `dropped` | The critic returned no ruling on a draft it was shown. |
-| `invented` | It ruled on an ID no lane agent drafted. |
-| `duplicate-id` | One ID carries more than one ruling. |
+| `invented` | It ruled on an ID no lane agent drafted. Code dropped the ruling without a re-ask. |
+| `duplicate-id` | One ID carries two rulings that differ. |
+| `repeated-ruling` | One ID carries a ruling twice, word for word. Code kept one without a re-ask. |
 | `confirmed-on-unknown` | Archived reports only. A draft whose own grounds cite an unknown was ruled confirmed. Code decides the status and the critic writes none, so no review writes this kind. |
 | `dismissal-off-grounds` | Archived reports only. A ruling named a fact in `immaterial_unknowns` that the draft's own grounds do not cite. The service removes such an entry, so no review writes this kind. |
 | `duplicate-on-unit` | Archived reports only. A draft naming a catalog unit was rejected as a duplicate. The critic has no duplicate step, so no review writes this kind. |
@@ -905,9 +907,10 @@ The kinds. Each is a check the service distinguishes in code, except `confirmed-
 | `unbriefed-change` | The re-ask changed a ruling no problem named; the first pass's ruling was kept. |
 
 **Read `kind`, never the sentence.** `unbriefed-change` comes from the second
-look and the others from the first pass, and one ruling can produce more than
-one entry — so a consumer counting causes reads the field, and a consumer
-counting distinct rulings reads `claim_id`.
+look, `invented` and `repeated-ruling` come from either look, and the others
+come from the first pass. One ruling can produce more than one entry, so a
+consumer counting causes reads the field, and a consumer counting distinct
+rulings reads `claim_id`.
 
 **A `claim_id` here need not be in the block.** An `invented` entry names an ID
 no lane drafted, and a `dropped` entry names one the re-ask may have ruled

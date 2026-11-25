@@ -35,8 +35,9 @@ from katra.claim_identity import (
     finding_key,
     mechanism_of,
 )
-from katra.claims import AnalysisMarks, ProposedVerdict, Severity
+from katra.claims import AnalysisMarks, ProposedVerdict, Severity, UnknownRef
 from katra.compact import COMPACT_FORMAT
+from katra.critic import complete_rulings
 from katra.critic_round import CriticRound, Reask, rulings_of
 from katra.evidence import evidence_catalog, ground_gloss
 from katra.fan_in import join_drafts
@@ -324,6 +325,22 @@ def two_drafts_at_one_place_that_fail_two_controls_are_two_findings():
 
 
 @decides
+def a_needs_info_threat_reads_low():
+    verdict = ProposedVerdict(
+        reason="encryption at rest is unknown",
+        related_unknowns=[
+            UnknownRef(element_id="store:orders-db", attribute="encryption_at_rest")
+        ],
+    )
+
+    [ruling] = complete_rulings(
+        [sample_draft()], [sample_ruling(verdict=verdict, confidence="high")]
+    )
+
+    assert ruling.confidence == "low"
+
+
+@decides
 def a_threat_that_names_only_zones_is_dropped():
     record = PACKAGES["stride"].record
     data = {
@@ -445,6 +462,7 @@ def a_ruling_whose_fields_do_not_fit_comes_back_to_the_critic(pipeline):  # noqa
         None,
         (),
         quotes_checked=True,
+        ruled_in=(),
     )
 
     outcome = critic_round.first([unreasoned.model_dump(mode="json")])

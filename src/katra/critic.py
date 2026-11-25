@@ -228,6 +228,9 @@ class ReviewProblems(NamedTuple):
     #: ruling on any other drafted ID is already correct and is kept from the
     #: first pass by :func:`merge_retry`, whatever the re-ask returns for it.
     repairable: frozenset[str] = frozenset()
+    #: What code settled without a re-ask (:func:`settle_in_code`), one mark
+    #: per ruling it dropped. The report records them; no re-ask reads them.
+    settled: tuple[UnreconciledRuling, ...] = ()
 
     @property
     def messages(self) -> list[str]:
@@ -288,14 +291,15 @@ def _verdict_shape_issues(rulings: Iterable[Ruling]) -> list[UnreconciledRuling]
     return issues
 
 
-def _confirmed_exclusion_issues(
+def _unrejected_exclusion_issues(
     drafts: Sequence[Claim], rulings: Iterable[Ruling]
 ) -> list[UnreconciledRuling]:
-    """Every completed ruling that confirms a draft ruling its own unit out.
+    """Every completed ruling that does not reject a draft ruling its own unit out.
 
     A draft that excludes its unit (:meth:`~katra.claims.Claim.excludes`)
-    says the unit does not apply, and ``confirmed`` says it does. So the two
-    cannot make one verdict. Which rejection the draft takes is the critic's
+    says the unit does not apply. ``confirmed`` says it applies, and
+    ``needs-info`` says it applies and is unsettled, so neither makes one
+    verdict with the draft. Which rejection the draft takes is the critic's
     judgement, so the ruling goes to the re-ask rather than to a rule here.
     """
     excluding = {draft.id for draft in drafts if type(draft).excludes(draft)}
@@ -303,14 +307,40 @@ def _confirmed_exclusion_issues(
         UnreconciledRuling.of(
             claim_id=ruling.id,
             kind="verdict-shape",
-            message=f"claim {ruling.id!r} excludes its requirement and is ruled"
-            " confirmed, which says the requirement applies: rule it rejected,"
-            " set rejected_because to evidence where the stated facts show it"
-            " does not apply, or to reasoning where they do not, and write the"
-            " reason",
+            message=f"claim {ruling.id!r} excludes its unit and is ruled"
+            f" {ruling.verdict.status}, which says the unit applies: rule it"
+            " rejected, set rejected_because to evidence where the stated facts"
+            " show it does not apply, or to reasoning where they do not, and"
+            " write the reason",
         )
         for ruling in rulings
-        if ruling.id in excluding and ruling.verdict.status == "confirmed"
+        if ruling.id in excluding and ruling.verdict.status != "rejected"
+    ]
+
+
+def _ruled_in_rejection_issues(
+    drafts: Sequence[Claim], rulings: Iterable[Ruling], ruled_in: Collection[str]
+) -> list[UnreconciledRuling]:
+    """Every ``evidence`` rejection of a draft on a unit the package's rule applies.
+
+    An ``evidence`` rejection says the stated facts show the unit does not
+    apply, and the package's own rule over the same facts says it does
+    (:meth:`~katra.claims.Claim.ruled_in`). So the report would state both.
+    Which ruling the draft takes instead is the critic's judgement, so the
+    ruling goes to the re-ask.
+    """
+    applied = {draft.id for draft in drafts if type(draft).unit_of(draft) in ruled_in}
+    return [
+        UnreconciledRuling.of(
+            claim_id=ruling.id,
+            kind="verdict-shape",
+            message=f"claim {ruling.id!r} is rejected for evidence, which says its"
+            " unit does not apply, but the service's rule over the stated facts"
+            " says it applies: rule it again, and reject it for reasoning only"
+            " where its argument fails",
+        )
+        for ruling in rulings
+        if ruling.id in applied and ruling.verdict.rejected_because == "evidence"
     ]
 
 
@@ -619,6 +649,10 @@ def complete_rulings(
     ruling carries no package field, so a rating such as STRIDE's
     ``confidence`` stays empty: nobody rated the draft.
 
+    A ruling that reads ``needs-info`` also takes the rating its package gives
+    a conditional claim (:meth:`~katra.claims.Ruling.rated_as_conditional`):
+    STRIDE's ``confidence`` reads ``low``, whatever the critic rated.
+
     An ``immaterial_unknowns`` entry that names no unknown ground of the draft
     is removed. It dismisses nothing, and left in place it reads as though it
     answered a question. A near-miss spelling of a cited fact therefore leaves
@@ -676,7 +710,9 @@ def complete_rulings(
                 "reason": ruling.verdict.reason or rests_on(related),
             }
         )
-        completed.append(ruling.model_copy(update={"verdict": verdict}))
+        completed.append(
+            ruling.model_copy(update={"verdict": verdict}).rated_as_conditional()
+        )
     ruled = {ruling.id for ruling in rulings}
     completed += [
         Ruling(
@@ -699,22 +735,72 @@ def _without_stray_dismissals(ruling: Ruling, cited: Iterable[UnknownRef]) -> Ru
     return ruling.model_copy(update={"verdict": verdict})
 
 
+def settle_in_code(
+    drafted: Collection[str], rulings: Sequence[Ruling]
+) -> tuple[list[Ruling], list[UnreconciledRuling]]:
+    """The rulings less what code can drop without a re-ask, and a mark for each.
+
+    A ruling on an ID no lane agent drafted rules on nothing, so code drops it.
+    A ruling that repeats an earlier ruling on the same ID word for word adds
+    nothing, so code keeps the first. It reads the rulings after
+    :func:`complete_rulings`, so two rulings that completion makes the same,
+    such as two on a misfiled draft, are one. Neither needs a model to decide, and a
+    re-ask for either costs a paid call that can only return what code already
+    knows. Two rulings on one ID that differ stay: which one the draft gets is
+    the critic's judgement.
+    """
+    kept: list[Ruling] = []
+    settled: list[UnreconciledRuling] = []
+    seen: dict[str, list[Ruling]] = {}
+    for ruling in rulings:
+        if ruling.id not in drafted:
+            settled.append(
+                UnreconciledRuling.of(
+                    claim_id=ruling.id,
+                    kind="invented",
+                    message=(
+                        f"critic returned claim {ruling.id!r}, which no lane agent"
+                        " drafted; code dropped the ruling"
+                    ),
+                )
+            )
+        elif ruling in seen.get(ruling.id, []):
+            settled.append(
+                UnreconciledRuling.of(
+                    claim_id=ruling.id,
+                    kind="repeated-ruling",
+                    message=(
+                        f"critic ruled claim {ruling.id!r} twice alike; code kept"
+                        " one ruling"
+                    ),
+                )
+            )
+        else:
+            seen.setdefault(ruling.id, []).append(ruling)
+            kept.append(ruling)
+    return kept, settled
+
+
 def review_issues(
     drafts: Sequence[Claim],
     rulings: Sequence[Ruling],
     system_model: SystemModel,
     shown: ShownRows,
+    *,
+    ruled_in: Collection[str],
 ) -> ReviewProblems:
     """Every way the critic's rulings fail to account for the drafts it saw.
 
     The mechanical check, returned rather than raised, so the graph can *route*
     on it: a falsy result means the rulings are assemblable, a truthy one is
-    what the bounded re-ask is asked to fix. The critic must rule on exactly the
-    drafted set — no claim invented, none dropped — with unique IDs, with each
-    verdict's fields making a coherent verdict, and each ``needs-info`` naming
-    only unknowns the model actually contains. It reads the rulings after
-    :func:`complete_rulings`, so the status each one reads is the one code
-    decides.
+    what the bounded re-ask is asked to fix. The critic must rule on every
+    drafted ID, once each, with each verdict's fields making a coherent
+    verdict, and each ``needs-info`` naming only unknowns the model actually
+    contains. A ruling on an ID no lane drafted, and a ruling that repeats an
+    earlier one word for word once completed, are dropped by
+    :func:`settle_in_code`, and its marks ride on the result as ``settled``.
+    It reads the rulings after :func:`complete_rulings`, so the status each
+    one reads is the one code decides.
 
     **Verdict shape is checked here rather than by the schema**, and that is
     the reason this function is worth reading twice. The rules are conditional
@@ -727,10 +813,9 @@ def review_issues(
 
     **A malformed claim ID is checked here too, and by accident rather than by
     design.** Nothing below looks at an ID's spelling — which is what lets this
-    run over a framework whose IDs are requirement numbers: the set comparison at
-    the top requires the ruled IDs to equal the drafted ones, which an ill-formed
-    ID fails on both sides at once — the draft it meant to name reads as dropped,
-    and the ID it actually wrote reads as invented. That is a stronger
+    run over a framework whose IDs are requirement numbers: an ill-formed ID
+    names no draft, so code drops its ruling as invented, and the draft it
+    meant to name reads as dropped and goes to the re-ask. That is a stronger
     constraint than a pattern and it produces better messages, so
     :class:`~katra.claims.Ruling` carries no pattern to fire first and
     fatally.
@@ -744,15 +829,18 @@ def review_issues(
     reference never was.
 
     ``shown`` is the Control rows each draft was shown, each with its Control
-    (:func:`shown_rows`), which the rulings answer.
+    (:func:`shown_rows`), which the rulings answer. ``ruled_in`` is each unit
+    the package's rule applies (:meth:`~katra.claims.Claim.ruled_in`); a
+    package whose rule applies none passes an empty set.
     """
-    rulings = complete_rulings(drafts, rulings)
     drafted_ids = {draft.id for draft in drafts}
+    rulings, settled = settle_in_code(drafted_ids, complete_rulings(drafts, rulings))
     ruled_ids = {ruling.id for ruling in rulings}
     dropped = sorted(drafted_ids - ruled_ids)
     per_ruling = (
         _verdict_shape_issues(rulings)
-        + _confirmed_exclusion_issues(drafts, rulings)
+        + _unrejected_exclusion_issues(drafts, rulings)
+        + _ruled_in_rejection_issues(drafts, rulings, ruled_in)
         + _unresolved_unknown_ref_issues(rulings, system_model)
         + _control_row_issues(rulings, shown)
     )
@@ -764,21 +852,10 @@ def review_issues(
         )
         for claim_id in dropped
     ]
-    problems += [
-        UnreconciledRuling.of(
-            claim_id=claim_id,
-            kind="invented",
-            message=(
-                f"critic returned claim {claim_id!r}, which no lane agent drafted"
-            ),
-        )
-        for claim_id in sorted(ruled_ids - drafted_ids)
-    ]
     problems += _duplicate_id_issues(rulings)
     problems += per_ruling
     # A duplicate ID implicates no draft: the re-ask drops one of two rulings on
-    # an ID it already ruled, which is answerable from the rulings alone. An
-    # invented ID implicates none either — there is no draft behind it to show.
+    # an ID it already ruled, which is answerable from the rulings alone.
     #
     # Every per-ruling problem does implicate one. Naming the unknown a
     # needs-info hangs on, or writing the reason a rejection must give a reader,
@@ -797,6 +874,7 @@ def review_issues(
         implicated=frozenset(implicated),
         rulings=tuple(rulings),
         repairable=frozenset(implicated | duplicated),
+        settled=tuple(settled),
     )
 
 
@@ -826,10 +904,8 @@ def merge_retry(
       re-ask ruling that differs from it is recorded and discarded.
 
     An ID no lane agent drafted is not resolved here. The first pass's copy
-    is left out, because removing it was the re-ask's whole instruction; a
-    copy the re-ask returned anyway is passed through, so the check that
-    follows names it and the job fails. A re-ask that
-    invents is the service's defect, and a mark is not the place for one.
+    is left out, and a copy the re-ask returned is passed through, so
+    :func:`settle_in_code` drops it with a mark in the check that follows.
     """
     named = set(repairable)
     known = set(drafted)
@@ -899,6 +975,8 @@ def assemble_claims(
     system_model: SystemModel,
     schemas: FrameworkSchemas,
     shown: ShownRows,
+    *,
+    ruled_in: Collection[str],
 ) -> AssembledClaims:
     """Merge one critic's rulings onto its drafts, split into the block's arrays.
 
@@ -913,7 +991,7 @@ def assemble_claims(
     :func:`~katra.fan_in.join_drafts` left them — so the audit array does not inherit
     whatever order the critic happened to emit its rulings in.
     """
-    problems = review_issues(drafts, rulings, system_model, shown)
+    problems = review_issues(drafts, rulings, system_model, shown, ruled_in=ruled_in)
     if problems:
         raise CriticOutputError("; ".join(problems.messages))
 

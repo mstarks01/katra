@@ -16,6 +16,7 @@ from katra import critic
 from katra.claims import (
     AnalysisMarks,
     ProposedVerdict,
+    Ruling,
     UnknownRef,
     UnverifiedGround,
 )
@@ -40,7 +41,7 @@ from katra.graph import (
     FrameworkNodes,
 )
 from katra.markdown_loader import MarkdownLoader
-from tests.factories import sample_draft, sample_ruling, valid_model
+from tests.factories import asvs_draft, sample_draft, sample_ruling, valid_model
 from tests.test_graph import PROJECT_ROOT
 
 NO_MARKS = AnalysisMarks()
@@ -60,6 +61,7 @@ def round_over(*drafts, marks: AnalysisMarks = NO_MARKS) -> CriticRound:
         None,
         (),
         quotes_checked=True,
+        ruled_in=(),
     )
 
 
@@ -233,9 +235,9 @@ class TestTheSecondLook:
         assert isinstance(critic_round.outcome(merged), Accepted)
         assert drift == []
 
-    def test_an_invented_ruling_in_the_re_ask_still_fails_the_second_look(self):
-        """The merge resolves what the first pass got right; it does not excuse a
-        re-ask that invents. That is a loud failure."""
+    def test_an_invented_ruling_in_the_re_ask_is_dropped_with_a_mark(self):
+        """Code drops a ruling on an ID nobody drafted, on the second look as on
+        the first (#2360)."""
         drafts = two_drafts()
         first = revised(drafts, sample_ruling("S-01")).first
 
@@ -247,14 +249,18 @@ class TestTheSecondLook:
             sample_ruling("X-99"),
         )
 
-        assert isinstance(outcome, Failed)
-        assert any("X-99" in message for message in outcome.messages)
+        assert isinstance(outcome, Accepted)
+        assert [(mark.kind, mark.claim_id) for mark in outcome.settled] == [
+            ("invented", "X-99")
+        ]
 
     def test_a_duplicated_id_is_the_re_asks_to_repair(self):
         """A duplicate ID names no draft to read, but it is the re-ask's to fix, so
         the merge takes the re-ask's ruling for it rather than the first pass's pair."""
         drafts = [sample_draft("S-01")]
-        revision = revised(drafts, sample_ruling("S-01"), sample_ruling("S-01"))
+        revision = revised(
+            drafts, sample_ruling("S-01"), sample_ruling("S-01", confidence="low")
+        )
         assert revision.first.repairable == ["S-01"]
         assert revision.unreconciled == []
 
@@ -350,3 +356,27 @@ def test_the_re_ask_artifacts_are_the_rendered_review_keys_but_the_view():
 
     assert reask == set(REVIEW_ARTIFACTS.values()) - {"draft_view"}
     assert reask == set(FRAMEWORK_RENDERED_ARTIFACTS) - {"draft_view"}
+
+
+def test_the_round_holds_the_rulings_to_the_units_its_rule_applies():
+    """The round passes ``ruled_in`` to the check, so the graph re-asks (#2358)."""
+    draft = asvs_draft()
+    round_ = CriticRound.of(
+        "asvs",
+        valid_model(),
+        [draft],
+        AnalysisMarks(),
+        None,
+        (),
+        quotes_checked=True,
+        ruled_in={"V6.2.1"},
+    )
+    ruling = Ruling(
+        id=draft.id,
+        verdict=ProposedVerdict(rejected_because="evidence", reason="no passwords"),
+    )
+
+    outcome = round_.first([ruling.model_dump(mode="json")])
+
+    assert isinstance(outcome, Reask)
+    assert [problem.claim_id for problem in outcome.problems] == [draft.id]
