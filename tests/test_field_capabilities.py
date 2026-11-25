@@ -354,3 +354,15 @@ def test_a_machine_reaching_a_web_process_proves_none():
     model.get("process:web-app").interface_kind = "web"
 
     assert "browser-frontend" not in _written(model)
+
+
+def test_a_web_process_reaching_a_person_proves_none():
+    """The person must start the flow: a response or a push proves nothing."""
+    model = _model()
+    model.get("entity:customer").kind = "human"
+    model.get("process:web-app").interface_kind = "web"
+    for flow in model.data_flows:
+        if "entity:customer" in (flow.source, flow.destination):
+            flow.source, flow.destination = flow.destination, flow.source
+
+    assert "browser-frontend" not in _written(model)

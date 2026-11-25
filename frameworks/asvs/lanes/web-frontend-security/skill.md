@@ -10,7 +10,7 @@ Chapter boundaries: how a response body was built is chapter V1. What a session 
 
 The service decides which requirements of this chapter apply, and the scope line lists the ones it rules in and the ones it leaves open. Most wait on whether people use the application through a web browser. A few wait on whether it serves anything a browser can open, which an API with no frontend still does.
 
-Read the model for it. A `technology` naming a browser framework or a web UI, an `ExternalEntity` of kind `human` reaching a web process, a `protocol` naming HTTP against a user-facing element — any of these answers it. A system whose only external callers are machines does not, and then the open requirements that wait on a browser frontend can be ruled out on that fact. Say which fact.
+Read the model for it. Where a person reaches a web process, the service rules a browser frontend in. A `technology` naming a browser framework or a web UI, or a `protocol` naming HTTP against a user-facing element, also answers it. A system whose only external callers are machines does not, and then the open requirements that wait on a browser frontend can be ruled out on that fact. Say which fact.
 
 ### The requirements of this chapter
 

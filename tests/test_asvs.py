@@ -1932,12 +1932,21 @@ class TestEachLaneAsksForItsOwnUnits:
         return proposal["properties"]["requirement"]["enum"]
 
     @pytest.mark.parametrize("lane", PACKAGES["asvs"].lanes)
-    def test_the_enum_holds_the_chapter_at_every_level(self, lane):
+    def test_the_fan_in_knows_every_key_the_enum_offers(self, lane):
+        knows = PACKAGES["asvs"].id_rule.knows
+
+        keys = self._requirement_enum(lane)
+
+        assert keys
+        assert all(knows(lane, key) for key in keys)
+
+    def test_the_enums_together_hold_every_published_requirement(self):
         from katra.frameworks.asvs.catalog import requirements_for
 
-        keys = [requirement.key for requirement in requirements_for(3, lane)]
+        lanes = PACKAGES["asvs"].lanes
+        offered = sum(len(self._requirement_enum(lane)) for lane in lanes)
 
-        assert self._requirement_enum(lane) == keys
+        assert offered == len(requirements_for(3)) == 345
 
     def test_a_stride_lane_asks_for_the_shared_shape(self):
         stride = schemas_for("stride")

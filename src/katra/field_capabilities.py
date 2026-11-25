@@ -131,10 +131,11 @@ def _internal(
 def _person_to_web(index: _ModelIndex) -> Iterator[DataFlow]:
     """Flows from a person to a process that presents a web interface (#2371).
 
-    Kind, interface and flow ends are closed fields, so the row reads only
-    what the model states. A mobile or command-line client of a web process
-    reads as present too; a wrong "present" only adds requirements to check
-    (ADR 0085), and absence stays with the lane.
+    Kind, interface and flow ends are closed fields. Like
+    :func:`_web_on_internet`, the row also reads a kind or an interface that an
+    Assumption gives. A mobile or command-line client of a web process reads
+    as present too; a wrong "present" only adds requirements to check (ADR
+    0085), and absence stays with the lane.
     """
     for flow in index.flows:
         if flow.source in index.people and flow.destination in index.web_processes:

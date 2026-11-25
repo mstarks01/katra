@@ -34,7 +34,7 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping, Sequence
 from functools import cache
 from types import MappingProxyType
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import (
     BaseModel,
@@ -603,12 +603,12 @@ def lane_proposals(lane: str) -> type[RequirementProposals]:
         f"RequirementProposal_{suffix}",
         __base__=RequirementProposal,
         requirement=(
-            str,
-            Field(
-                pattern=REQUIREMENT_KEY_PATTERN,
-                max_length=10,
-                json_schema_extra={"enum": keys},
-            ),
+            Annotated[
+                str,
+                RequirementProposal.model_fields["requirement"],
+                Field(json_schema_extra={"enum": keys}),
+            ],
+            ...,
         ),
     )
     return create_model(
