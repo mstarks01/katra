@@ -42,7 +42,7 @@ def corpus():
 
 
 def test_loads_every_shipped_case(corpus):
-    assert len(corpus) == 20
+    assert len(corpus) == 21
     assert [case.id for case in corpus] == sorted(case.id for case in corpus)
 
 

@@ -1,0 +1,247 @@
+[
+  {
+    "chapter": "encoding-and-sanitization",
+    "requirement": "V1.3.6",
+    "affected_element_ids": [
+      "process:export-worker",
+      "flow:process:export-worker>entity:partner-system>send-webhook"
+    ],
+    "claim": "The worker posts to whatever callback URL a partner sets, and checks nothing about where it points.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright, and the partner sets the URL itself."
+  },
+  {
+    "chapter": "configuration",
+    "requirement": "V13.2.4",
+    "affected_element_ids": [
+      "process:export-worker",
+      "flow:process:export-worker>entity:partner-system>send-webhook"
+    ],
+    "claim": "Nothing limits which outside addresses the worker may send webhooks to.",
+    "tier": "expected",
+    "disposition": "gap-from-prose",
+    "notes": "The same stated fact as V1.3.6, read as a deployment control."
+  },
+  {
+    "chapter": "secure-communication",
+    "requirement": "V12.3.1",
+    "affected_element_ids": [
+      "flow:process:export-worker>entity:partner-system>send-webhook"
+    ],
+    "claim": "Webhooks that carry download links go to http:// callback URLs as well as https:// ones.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright: callback URLs can start with http://."
+  },
+  {
+    "chapter": "secure-communication",
+    "requirement": "V12.3.3",
+    "affected_element_ids": [
+      "flow:process:export-api>store:partner-registry>check-partners",
+      "flow:process:export-api>store:export-queue>queue-export-job",
+      "flow:process:export-worker>store:export-queue>take-export-jobs",
+      "flow:process:export-worker>store:order-database>read-brand-rows",
+      "flow:process:export-worker>store:export-file-store>write-export-file",
+      "flow:process:admin-console>store:partner-registry>manage-partners"
+    ],
+    "claim": "Nothing states that the connections from the export API, the worker and the admin console to the queue, the registry and the stores are encrypted.",
+    "tier": "expected",
+    "disposition": "needs-more-prose",
+    "notes": "The source says nobody has written it down. The submitter can state it, and the deployed setting also settles it.",
+    "also_acceptable": [
+      "needs-config"
+    ]
+  },
+  {
+    "chapter": "configuration",
+    "requirement": "V13.1.1",
+    "affected_element_ids": [
+      "flow:process:export-api>store:partner-registry>check-partners",
+      "flow:process:export-api>store:export-queue>queue-export-job",
+      "flow:process:export-worker>store:export-queue>take-export-jobs",
+      "flow:process:export-worker>store:order-database>read-brand-rows",
+      "flow:process:export-worker>store:export-file-store>write-export-file",
+      "flow:process:admin-console>store:partner-registry>manage-partners"
+    ],
+    "claim": "The description says nobody has written down how the services connect to the queue, the registry and the stores.",
+    "tier": "expected",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright as missing documentation."
+  },
+  {
+    "chapter": "configuration",
+    "requirement": "V13.2.1",
+    "affected_element_ids": [
+      "flow:process:export-api>store:partner-registry>check-partners",
+      "flow:process:export-api>store:export-queue>queue-export-job",
+      "flow:process:export-worker>store:export-queue>take-export-jobs",
+      "flow:process:export-worker>store:order-database>read-brand-rows",
+      "flow:process:export-worker>store:export-file-store>write-export-file",
+      "flow:process:admin-console>store:partner-registry>manage-partners"
+    ],
+    "claim": "Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry, the order database and the file store.",
+    "tier": "expected",
+    "disposition": "needs-more-prose",
+    "notes": "The source says nobody has written it down. It names a database account for the worker's read of the order database, but not how that connection authenticates, and an account that reads every brand's tables can be a shared privileged account.",
+    "also_acceptable": [
+      "needs-config"
+    ]
+  },
+  {
+    "chapter": "configuration",
+    "requirement": "V13.3.2",
+    "affected_element_ids": [
+      "store:partner-registry",
+      "process:admin-console",
+      "flow:process:admin-console>store:partner-registry>manage-partners"
+    ],
+    "claim": "Every partner manager can read every partner's client secret back from the registry.",
+    "tier": "expected",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright: the secrets are kept in plain text so a partner manager can read one back to a partner. V11.4.2 is left out because it governs user passwords, and V13.3.1 because it governs the backend secrets the application itself uses. A partner's client secret is neither, so this record holds the stated plain-text storage."
+  },
+  {
+    "chapter": "authorization",
+    "requirement": "V8.2.2",
+    "affected_element_ids": [
+      "flow:entity:partner-system>store:export-file-store>download-export",
+      "store:export-file-store",
+      "process:export-api",
+      "flow:entity:partner-system>process:export-api>request-exports"
+    ],
+    "claim": "Anyone who holds a signed download link gets the file for seven days with no token, and nothing states that the export API checks that a job belongs to the partner who asks for its status.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "The download half is stated outright: the file store serves the file to anyone who holds the link. The job-status half is silent and alone would be needs-code; the stated half settles the record. V14.2.1 is left out: the source does not say where the link carries its signature."
+  },
+  {
+    "chapter": "authorization",
+    "requirement": "V8.2.1",
+    "affected_element_ids": [
+      "process:export-api",
+      "flow:entity:partner-system>process:export-api>request-exports"
+    ],
+    "claim": "Only the brand scope is stated as checked; whether a partner limited to orders can export customers is a hedge.",
+    "tier": "expected",
+    "disposition": "needs-code",
+    "notes": "One person thinks the check exists, and nobody has confirmed it."
+  },
+  {
+    "chapter": "authorization",
+    "requirement": "V8.4.1",
+    "affected_element_ids": [
+      "process:export-worker",
+      "store:export-queue",
+      "store:order-database",
+      "flow:process:export-worker>store:order-database>read-brand-rows"
+    ],
+    "claim": "The worker reads every brand's tables with one account and exports the brand a job names without checking it against the partner's scopes.",
+    "tier": "expected",
+    "disposition": "needs-config",
+    "notes": "The export API checks the brand scope when the job is created, so the gap turns on who else can write to the queue, which is a permission grant.",
+    "also_acceptable": [
+      "needs-code"
+    ]
+  },
+  {
+    "chapter": "data-protection",
+    "requirement": "V14.2.4",
+    "affected_element_ids": [
+      "store:export-file-store"
+    ],
+    "claim": "Exports of customer personal data stay in the file store for ever, with no expiry rule.",
+    "tier": "expected",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright: nobody deletes finished files."
+  },
+  {
+    "chapter": "security-logging-and-error-handling",
+    "requirement": "V16.3.3",
+    "affected_element_ids": [
+      "process:admin-console",
+      "flow:process:admin-console>store:partner-registry>manage-partners",
+      "flow:entity:partner-system>store:export-file-store>download-export"
+    ],
+    "claim": "Changes to a partner's scopes are not logged, and downloads of exports are not recorded anywhere.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright for both events."
+  },
+  {
+    "chapter": "security-logging-and-error-handling",
+    "requirement": "V16.4.2",
+    "affected_element_ids": [
+      "store:partner-registry",
+      "process:admin-console",
+      "flow:process:admin-console>store:partner-registry>manage-partners"
+    ],
+    "claim": "The admin console can edit and delete any audit row.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright."
+  },
+  {
+    "chapter": "security-logging-and-error-handling",
+    "requirement": "V16.4.3",
+    "affected_element_ids": [
+      "store:partner-registry"
+    ],
+    "claim": "The audit log is a table in the partner registry that the admin console writes, not a separate system.",
+    "tier": "expected",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright."
+  },
+  {
+    "chapter": "security-logging-and-error-handling",
+    "requirement": "V16.3.1",
+    "affected_element_ids": [
+      "process:export-api",
+      "flow:process:export-api>store:partner-registry>check-partners"
+    ],
+    "claim": "Issued tokens are logged; nothing states that failed client ID and secret checks are logged.",
+    "tier": "expected",
+    "disposition": "needs-more-prose",
+    "notes": "The source describes its logging in prose and names a row for each token issued. A fuller description can state whether failed checks are logged, and the code also settles it.",
+    "also_acceptable": [
+      "needs-code"
+    ]
+  },
+  {
+    "chapter": "secure-coding-and-architecture",
+    "requirement": "V15.2.2",
+    "affected_element_ids": [
+      "process:export-api",
+      "process:export-worker",
+      "store:export-queue"
+    ],
+    "claim": "Nothing limits how many exports a partner can ask for or how long the date range can be, and one worker takes jobs one at a time.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "Stated outright."
+  },
+  {
+    "chapter": "validation-and-business-logic",
+    "requirement": "V2.4.1",
+    "affected_element_ids": [
+      "process:export-api",
+      "flow:entity:partner-system>process:export-api>request-exports"
+    ],
+    "claim": "No control stops a partner from calling the export function without limit to pull bulk data.",
+    "tier": "expected",
+    "disposition": "gap-from-prose",
+    "notes": "The same stated absence as V15.2.2, read as anti-automation against data exfiltration."
+  },
+  {
+    "chapter": "oauth-and-oidc",
+    "requirement": "V10.4.11",
+    "affected_element_ids": [
+      "process:admin-console",
+      "flow:entity:partner-manager>process:admin-console>use-admin-console"
+    ],
+    "claim": "One partner manager sets and widens a partner's scopes alone, and nothing states that a partner gets only the scopes it needs.",
+    "tier": "expected",
+    "disposition": "needs-people",
+    "notes": "The source states that one manager acts alone; whether managers keep scopes minimal is a practice to ask the team about."
+  }
+]

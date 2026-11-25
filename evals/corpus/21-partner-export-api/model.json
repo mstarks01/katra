@@ -1,0 +1,367 @@
+{
+  "external_entities": [
+    {
+      "id": "entity:partner-system",
+      "name": "partner system",
+      "description": "An approved partner's system, such as a fulfilment house's. It asks for exports, receives webhooks at its callback URL and downloads finished files.",
+      "assets": [],
+      "source_excerpt": "A partner's system calls the export API over HTTPS.",
+      "source_label": "System description",
+      "kind": "external-system",
+      "trust_zone": "boundary:internet"
+    },
+    {
+      "id": "entity:partner-manager",
+      "name": "partner manager",
+      "description": "Approves partners in the admin console, creates their client ID and secret and sets their scopes. One partner manager can approve a partner and widen its scopes alone.",
+      "assets": [],
+      "source_excerpt": "Our partner managers approve partners in the admin console.",
+      "source_label": "System description",
+      "kind": "human",
+      "trust_zone": "boundary:office-vpn"
+    }
+  ],
+  "processes": [
+    {
+      "id": "process:export-api",
+      "name": "export API",
+      "description": "Issues one-hour access tokens for a client ID and secret at its token endpoint, creates export jobs, answers job status by job ID and lets a partner set its own callback URL. Checks the brand scope when a partner asks for an export. Writes an audit row for each token and each job.",
+      "assets": [
+        "credentials"
+      ],
+      "source_excerpt": "A partner's system calls the export API over HTTPS. The export API is on the internet.",
+      "source_label": "System description",
+      "technology": "HTTPS API with a token endpoint",
+      "trust_zone": "boundary:cloud-account",
+      "exposure": "internet-facing",
+      "interface_kind": "web",
+      "notes": "Nobody has confirmed whether it checks the customers/orders scope, and nobody wrote down whether it checks that a job belongs to the partner who asks for its status. Job IDs count up from 1. Nobody set a limit on how many exports a partner can ask for, or on how long the date range can be."
+    },
+    {
+      "id": "process:export-worker",
+      "name": "export worker",
+      "description": "Takes export jobs off the queue one at a time, reads the brand the job names from the order database without checking it against the partner's scopes again, writes the CSV file and posts a webhook to the callback URL the job carries. It waits for the webhook call to finish before it takes the next job, and does not check where a callback URL points.",
+      "assets": [
+        "pii",
+        "business-critical-data"
+      ],
+      "source_excerpt": "The export worker takes jobs off the export queue one at a time.",
+      "source_label": "System description",
+      "technology": "unknown",
+      "trust_zone": "boundary:cloud-account",
+      "exposure": "unknown",
+      "interface_kind": "non-web"
+    },
+    {
+      "id": "process:admin-console",
+      "name": "admin console",
+      "description": "Where partner managers approve partners, create client IDs and secrets and set scopes. It can edit and delete any row in the partner registry, the audit table included. Scope changes are not written to the audit log.",
+      "assets": [
+        "credentials"
+      ],
+      "source_excerpt": "The admin console runs in our cloud account and is reachable only over the office VPN.",
+      "source_label": "System description",
+      "technology": "unknown",
+      "trust_zone": "boundary:cloud-account",
+      "exposure": "internal",
+      "interface_kind": "unknown"
+    }
+  ],
+  "data_stores": [
+    {
+      "id": "store:partner-registry",
+      "name": "partner registry",
+      "description": "Each partner's client ID, its client secret and its scopes, and the audit log table. The client secrets are kept in plain text, so that a partner manager can read a secret back to a partner who lost it, and they never expire.",
+      "assets": [
+        "credentials",
+        "business-critical-data"
+      ],
+      "source_excerpt": "The partner registry keeps client secrets in plain text, so that a partner manager can read a secret back to a partner who lost it.",
+      "source_label": "System description",
+      "technology": "unknown",
+      "trust_zone": "boundary:cloud-account",
+      "data_classification": "unknown",
+      "encryption_at_rest": "unknown",
+      "notes": "The source states how the partner registry is protected at rest is not recorded. The audit log is a table in it; the admin console can edit and delete any row, the audit table included."
+    },
+    {
+      "id": "store:export-queue",
+      "name": "export queue",
+      "description": "Export jobs, each carrying the brand, the record type, the date range and the partner's callback URL.",
+      "assets": [],
+      "source_excerpt": "The job carries the brand, the record type, the date range and the partner's callback URL.",
+      "source_label": "System description",
+      "technology": "unknown",
+      "trust_zone": "boundary:cloud-account",
+      "data_classification": "unknown",
+      "encryption_at_rest": "unknown"
+    },
+    {
+      "id": "store:order-database",
+      "name": "order database",
+      "description": "Every merchant brand's customers and orders.",
+      "assets": [
+        "pii",
+        "business-critical-data"
+      ],
+      "source_excerpt": "Every brand's customers and orders are in the order database.",
+      "source_label": "System description",
+      "technology": "unknown",
+      "trust_zone": "boundary:cloud-account",
+      "data_classification": "unknown",
+      "encryption_at_rest": "unknown",
+      "notes": "The source states how the order database is protected at rest is not recorded."
+    },
+    {
+      "id": "store:export-file-store",
+      "name": "export file store",
+      "description": "Finished exports as CSV files holding customer names, email addresses, postal addresses and order history. Nobody deletes finished files.",
+      "assets": [
+        "pii",
+        "business-critical-data"
+      ],
+      "source_excerpt": "The worker writes each finished export as a CSV file to the export file store.",
+      "source_label": "System description",
+      "technology": "unknown",
+      "trust_zone": "boundary:cloud-account",
+      "data_classification": "unknown",
+      "encryption_at_rest": "unknown; the files are not encrypted by the platform team, and nobody has checked whether the file store encrypts them"
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "flow:entity:partner-system>process:export-api>request-exports",
+      "name": "request exports",
+      "description": "The partner system swaps its client ID and secret for an access token that lasts one hour, asks for exports, asks for a job's status by its job ID and sets its callback URL. The client secret never expires and cannot be rotated without deleting the partner and approving it again.",
+      "assets": [
+        "credentials"
+      ],
+      "source_excerpt": "The partner's system swaps them at the export API's token endpoint for an access token that lasts one hour.",
+      "source_label": "System description",
+      "source": "entity:partner-system",
+      "destination": "process:export-api",
+      "protocol": "HTTPS",
+      "authentication": "secret never expires; rotate it only after deleting the partner",
+      "data_description": "token requests, export requests for one brand, record type and date range, job status by job ID, and callback URLs",
+      "encryption_in_transit": "HTTPS",
+      "operations": "read-write"
+    },
+    {
+      "id": "flow:entity:partner-system>store:export-file-store>download-export",
+      "name": "download export",
+      "description": "The partner system downloads a finished file straight from the export file store with the signed download link the webhook carried. The link works for seven days, anyone who holds it can download, and the download asks for no token.",
+      "assets": [
+        "pii",
+        "business-critical-data"
+      ],
+      "source_excerpt": "Anyone who holds the link can download the file straight from the export file store; the download asks for no token.",
+      "source_label": "System description",
+      "source": "entity:partner-system",
+      "destination": "store:export-file-store",
+      "protocol": "unknown",
+      "authentication": "signed link",
+      "data_description": "the finished CSV export",
+      "encryption_in_transit": "unknown",
+      "operations": "read",
+      "notes": "Downloads are not recorded anywhere."
+    },
+    {
+      "id": "flow:process:export-api>store:partner-registry>check-partners",
+      "name": "check partners",
+      "description": "The export API checks client IDs and secrets, reads scopes and writes an audit row for each token and each export job.",
+      "assets": [
+        "credentials"
+      ],
+      "source_excerpt": "The export API checks each client ID and secret against the partner registry and reads the partner's scopes from there.",
+      "source_label": "System description",
+      "notes": "The source states nobody has written down how the export API connects to the partner registry, or whether the connection is encrypted.",
+      "source": "process:export-api",
+      "destination": "store:partner-registry",
+      "protocol": "unknown",
+      "authentication": "unknown",
+      "data_description": "client IDs, client secrets, scopes and audit rows",
+      "encryption_in_transit": "unknown",
+      "operations": "read-write"
+    },
+    {
+      "id": "flow:process:export-api>store:export-queue>queue-export-job",
+      "name": "queue export job",
+      "description": "The export API puts an export job on the export queue.",
+      "assets": [],
+      "source_excerpt": "The export API puts an export job on the export queue and returns a job ID.",
+      "source_label": "System description",
+      "notes": "The source states nobody has written down how the export API connects to the export queue, or whether the connection is encrypted.",
+      "source": "process:export-api",
+      "destination": "store:export-queue",
+      "protocol": "unknown",
+      "authentication": "unknown",
+      "data_description": "the brand, the record type, the date range and the partner's callback URL",
+      "encryption_in_transit": "unknown",
+      "operations": "write"
+    },
+    {
+      "id": "flow:process:export-worker>store:export-queue>take-export-jobs",
+      "name": "take export jobs",
+      "description": "The export worker takes jobs off the export queue one at a time.",
+      "assets": [],
+      "source_excerpt": "The export worker takes jobs off the export queue one at a time.",
+      "source_label": "System description",
+      "notes": "The source states nobody has written down how the worker connects to the export queue, or whether the connection is encrypted.",
+      "source": "process:export-worker",
+      "destination": "store:export-queue",
+      "protocol": "unknown",
+      "authentication": "unknown",
+      "data_description": "the brand, the record type, the date range and the partner's callback URL",
+      "encryption_in_transit": "unknown",
+      "operations": "read"
+    },
+    {
+      "id": "flow:process:export-worker>store:order-database>read-brand-rows",
+      "name": "read brand rows",
+      "description": "The export worker reads the rows of the brand the job names, with one database account that can read every brand's tables.",
+      "assets": [
+        "pii",
+        "business-critical-data"
+      ],
+      "source_excerpt": "It reads the rows from the order database with one database account that can read every brand's tables.",
+      "source_label": "System description",
+      "notes": "The source states nobody has written down how the worker connects to the order database, or whether the connection is encrypted.",
+      "source": "process:export-worker",
+      "destination": "store:order-database",
+      "protocol": "unknown",
+      "authentication": "account for every brand",
+      "data_description": "a brand's customers or orders for the date range",
+      "encryption_in_transit": "unknown",
+      "operations": "read"
+    },
+    {
+      "id": "flow:process:export-worker>store:export-file-store>write-export-file",
+      "name": "write export file",
+      "description": "The export worker writes each finished export as a CSV file.",
+      "assets": [
+        "pii",
+        "business-critical-data"
+      ],
+      "source_excerpt": "The worker writes each finished export as a CSV file to the export file store.",
+      "source_label": "System description",
+      "notes": "The source states nobody has written down how the worker connects to the export file store, or whether the connection is encrypted.",
+      "source": "process:export-worker",
+      "destination": "store:export-file-store",
+      "protocol": "unknown",
+      "authentication": "unknown",
+      "data_description": "customer names, email addresses, postal addresses and order history",
+      "encryption_in_transit": "unknown",
+      "operations": "write"
+    },
+    {
+      "id": "flow:process:export-worker>entity:partner-system>send-webhook",
+      "name": "send webhook",
+      "description": "When a file is ready, the export worker posts a webhook that carries the signed download link to the partner's callback URL, and waits for the call to finish before it takes the next job. Each webhook is signed with a secret shared with that partner.",
+      "assets": [
+        "credentials"
+      ],
+      "source_excerpt": "When a file is ready, the worker posts a webhook to the partner's callback URL",
+      "source_label": "System description",
+      "notes": "The worker does not check where a callback URL points before it posts to it.",
+      "source": "process:export-worker",
+      "destination": "entity:partner-system",
+      "protocol": "HTTP or HTTPS, as the partner's callback URL says",
+      "authentication": "signed with a secret",
+      "data_description": "the signed download link for the finished file",
+      "encryption_in_transit": "unknown; callback URLs can start with http:// as well as https://",
+      "operations": "write"
+    },
+    {
+      "id": "flow:entity:partner-manager>process:admin-console>use-admin-console",
+      "name": "use admin console",
+      "description": "A partner manager signs in over the office VPN and approves partners, creates client IDs and secrets and sets scopes.",
+      "assets": [
+        "credentials"
+      ],
+      "source_excerpt": "Partner managers sign in with the company single sign-on, which asks for a second factor.",
+      "source_label": "System description",
+      "source": "entity:partner-manager",
+      "destination": "process:admin-console",
+      "protocol": "unknown",
+      "authentication": "single sign-on with a second factor",
+      "data_description": "partner approvals, client IDs and secrets, and scopes",
+      "encryption_in_transit": "unknown",
+      "operations": "read-write",
+      "notes": "The console is reachable only over the office VPN; the source does not say what the VPN or the console connection encrypts."
+    },
+    {
+      "id": "flow:process:admin-console>store:partner-registry>manage-partners",
+      "name": "manage partners",
+      "description": "The admin console writes partners, client secrets and scopes, writes an audit row for each approval, and can edit and delete any row in the registry, the audit table included. A partner manager can read a client secret back in plain text.",
+      "assets": [
+        "credentials",
+        "business-critical-data"
+      ],
+      "source_excerpt": "The admin console can edit and delete any row in the partner registry, including the audit table.",
+      "source_label": "System description",
+      "notes": "Scope changes are not written to the audit log. The source states nobody has written down how the admin console connects to the partner registry, or whether the connection is encrypted.",
+      "source": "process:admin-console",
+      "destination": "store:partner-registry",
+      "protocol": "unknown",
+      "authentication": "unknown",
+      "data_description": "partners, client secrets, scopes and audit rows",
+      "encryption_in_transit": "unknown",
+      "operations": "read-write"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "boundary:internet",
+      "name": "internet",
+      "description": "Where partners' systems call the export API from, download files from and receive webhooks on.",
+      "assets": [],
+      "source_excerpt": "A partner's system calls the export API over HTTPS. The export API is on the internet.",
+      "source_label": "System description",
+      "kind": "network"
+    },
+    {
+      "id": "boundary:cloud-account",
+      "name": "cloud account",
+      "description": "Our cloud account, where the export API, the export worker, the admin console, the export queue and the stores run.",
+      "assets": [],
+      "source_excerpt": "The export API, the export worker, the export queue and the stores below all run in our cloud account.",
+      "source_label": "System description",
+      "kind": "network"
+    },
+    {
+      "id": "boundary:office-vpn",
+      "name": "office VPN",
+      "description": "The only network the admin console is reachable from.",
+      "assets": [],
+      "source_excerpt": "reachable only over the office VPN",
+      "source_label": "System description",
+      "kind": "network"
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption": "Partner systems are placed on the internet because the schema requires a zone.",
+      "element_id": "entity:partner-system",
+      "attribute": "trust_zone",
+      "basis": "They call the export API, which is on the internet, and receive webhooks at callback URLs; the source places them nowhere."
+    },
+    {
+      "assumption": "Partner managers are placed on the office VPN because the schema requires a zone.",
+      "element_id": "entity:partner-manager",
+      "attribute": "trust_zone",
+      "basis": "The admin console is reachable only over the office VPN; the source does not say where partner managers work."
+    },
+    {
+      "assumption": "The export API's interface is web.",
+      "element_id": "process:export-api",
+      "attribute": "interface_kind",
+      "basis": "Partners call it over HTTPS and it has a token endpoint; the source does not name its interface otherwise."
+    },
+    {
+      "assumption": "The export worker has no web interface.",
+      "element_id": "process:export-worker",
+      "attribute": "interface_kind",
+      "basis": "It takes jobs off a queue and only makes outbound calls; the source names no interface it serves."
+    }
+  ]
+}

@@ -164,6 +164,7 @@ def test_the_holdout_cases_are_the_ones_744_authored():
     assert audit.holdout_cases() == {
         "14-loyalty-oauth-platform",
         "15-multitenant-invoicing",
+        "21-partner-export-api",
     }
 
 

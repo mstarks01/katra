@@ -2,7 +2,7 @@
 
 The measurement [#201](https://github.com/mstarks01/katra/issues/201) asks
 for. `tests/test_claim_identity.py` answers the false-merge direction over the
-blessed reference sets: the lane and the element set separate 243 of 244 claims.
+blessed reference sets.
 The calibration set's candidate side carries element IDs, so this module
 answers the direction the issue's title names. It runs :class:`~evals.harness.identity.MechanicalIdentity` through
 :func:`~evals.harness.calibration.measure_agreement`, against the same hand
@@ -80,7 +80,7 @@ MEASURED = {
 #: on two thirds of the corpus.** ``affected_element_ids`` is a list whose order
 #: no rule reads, so a claim naming two processes says nothing about which way
 #: the attacker moves between them. A claim naming a **Data Flow** says it
-#: through that flow's endpoints, and 252 of 359 corpus claims name exactly one.
+#: through that flow's endpoints, and 269 of 378 corpus claims name exactly one.
 #:
 #: The two readings of an absent direction are both dead ends, and the numbers
 #: below are why. Read it as a mismatch and the rule splits 71 of the 154
@@ -89,10 +89,10 @@ MEASURED = {
 #: survives the verb runs two ways.
 DIRECTION = {
     # Over the corpus, what a claim yields without a new field.
-    "claims": 359,
-    "one_flow_cited": 252,
+    "claims": 378,
+    "one_flow_cited": 269,
     "several_flows_cited": 11,
-    "no_flow_cited": 96,
+    "no_flow_cited": 98,
     # Over the 8 reference merges the shipped rule makes.
     "merges_with_a_direction_on_both_sides": 1,
     "merges_that_run_opposite_ways": 0,
@@ -129,17 +129,17 @@ FRONTIER = {
         "candidate_merges": 2,
         "reference_merges": 8,
     },
-    "endpoint equality": {"splits": 49, "candidate_merges": 33, "reference_merges": 15},
+    "endpoint equality": {"splits": 49, "candidate_merges": 33, "reference_merges": 16},
     "subset": {"splits": 33, "candidate_merges": 54, "reference_merges": 26},
-    "endpoint subset": {"splits": 12, "candidate_merges": 69, "reference_merges": 55},
-    "overlap": {"splits": 3, "candidate_merges": 66, "reference_merges": 83},
+    "endpoint subset": {"splits": 12, "candidate_merges": 69, "reference_merges": 56},
+    "overlap": {"splits": 3, "candidate_merges": 66, "reference_merges": 85},
     # Case 02's calibration pair about disabling the Pub/Sub topic names
     # ``store:pub-sub`` (#925), which is one candidate that does not merge
     # under the loosest rung.
     "endpoint overlap": {
         "splits": 1,
         "candidate_merges": 81,
-        "reference_merges": 225,
+        "reference_merges": 232,
     },
 }
 
@@ -406,9 +406,9 @@ class TestAClaimThatNamesNoPlaceMatchesNothing:
 #: ``subset`` is what ``endpoint subset`` merges on these cases; ``subset_verb``
 #: is what survives the verb. The gap between them is what the verb adds.
 VERB_MEASURED = {
-    "cases": 20,
-    "within_lane_pairs": 484,
-    "subset": 55,
+    "cases": 21,
+    "within_lane_pairs": 507,
+    "subset": 56,
     "subset_verb": 8,
 }
 
@@ -506,7 +506,7 @@ def test_every_surviving_merge_is_a_recorded_one(corpus, flows_by_case):
 def test_a_direction_is_underivable_on_a_third_of_the_corpus(corpus, flows_by_case):
     """#652's first obstacle: the field a direction would come from is absent.
 
-    A component the corpus cannot state on 96 of 359 claims is not a component
+    A component the corpus cannot state on 98 of 378 claims is not a component
     the identity can read. Moving this number means a blessing pass re-cited
     claims against flows, which is the one thing that would reopen the question.
     """

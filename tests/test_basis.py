@@ -25,7 +25,7 @@ from katra.system_model import ElementControl, SystemModel
 
 # The figures published in the module docstring's table. Re-derived below, so
 # the prose and the code cannot drift apart.
-CORPUS_VALUES = 41
+CORPUS_VALUES = 47
 CORPUS_FLAGGED_WEAK = 0
 CORPUS_FLAGGED_STRICT = 17
 
@@ -308,7 +308,7 @@ def test_the_published_weak_rung_rate_is_what_the_corpus_gives(corpus_values):
 
 
 def test_the_published_strict_rung_rate_is_what_the_corpus_gives(corpus_values):
-    """17 in 41, which is why the strict rung is recorded and not shipped."""
+    """17 in 47, which is why the strict rung is recorded and not shipped."""
     flagged = [
         case_id
         for case_id, tokens, source in corpus_values
@@ -321,7 +321,7 @@ def test_the_published_strict_rung_rate_is_what_the_corpus_gives(corpus_values):
 def test_the_corpus_is_read_in_full_so_its_clean_rate_means_something(
     corpus_values,
 ):
-    """0 flags over 41 values, and 41 of 41 actually searched (#925).
+    """0 flags over 47 values, and 47 of 47 actually searched (#925).
 
     The published rate is only a rate if the denominator was read. This ties
     the table's ``values`` column to the coverage of the same walk: were a case
@@ -363,7 +363,7 @@ def test_the_corpus_runs_clean_through_the_shipped_reader():
 
 
 def test_the_corpus_spends_a_fraction_of_the_scan_budget():
-    """The worst case is 340 times under the bound, which is what the constant says.
+    """The worst case is 307 times under the bound, which is what the constant says.
 
     Re-derived rather than asserted in prose: the budget is a number somebody
     will want to lower, and this says what lowering it would cost.
@@ -380,7 +380,7 @@ def test_the_corpus_spends_a_fraction_of_the_scan_budget():
         }
         worst = max(worst, sum(len(sources[label]) for _, label in scans))
 
-    assert worst == 58_788
+    assert worst == 64_976
     assert worst * 300 < MAX_SCAN_WORK
 
 

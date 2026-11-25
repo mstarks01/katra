@@ -1,0 +1,32 @@
+{
+  "id": "21-partner-export-api",
+  "title": "A partner export API whose bulk customer files reach anyone who holds the link",
+  "domain": "partner data export",
+  "provenance": "Synthetic system authored for this corpus (issue #744). Not derived from, or sanitized from, any real system: there is nothing to leak by omission.",
+  "bootstrap": "agent-stand-in",
+  "holdout": true,
+  "sources": [
+    {
+      "kind": "description",
+      "label": "System description",
+      "file": "source.md",
+      "sha256": "ab06a85e26f3af2be139b9b8d8b4c3bb84c0332ca49d134425b67d220283797f"
+    }
+  ],
+  "source_sha256": "47b4f6a190c9f484b0b7a6540ea7b9e77def42af79f3495410fdd7dad8d044b4",
+  "frameworks": [
+    {
+      "name": "asvs",
+      "options": {
+        "level": 2
+      },
+      "exemplar_proximity": "far"
+    },
+    {
+      "name": "stride",
+      "options": {},
+      "exemplar_proximity": "far"
+    }
+  ],
+  "notes": "Holdout case 3 for #744, written because cases 14 and 15 used all their HOLDOUT_READS. The corpus's first case where the system's purpose is to hand bulk personal data to third parties, so the worst findings are about where a finished file goes after a legitimate export: a signed download link that works for anyone who holds it, a webhook that carries that link to a callback URL the partner sets and the worker never checks, and a file store that keeps every file. The source states some controls (brand scope check, signed webhooks, single sign-on with a second factor), states some absences (plain-text client secrets that never expire, no export limit, no logging of scope changes or downloads, an audit table the admin console can edit), hedges one (the customers/orders scope check) and leaves others silent (job ownership on the status call, every internal connection, encryption at rest). ASVS level 2: the API releases customer names, email and postal addresses and order history to outside companies, which is the sensitive data level 2 is for; nothing states a demand that level 3 serves, such as payments or health data. Held out of tuning: no diagnosis reads it, so it confirms a fix measured on the other cases."
+}

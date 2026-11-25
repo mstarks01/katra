@@ -68,6 +68,9 @@ MATCHER_WIDER_THAN_FINGERPRINT = 8
 #: between claims that are *not* distinct does not belong here; it belongs
 #: merged in the corpus.
 UNSEPARATED: dict[str, str] = {
+    "21-partner-export-api | repudiation | process:admin-console, store:partner-registry": (
+        "A scope change that the audit log never records and an approval whose audit rows a partner manager deletes are `unattributable` and `delete`. Logging scope changes answers the first; an audit log the admin console cannot change answers the second. The verb separates them."
+    ),
     "14-loyalty-oauth-platform | spoofing | process:authorization-server, process:mobile-app": (
         "A copied refresh token used again and an intercepted authorization code redeemed as the mobile client are `use-credential` and `impersonate` on one flow. Sender binding or revocation answers the first and PKCE the second. The verb separates them."
     ),
@@ -139,7 +142,7 @@ def identity_key(case: GoldenCase, claim: ReferenceThreat) -> str:
     uses: a claim citing a flow and a claim citing the process at its end land
     on two keys there and on one in
     :func:`~evals.harness.fingerprint.components_for`. That read finds **five**
-    collisions where the shipped fold finds **fifteen**, so it hides ten keys
+    collisions where the shipped fold finds **sixteen**, so it hides eleven keys
     this file exists to surface.
     Resolving here is not a relaxation of the equality rule
     above; it is the same rule over the same spelling of a place.

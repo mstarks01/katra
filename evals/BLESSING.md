@@ -10,13 +10,14 @@ bookkeeping around it.
 > is free, offline, and open to outside contributors. New here? Start at
 > [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
-> **Every case has a current sitting.** All 20 cases in
+> **One case waits for a sitting.** All 21 cases in
 > `evals/corpus/` were written by an agent. On 2026-09-21 a single **Case
 > Sitting** cleared the first 13, and sittings on 2026-10-03 and 2026-10-04
 > cleared the two holdout cases, and two on 2026-10-10 cleared case 16.
 > Sittings from 2026-11-14 to 2026-11-16 cleared cases 17 and 18, and a
 > sitting on 2026-11-16 cleared case 16 with its rewritten alter-in-transit
-> claim. A sitting on 2026-11-17 cleared cases 19 and 20. The first sitting wrote 130 own-list
+> claim. A sitting on 2026-11-17 cleared cases 19 and 20. Case 21, a holdout,
+> waits for its first sitting. The first sitting wrote 130 own-list
 > threats blind, then
 > marked all 344 recorded claims: 233 `agree`, 61 `unsure`, 26 `reject`, 24 `duplicate`. Two
 > calibration reviews read the pairs step 5 produces:
@@ -248,8 +249,8 @@ No severity — the package grades nothing.
   lane of every carried package has a `must-find` record *somewhere in the
   corpus*, not in every case.
 - **`affected_element_ids` may be empty.** Most requirements address a coding
-  practice with no position in the graph. One record in 63 uses this today; it is
-  legal, and it drops out of candidate-trigger recall by name rather than
+  practice with no position in the graph. An empty list is legal, and it drops
+  out of candidate-trigger recall by name rather than
   counting as a miss.
 
 **Then say what this submission can conclude**, in `disposition`. The
@@ -302,7 +303,7 @@ decision with less context, and getting a different answer on exactly the claims
 where the difference matters.
 
 `tests/test_verb_coverage.py` fails on a claim that carries no verb, and on a
-verb outside the vocabulary. Every one of the corpus's 243 claims has one, so a
+verb outside the vocabulary. Every claim in the corpus has one, so a
 new case that skips this step is the only way that test goes red.
 
 ### 5. Label the calibration pairs

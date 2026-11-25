@@ -572,7 +572,7 @@ def _match_in_lane(
     The pair carries both verbs, because the rule's verb half is what separates
     a read from a write against one store. A reference claim with no verb makes
     the rule raise, which fails the sweep and names the case — the corpus
-    carries a verb on all 243 claims, so that failure means a new case arrived
+    carries a verb on every claim, so that failure means a new case arrived
     without one.
     """
     own: dict[int, list[int]] = {}

@@ -58,7 +58,12 @@ from evals.review_submission import REPO_ROOT, unreviewed_cases
 #: :func:`~evals.review_submission.unreviewed_cases` reads the corpus and the
 #: merged submissions — so an entry here only ever says what an unread case
 #: leaves unchecked, and an entry for a case a submission clears is obsolete.
-UNREVIEWED: dict[str, str] = {}
+UNREVIEWED: dict[str, str] = {
+    "21-partner-export-api": (
+        "written for #744 by an agent as a fresh holdout; no reader has read the"
+        " source, the model or either reference set"
+    ),
+}
 
 
 @pytest.fixture(scope="module")

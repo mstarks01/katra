@@ -20,11 +20,11 @@ scorer makes through a claim's own reading state a different threat
 (`QA-2026-09-26-01-E1`). So quote a structural figure as structural, and read
 the rows that change by meaning before any decision.
 
-**Holdout cases.** Cases 14 and 15 carry `holdout: true`. The experiment
-ledger read each of them `HOLDOUT_READS` times, so both are exhausted. Every
+**Holdout cases.** Cases 14, 15 and 21 carry `holdout: true`. The experiment
+ledger read cases 14 and 15 `HOLDOUT_READS` times, so both are exhausted. Every
 split counts them as development cases, and the diagnosis commands read them.
-`experiments --holdouts` prints the reads. No case is held out until the corpus
-gets a fresh holdout (#744). A gain that the development cases show and a
+`experiments --holdouts` prints the reads. Case 21 is the one case held out
+(#744): no diagnosis reads it, and it waits for a Case Sitting. A gain that the development cases show and a
 holdout does not was shaped by the cases it was read on. See **Holdout Case**
 in `GLOSSARY.md`.
 
@@ -131,7 +131,7 @@ fan-in loss.
 | Pattern A, compromised reader | The store-readers rule recovers neither 05/6 nor 05/7; no lead states that a compromised reader uses its own access | `QA-2026-10-05-02-E3` |
 | Findings the lane closing added | Voted: of 50 findings that match no reference, 1 up, 7 down and 42 need evidence; the cost side of ADR 0030 waits on answers to the open facts | `QA-2026-10-05-02-E4` |
 | One attack filed in two lanes | 28 of 30 duplicate votes have a partner in another lane at the same place; a shared control does not separate them (it fires on 92 claims voted as their own finding to catch 19); no field-level rule found | `QA-2026-10-05-02-E5` |
-| Full 15-case sweep with the lane closing | About $5.50. It gives no holdout reading, because no case is still held out | after OpenRouter credits allow |
+| Full 15-case sweep with the lane closing | About $5.50. It gives no holdout reading, because it does not score case 21, the one case held out | after OpenRouter credits allow |
 | Spread of the holdout cases | Five analysis runs per holdout case on one execution identity, about $3.50 at the 2026-10-02 preflight charges ($0.38 for case 14, $0.32 for case 15); the archive holds four readings of each case over two builds and three prompt states | #744 |
 | Intake questions | Ranking design measured offline; not built | #1225 |
 | Readable report remainder | Plain summaries and progressive disclosure | #561 |
