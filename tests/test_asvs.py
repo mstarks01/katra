@@ -1949,7 +1949,12 @@ class TestEachLaneAsksForItsOwnUnits:
             for key in self._requirement_enum(lane)
         }
 
-        assert len(offered) == len(requirements_for(3)) == 345
+        published = {
+            (requirement.lane, requirement.key) for requirement in requirements_for(3)
+        }
+
+        assert offered == published
+        assert len(published) == 345
 
     def test_a_stride_lane_asks_for_the_shared_shape(self):
         stride = schemas_for("stride")
