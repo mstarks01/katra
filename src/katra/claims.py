@@ -1075,6 +1075,7 @@ class Claim(BaseModel):
         lane: str,
         carried: Collection[str],
         covered: Collection[str],
+        catalog: Mapping[str, Ground],
     ) -> tuple[list[Any], dict[str, str]]:
         """Split a lane's proposals into the ones this job can settle, and the rest.
 
@@ -1109,8 +1110,11 @@ class Claim(BaseModel):
         ``covered`` is each unit a row of an applied Control covers. A proposal
         on one is kept whatever kind it names, so the critic judges it against
         the row (ADR 0126).
+
+        ``catalog`` is the job's evidence catalog, which the proposals' evidence
+        references name, so a package can read the kind of each ground cited.
         """
-        del lane, carried, covered
+        del lane, carried, covered, catalog
         return list(proposals), {}
 
     @classmethod

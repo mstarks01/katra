@@ -974,10 +974,66 @@ class TestAJobDefersWhatItsInputCannotSettle:
             quotes=[QuoteCandidate(text="Shoppers sign in", source_label="note")],
         )
 
+    def test_a_documentation_requirement_is_settled_by_prose(self):
+        """A documentation requirement asks for a document, so code reads its
+        kind as ``prose`` whatever the lane wrote (#2364)."""
+        kept, deferred = PACKAGES["asvs"].record.partition_proposals(
+            [self._proposal("1.1", "code")],
+            "validation-and-business-logic",
+            ["prose"],
+            (),
+            {},
+        )
+
+        assert len(kept) == 1
+        assert deferred == {}
+
+    def test_a_question_on_an_open_fact_is_settled_by_prose(self):
+        """A value the description could state settles an open fact (#2364)."""
+        from katra.evidence import evidence_catalog
+        from tests.factories import valid_model
+
+        catalog = evidence_catalog(valid_model())
+        open_fact = next(
+            ref for ref, ground in catalog.items() if ground.kind == "unknown-attribute"
+        )
+        proposal = self._proposal("2.4", "config").model_copy(
+            update={"evidence_refs": [open_fact]}
+        )
+
+        kept, deferred = PACKAGES["asvs"].record.partition_proposals(
+            [proposal], "encoding-and-sanitization", ["prose"], (), catalog
+        )
+
+        assert len(kept) == 1
+        assert deferred == {}
+
+    def test_a_question_on_a_stated_fact_keeps_the_lane_s_kind(self):
+        from katra.evidence import evidence_catalog
+        from tests.factories import valid_model
+
+        catalog = evidence_catalog(valid_model())
+        stated = next(
+            ref for ref, ground in catalog.items() if ground.kind == "derived-fact"
+        )
+        proposal = self._proposal("2.4", "config").model_copy(
+            update={"evidence_refs": [stated]}
+        )
+
+        _, deferred = PACKAGES["asvs"].record.partition_proposals(
+            [proposal], "encoding-and-sanitization", ["prose"], (), catalog
+        )
+
+        assert deferred == {"V1.2.4": "config"}
+
     def test_a_kind_the_job_carries_is_kept(self):
         """`prose` survives: the description was thin, which is answerable."""
         kept, deferred = PACKAGES["asvs"].record.partition_proposals(
-            [self._proposal("2.5", "prose")], "encoding-and-sanitization", ["prose"], ()
+            [self._proposal("2.5", "prose")],
+            "encoding-and-sanitization",
+            ["prose"],
+            (),
+            {},
         )
 
         assert len(kept) == 1
@@ -985,7 +1041,11 @@ class TestAJobDefersWhatItsInputCannotSettle:
 
     def test_a_kind_the_job_does_not_carry_is_deferred(self):
         kept, deferred = PACKAGES["asvs"].record.partition_proposals(
-            [self._proposal("2.4", "code")], "encoding-and-sanitization", ["prose"], ()
+            [self._proposal("2.4", "code")],
+            "encoding-and-sanitization",
+            ["prose"],
+            (),
+            {},
         )
 
         assert kept == []
@@ -996,7 +1056,7 @@ class TestAJobDefersWhatItsInputCannotSettle:
     def test_a_ruled_proposal_is_kept(self):
         """Empty means the agent ruled, and the critic judges it."""
         kept, deferred = PACKAGES["asvs"].record.partition_proposals(
-            [self._proposal("2.6", "")], "encoding-and-sanitization", ["prose"], ()
+            [self._proposal("2.6", "")], "encoding-and-sanitization", ["prose"], (), {}
         )
 
         assert len(kept) == 1
@@ -1008,10 +1068,10 @@ class TestAJobDefersWhatItsInputCannotSettle:
         proposals = [self._proposal("2.4", "code")]
 
         _, prose_only = PACKAGES["asvs"].record.partition_proposals(
-            proposals, "encoding-and-sanitization", ["prose"], ()
+            proposals, "encoding-and-sanitization", ["prose"], (), {}
         )
         kept, with_code = PACKAGES["asvs"].record.partition_proposals(
-            proposals, "encoding-and-sanitization", ["prose", "code"], ()
+            proposals, "encoding-and-sanitization", ["prose", "code"], (), {}
         )
 
         assert prose_only
@@ -1026,6 +1086,7 @@ class TestAJobDefersWhatItsInputCannotSettle:
             "encoding-and-sanitization",
             ["prose"],
             {"V1.2.4"},
+            {},
         )
 
         assert len(kept) == 1
@@ -1063,7 +1124,9 @@ def test_a_package_that_defers_nothing_inherits_the_neutral_default():
     """STRIDE's claims rest on the system's own shape, so it defers none."""
     from katra.frameworks.stride.record import DraftThreat
 
-    assert DraftThreat.partition_proposals(["a", "b"], "spoofing", ["prose"], ()) == (
+    assert DraftThreat.partition_proposals(
+        ["a", "b"], "spoofing", ["prose"], (), {}
+    ) == (
         ["a", "b"],
         {},
     )
@@ -1598,7 +1661,7 @@ def test_an_invented_key_is_marked_even_when_its_evidence_kind_would_defer_it():
 
     known, marks = known_proposals(proposals, ASVS, "authentication")
     kept, deferred = ASVS.record.partition_proposals(
-        known, "authentication", ["prose"], ()
+        known, "authentication", ["prose"], (), {}
     )
 
     assert known == [] and kept == [] and deferred == {}

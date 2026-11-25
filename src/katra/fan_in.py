@@ -210,7 +210,7 @@ def fan_in(
     # decides which, since the unit and the reason are both its own.
     partitions = {
         lane: package.record.partition_proposals(
-            known[lane], lane, CARRIED_EVIDENCE_KINDS, covered
+            known[lane], lane, CARRIED_EVIDENCE_KINDS, covered, catalog
         )
         for lane in batches
     }
@@ -230,7 +230,7 @@ def fan_in(
     if covered:
         for lane in batches:
             _, unheld = package.record.partition_proposals(
-                known[lane], lane, CARRIED_EVIDENCE_KINDS, ()
+                known[lane], lane, CARRIED_EVIDENCE_KINDS, (), catalog
             )
             undeferred.update(
                 (unit, kind) for unit, kind in unheld.items() if unit not in deferred

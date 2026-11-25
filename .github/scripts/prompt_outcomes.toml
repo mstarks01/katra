@@ -251,6 +251,12 @@ because the service sets that rating."""
 modules = ["src/katra/critic.py", "src/katra/frameworks/stride/record.py"]
 check = "a_needs_info_threat_reads_low"
 
+prompt = "frameworks/asvs/output.md"
+sentence = """The service reads the kind as `prose` for a documentation
+requirement and for a question that cites an open fact, whatever you write."""
+modules = ["src/katra/frameworks/asvs/record.py"]
+check = "a_documentation_or_open_fact_question_is_settled_by_prose"
+
 # --- Modules with no pinned sentence yet ---------------------------------------
 
 [[reader]]

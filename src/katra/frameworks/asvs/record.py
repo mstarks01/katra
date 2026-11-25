@@ -47,12 +47,14 @@ from katra.capabilities import (
     open_capability_needs,
 )
 from katra.claims import (
+    CONDITIONAL_GROUNDS,
     RULED_IN_UNRAISED_REASON,
     ApplicabilityEntry,
     BlockSummary,
     Claim,
     DecidingFact,
     FrameworkAnalysis,
+    Ground,
     Proposal,
     ProposalBatch,
     Refusal,
@@ -72,6 +74,7 @@ from katra.frameworks.asvs.applicability import (
 from katra.frameworks.asvs.catalog import (
     ASVS_VERSION,
     CHAPTER_NUMBERS,
+    DOCUMENTATION_REQUIREMENTS,
     AsvsChapter,
     AsvsLevel,
     published_text,
@@ -327,6 +330,7 @@ class DraftRequirementRuling(Claim):
         lane: str,
         carried: Collection[str],
         covered: Collection[str],
+        catalog: Mapping[str, Ground],
     ) -> tuple[list[Any], dict[str, str]]:
         """Every requirement whose lane agent said this job cannot settle it.
 
@@ -341,19 +345,48 @@ class DraftRequirementRuling(Claim):
 
         A requirement in ``covered`` is kept whatever kind it names: a row of
         an applied Control covers it, and the critic judges the row.
+
+        Code reads the kind as ``prose`` where it can tell (#2364): a
+        documentation requirement asks for a document, and a question that
+        cites an open fact asks for a value the description could state. So the
+        lane's ``code``, ``config`` or ``people`` there defers nothing.
         """
+        kinds = {
+            id(proposal): _kind_to_settle(proposal, lane, catalog)
+            for proposal in proposals
+        }
         defer = [
             proposal
             for proposal in proposals
-            if proposal.needs_evidence
-            and proposal.needs_evidence not in carried
+            if kinds[id(proposal)]
+            and kinds[id(proposal)] not in carried
             and requirement_id(lane, proposal.requirement) not in covered
         ]
         kept = [proposal for proposal in proposals if proposal not in defer]
         return kept, {
-            requirement_id(lane, proposal.requirement): proposal.needs_evidence
+            requirement_id(lane, proposal.requirement): kinds[id(proposal)]
             for proposal in defer
         }
+
+
+def _kind_to_settle(
+    proposal: RequirementProposal, lane: str, catalog: Mapping[str, Ground]
+) -> NeededEvidence:
+    """The kind of evidence that would settle ``proposal``, as code reads it.
+
+    ``prose`` for a question on a documentation requirement, or one that cites
+    an open fact (:data:`~katra.claims.CONDITIONAL_GROUNDS`); the lane's own
+    kind otherwise.
+    """
+    kind = proposal.needs_evidence
+    if kind in ("", "prose"):
+        return kind
+    if requirement_id(lane, proposal.requirement) in DOCUMENTATION_REQUIREMENTS:
+        return "prose"
+    cited = (catalog.get(ref) for ref in proposal.evidence_refs)
+    if any(ground.kind in CONDITIONAL_GROUNDS for ground in cited if ground):
+        return "prose"
+    return kind
 
 
 #: How much of one quote a reason carries. A reason names each deciding fact's

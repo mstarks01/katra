@@ -1559,7 +1559,7 @@ def test_each_package_keeps_the_proposal_objects_it_was_given(framework):
     )
 
     kept, _ = PACKAGES[framework].record.partition_proposals(
-        proposals, fixture.lane, CARRIED_EVIDENCE_KINDS, ()
+        proposals, fixture.lane, CARRIED_EVIDENCE_KINDS, (), {}
     )
 
     assert kept
