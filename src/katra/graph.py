@@ -254,6 +254,7 @@ from katra.system_model import (
     EmittedSystemModel,
     SystemModel,
 )
+from katra.tag_classification import with_tag_classification
 from katra.validation import (
     ValidationIssue,
     parse_and_validate,
@@ -1430,10 +1431,13 @@ def after_gate(model: SystemModel) -> SystemModel:
     own fields prove written where the sources are silent.
 
     **The one composition of the writers after the gate.** What a stated
-    protocol guarantees by definition (ADR 0082), then each capability a
-    closed field proves (ADR 0085). Neither writes into what extraction read.
+    protocol guarantees by definition (ADR 0082), the tier a store's asset
+    tags settle (:mod:`katra.tag_classification`), then each capability a
+    closed field proves (ADR 0085). None writes into what extraction read.
     """
-    return with_field_capabilities(with_protocol_defaults(model))
+    return with_field_capabilities(
+        with_tag_classification(with_protocol_defaults(model))
+    )
 
 
 def diagram_readings(
