@@ -138,8 +138,10 @@ from katra.candidates import (
     catalog_leads,
     generate_candidates,
 )
+from katra.capabilities import CAPABILITIES
 from katra.capability_reader import (
     CapabilityReading,
+    stated_keys,
     with_stated_capabilities,
 )
 from katra.claims import (
@@ -216,12 +218,14 @@ from katra.model_tiers import (
 from katra.node_requests import node_instruction
 from katra.prompt_cache import remember_stable_prefix, stable_prefix
 from katra.prompts import (
+    CAPABILITY_TABLE_KEY,
     compose_analyze_prompt,
     compose_assert_prompt,
     compose_capabilities_prompt,
     compose_extract_prompt,
     compose_repair_prompt,
     lane_closing,
+    render_capabilities,
 )
 from katra.protocol_defaults import with_protocol_defaults
 from katra.report import (
@@ -784,6 +788,9 @@ STATE_ELEMENT_ROSTER = "element_roster"
 STATE_DOMAIN_SKILLS = "domain_skills"
 STATE_PREVIOUS_MODEL = "previous_model"
 STATE_VALIDATION_ISSUES = "validation_issues"
+# The capability reader's table: each capability no statement answers yet,
+# rendered by the validity gate for the reader that runs next.
+STATE_CAPABILITY_TABLE = CAPABILITY_TABLE_KEY
 STATE_REPAIR_SCOPE = "repair_scope"
 # The machine-readable half of what ``validate`` parks for ``repair``: the
 # normalized model the issues cite and the scope a repair of them may change,
@@ -935,6 +942,7 @@ SHARED_RENDERED_KEYS: frozenset[str] = frozenset(
         STATE_PREVIOUS_MODEL,
         STATE_VALIDATION_ISSUES,
         STATE_REPAIR_SCOPE,
+        STATE_CAPABILITY_TABLE,
     }
 )
 
@@ -1564,6 +1572,10 @@ def validate_extraction(
         logger.warning("stated control with no basis in its source: %s", flag)
     model = after_gate(model)
     state.put(STATE_VALID_MODEL, model.model_dump(mode="json"))
+    state.prompt(
+        STATE_CAPABILITY_TABLE,
+        render_capabilities(CAPABILITIES.keys() - stated_keys(model)),
+    )
     return _routed(ROUTE_VALID, {"issue_count": 0})
 
 

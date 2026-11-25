@@ -34,7 +34,7 @@ therefore share the longest possible cacheable prefix.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from types import MappingProxyType
 from typing import Literal
 
@@ -221,22 +221,35 @@ def compose_assert_prompt(loader: MarkdownLoader) -> str:
     return "\n\n".join(part.strip() for part in parts) + "\n"
 
 
+#: The state key the job's capability table is rendered into. The reader's
+#: prompt templates it last, so the body before it stays one cacheable prefix.
+CAPABILITY_TABLE_KEY = "capability_table"
+
+
 def compose_capabilities_prompt(loader: MarkdownLoader) -> str:
-    """The capability reader's prompt: the body, then the capability table.
+    """The capability reader's prompt: the body, then the job's capability table.
 
     **The table is rendered from** :data:`~katra.capabilities.CAPABILITIES`,
     never written in the prompt, for the reason the predicate table is: the
     gate keeps a row only where its key is in that table, and a copy in prose
-    would be a second reader nothing checks.
+    would be a second reader nothing checks. It is the job's, because a key a
+    statement already answers is left out (:func:`render_capabilities`).
     """
-    parts = [loader.load(CAPABILITIES_PROMPT_NAME), render_capabilities()]
+    parts = [loader.load(CAPABILITIES_PROMPT_NAME), f"{{{CAPABILITY_TABLE_KEY}}}"]
     return "\n\n".join(part.strip() for part in parts) + "\n"
 
 
-def render_capabilities() -> str:
-    """Each capability as one line: its key, its meaning, and its parent."""
+def render_capabilities(open_keys: Collection[str]) -> str:
+    """Each capability in ``open_keys`` as one line: its key, its meaning, and
+    its parent.
+
+    A key a statement already answers is not asked (#2362): the reader's row
+    on it would be dropped (:func:`~katra.capability_reader.with_stated_capabilities`).
+    """
     lines = ["## Capabilities", "", "Key: meaning. A part names its parent."]
     for key, capability in CAPABILITIES.items():
+        if key not in open_keys:
+            continue
         parent = f" (a part of `{capability.parent}`)" if capability.parent else ""
         lines.append(f"- `{key}`: {capability.meaning}{parent}")
     return "\n".join(lines)
