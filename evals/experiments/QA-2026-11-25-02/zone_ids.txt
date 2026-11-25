@@ -1,0 +1,23 @@
+01-payments-checkout                 A 0/15 unplaced 22 | B 0/15 unplaced 26 | C 0/15 unplaced 21
+02-iot-fleet-telemetry               A 5/20 unplaced 28 | B 5/20 unplaced 27 | C 5/20 unplaced 24
+03-batch-data-pipeline               A 10/15 unplaced 20 | B 10/15 unplaced 20 | C 10/15 unplaced 21
+04-ml-inference-service              A 5/15 unplaced 29 | B 5/15 unplaced 28 | C 5/15 unplaced 29
+05-cookbook-queue-webapp             A 15/15 unplaced 6 | B 12/15 unplaced 10 | C 14/15 unplaced 10
+06-cookbook-online-game              A 10/15 unplaced 13 | B 10/15 unplaced 13 | C 10/15 unplaced 10
+07-cicd-store-deploy                 A 19/20 unplaced 5 | B 19/20 unplaced 5 | C 20/20 unplaced 5
+08-sso-identity-broker               A 5/15 unplaced 30 | B 5/15 unplaced 31 | C 5/15 unplaced 29
+09-cookbook-sokify-retail            A 0/15 unplaced 42 | B 0/15 unplaced 40 | C 0/15 unplaced 40
+10-cookbook-generic-cms              A 5/15 unplaced 20 | B 5/15 unplaced 21 | C 5/15 unplaced 22
+11-sparse-shift-scheduling           A 5/15 unplaced 19 | B 5/15 unplaced 21 | C 5/15 unplaced 20
+12-overclaiming-supplier-portal      A 11/20 unplaced 10 | B 9/20 unplaced 8 | C 10/20 unplaced 8
+13-dispatch-control-plane            A 10/15 unplaced 24 | B 10/15 unplaced 23 | C 10/15 unplaced 24
+14-loyalty-oauth-platform            A 5/15 unplaced 9 | B 0/15 unplaced 10 | C 2/15 unplaced 6
+15-multitenant-invoicing             A 8/15 unplaced 21 | B 7/15 unplaced 29 | C 9/15 unplaced 18
+16-library-lending-interview         A 10/15 unplaced 8 | B 10/15 unplaced 10 | C 11/15 unplaced 8
+17-permit-portal-limits              A 8/15 unplaced 12 | B 6/15 unplaced 6 | C 8/15 unplaced 6
+18-podcast-host-quotas               A 5/10 unplaced 3 | B 5/10 unplaced 3 | C 5/10 unplaced 9
+19-vet-clinic-records                A 13/20 unplaced 30 | B 12/20 unplaced 33 | C 11/20 unplaced 28
+20-school-coursework                 A 12/20 unplaced 13 | B 10/16 unplaced 14 | C 12/20 unplaced 17
+A: reference zone IDs written 161/320 = 0.503; elements in no zone 364
+B: reference zone IDs written 145/316 = 0.459; elements in no zone 378
+C: reference zone IDs written 157/320 = 0.491; elements in no zone 355
