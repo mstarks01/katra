@@ -1,0 +1,93 @@
+A-r1: case 14 unplaced 2 of 12, ['boundary:partner-servers']
+  04-ml-inference-service: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:model-server' does not carry; it declares ['technol
+  04-ml-inference-service: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:process:model-server>store:redis-feature-store>read-fe
+  18-podcast-host-quotas: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:entity:listener-podcast-app>process:feed-service>fetch-
+  invalid or stopped cases: ['04-ml-inference-service', '18-podcast-host-quotas']
+A-r2: case 14 unplaced 1 of 10, ['boundary:partner-servers']
+  invalid or stopped cases: []
+A-r3: case 14 unplaced 2 of 11, ['boundary:partner-servers']
+  04-ml-inference-service: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'protocol' on 'flow:entity:other-teams-backends>process:inference-gateway>ca
+  04-ml-inference-service: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'protocol' on 'flow:process:inference-gateway>process:model-server>forward-r
+  04-ml-inference-service: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'protocol' on 'flow:process:model-server>store:model-registry-bucket>load-ar
+  04-ml-inference-service: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'protocol' on 'flow:process:model-server>store:redis-feature-store>read-feat
+  04-ml-inference-service: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'protocol' on 'flow:process:inference-gateway>store:inference-log>write-log'
+  04-ml-inference-service: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'protocol' on 'flow:entity:ml-engineers>store:model-registry-bucket>publish-
+  invalid or stopped cases: ['04-ml-inference-service']
+A-r4: case 14 unplaced 2 of 11, ['boundary:partner-servers']
+  16-library-lending-interview: extraction is not a valid system model: duplicate-id: element 'process:loans-database' ('Loans database') arrived with ID 'store:loans-database', which 2 elements carried
+  16-library-lending-interview: extraction is not a valid system model: duplicate-id: element 'store:loans-database' ('Loans database') arrived with ID 'store:loans-database', which 2 elements carried; 
+  invalid or stopped cases: ['16-library-lending-interview']
+A-r5: case 14 unplaced 2 of 11, ['boundary:partner-servers']
+  07-cicd-store-deploy: extraction is not a valid system model: invalid-reference: flow destination 'entity:public-package-registry' does not reference an existing External Entity, Process, or Data Stor
+  07-cicd-store-deploy: extraction is not a valid system model: invalid-reference: assumption references element 'entity:public-package-registry', which does not exist in the model
+  invalid or stopped cases: ['07-cicd-store-deploy']
+A: 5 invalid or stopped cases, case 14 unplaced 9
+B-r1: case 14 unplaced 2 of 12, ['boundary:partner-apps-own-servers']
+  01-payments-checkout: extraction is not a valid system model: duplicate-id: element 'process:storefront-api' ('storefront API') arrived with ID 'process:storefront-api', which 2 elements carried; ever
+  01-payments-checkout: extraction is not a valid system model: duplicate-id: element 'process:order-service' ('order service') arrived with ID 'process:order-service', which 2 elements carried; every r
+  01-payments-checkout: extraction is not a valid system model: duplicate-id: element 'process:storefront-api' ('storefront API') arrived with ID 'process:storefront-api', which 2 elements carried; ever
+  01-payments-checkout: extraction is not a valid system model: duplicate-id: element 'process:order-service' ('order service') arrived with ID 'process:order-service', which 2 elements carried; every r
+  01-payments-checkout: extraction is not a valid system model: duplicate-id: element ID 'process:order-service' is used by 2 elements; IDs must be unique within one System Model
+  01-payments-checkout: extraction is not a valid system model: duplicate-id: element ID 'process:storefront-api' is used by 2 elements; IDs must be unique within one System Model
+  11-sparse-shift-scheduling: extraction is not a valid system model: invalid-reference: assumption names attribute 'exposure', which 'store:file-share' does not carry; it declares ['technology', 'trust
+  invalid or stopped cases: ['01-payments-checkout', '11-sparse-shift-scheduling']
+B-r2: case 14 unplaced 0 of 11, ['boundary:partner-app-servers']
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:supplier-document-portal' does not carry; i
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:entity:suppliers>process:supplier-document-por
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:entity:category-managers>process:supplier-docu
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:process:supplier-document-portal>store:vendor-
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:entity:vendor>store:landing-bucket>push-extrac
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:process:supplier-master-service>store:landing-
+  12-overclaiming-supplier-portal: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'flow:process:supplier-master-service>store:supplier
+  invalid or stopped cases: ['12-overclaiming-supplier-portal']
+B-r3: case 14 unplaced 5 of 11, ['boundary:partner-apps-own-servers']
+  01-payments-checkout: extraction is not a valid system model: invalid-reference: assumption names attribute 'destination', which 'store:receipt-archive' does not carry; it declares ['technology', 'tru
+  invalid or stopped cases: ['01-payments-checkout']
+B-r4: case 14 unplaced 1 of 10, ['boundary:partner-app-servers']
+  12-overclaiming-supplier-portal: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'exposure' on 'process:supplier-document-portal', but that attribute
+  14-loyalty-oauth-platform: extraction is not a valid system model: duplicate-id: element 'flow:unknown>unknown>own-cloud-account' ('own cloud account') arrived with ID 'boundary:own-cloud-account', wh
+  14-loyalty-oauth-platform: extraction is not a valid system model: duplicate-id: element 'flow:unknown>unknown>members-phones' ("members' phones") arrived with ID 'boundary:members-phones', which 2 el
+  14-loyalty-oauth-platform: extraction is not a valid system model: duplicate-id: element 'flow:unknown>unknown>partner-app-servers' ('partner app servers') arrived with ID 'boundary:partner-app-server
+  14-loyalty-oauth-platform: extraction is not a valid system model: duplicate-id: element 'boundary:own-cloud-account' ('own cloud account') arrived with ID 'boundary:own-cloud-account', which 2 elemen
+  14-loyalty-oauth-platform: extraction is not a valid system model: duplicate-id: element 'boundary:members-phones' ("members' phones") arrived with ID 'boundary:members-phones', which 2 elements carri
+  14-loyalty-oauth-platform: extraction is not a valid system model: duplicate-id: element 'boundary:partner-app-servers' ('partner app servers') arrived with ID 'boundary:partner-app-servers', which 2 
+  14-loyalty-oauth-platform: extraction is not a valid system model: invalid-reference: flow source 'unknown' does not reference an existing External Entity, Process, or Data Store
+  14-loyalty-oauth-platform: extraction is not a valid system model: invalid-reference: flow destination 'unknown' does not reference an existing External Entity, Process, or Data Store
+  14-loyalty-oauth-platform: extraction is not a valid system model: invalid-reference: flow source 'unknown' does not reference an existing External Entity, Process, or Data Store
+  14-loyalty-oauth-platform: extraction is not a valid system model: invalid-reference: flow destination 'unknown' does not reference an existing External Entity, Process, or Data Store
+  14-loyalty-oauth-platform: extraction is not a valid system model: invalid-reference: flow source 'unknown' does not reference an existing External Entity, Process, or Data Store
+  14-loyalty-oauth-platform: extraction is not a valid system model: invalid-reference: flow destination 'unknown' does not reference an existing External Entity, Process, or Data Store
+  20-school-coursework: the sweep stopped here: TruncatedCompletionError("extract: openrouter/openai/gpt-5.6-luna stopped at max_output_tokens with its output incomplete, so what it emitted is a fragmen
+  invalid or stopped cases: ['12-overclaiming-supplier-portal', '14-loyalty-oauth-platform', '20-school-coursework']
+B-r5: case 14 unplaced 2 of 12, ['boundary:partner-app-own-server']
+  10-cookbook-generic-cms: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'assets' on 'flow:entity:reader>entity:cdn>fetch-assets', but that attribute
+  10-cookbook-generic-cms: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'assets' on 'flow:process:web-server>store:cdn-bucket>publish-assets', but t
+  invalid or stopped cases: ['10-cookbook-generic-cms']
+B: 8 invalid or stopped cases, case 14 unplaced 10
+C-r1: case 14 unplaced 0 of 11, ['boundary:partner-apps-own-servers']
+  03-batch-data-pipeline: extraction is not a valid system model: invalid-reference: assumption references element 'flow:entity:insurance-partner>store:landing-bucket>push extracts', which does not exis
+  invalid or stopped cases: ['03-batch-data-pipeline']
+C-r2: case 14 unplaced 2 of 11, ['boundary:partner-app-servers']
+  03-batch-data-pipeline: extraction is not a valid system model: invalid-reference: assumption references element 'flow:entity:insurance-partner>store:landing-bucket>push extracts', which does not exis
+  08-sso-identity-broker: extraction is not a valid system model: duplicate-id: element 'process:key-store' ('key store') arrived with ID 'store:key-store', which 2 elements carried; every reference to 
+  08-sso-identity-broker: extraction is not a valid system model: duplicate-id: element 'process:directory' ('directory') arrived with ID 'store:directory', which 2 elements carried; every reference to 
+  08-sso-identity-broker: extraction is not a valid system model: duplicate-id: element 'process:audit-log' ('audit log') arrived with ID 'store:audit-log', which 2 elements carried; every reference to 
+  08-sso-identity-broker: extraction is not a valid system model: duplicate-id: element 'store:key-store' ('key store') arrived with ID 'store:key-store', which 2 elements carried; every reference to th
+  08-sso-identity-broker: extraction is not a valid system model: duplicate-id: element 'store:directory' ('directory') arrived with ID 'store:directory', which 2 elements carried; every reference to th
+  08-sso-identity-broker: extraction is not a valid system model: duplicate-id: element 'store:audit-log' ('audit log') arrived with ID 'store:audit-log', which 2 elements carried; every reference to th
+  invalid or stopped cases: ['03-batch-data-pipeline', '08-sso-identity-broker']
+C-r3: case 14 unplaced 2 of 10, ['boundary:partner-apps-own-servers']
+  invalid or stopped cases: []
+C-r4: case 14 unplaced 1 of 10, ['boundary:partner-servers']
+  03-batch-data-pipeline: extraction is not a valid system model: invalid-reference: assumption references element 'flow:entity-insurance-partners>store-landing-bucket>push-files', which does not exist 
+  19-vet-clinic-records: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:owner-app' does not carry; it declares ['technology',
+  19-vet-clinic-records: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:owner-api' does not carry; it declares ['technology',
+  19-vet-clinic-records: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:clinic-api' does not carry; it declares ['technology'
+  19-vet-clinic-records: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:clinic-desktop-app' does not carry; it declares ['tec
+  19-vet-clinic-records: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:lab-results-importer' does not carry; it declares ['t
+  19-vet-clinic-records: extraction is not a valid system model: invalid-reference: assumption names attribute 'data_classification', which 'process:billing-service' does not carry; it declares ['techno
+  invalid or stopped cases: ['03-batch-data-pipeline', '19-vet-clinic-records']
+C-r5: case 14 unplaced 1 of 11, ['boundary:partner-servers']
+  10-cookbook-generic-cms: extraction is not a valid system model: assumption-on-unknown: assumption records an inference for 'data_classification' on 'store:mysql-database', but that attribute is still
+  invalid or stopped cases: ['10-cookbook-generic-cms']
+C: 6 invalid or stopped cases, case 14 unplaced 6
