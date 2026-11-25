@@ -1,6 +1,6 @@
 """Every reference claim carries an action verb, and a new one must too.
 
-All 244 claims across all 13 cases carry a verb, and this guard keeps it so. A
+Every claim in every case carries a verb, and this guard keeps it so. A
 case that arrives without verbs fails here rather than quietly weakening
 :class:`~evals.harness.identity.SubsetVerbIdentity` on the case nobody checked.
 
@@ -108,7 +108,7 @@ def test_every_verb_is_used_or_exempted_with_a_reason():
     """A verb no claim uses is a distinction the corpus cannot show is real.
 
     Not a failure of the corpus — a question for the vocabulary. A verb that
-    earns no place in 244 claims is one to justify or to remove, and this is
+    earns no place in the corpus's claims is one to justify or to remove, and this is
     where that gets noticed rather than in a review two years from now.
     """
     corpus = load_corpus(verify_corpus.CORPUS_DIR)

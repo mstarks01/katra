@@ -3,7 +3,7 @@
     {
       "id": "entity:partner-system",
       "name": "partner system",
-      "description": "An approved partner's system, such as a fulfilment house's or a marketing agency's. It asks for exports, receives webhooks at its callback URL and downloads finished files.",
+      "description": "An approved partner's system, such as a fulfilment house's. It asks for exports, receives webhooks at its callback URL and downloads finished files.",
       "assets": [],
       "source_excerpt": "A partner's system calls the export API over HTTPS.",
       "source_label": "System description",
@@ -27,8 +27,7 @@
       "name": "export API",
       "description": "Issues one-hour access tokens for a client ID and secret at its token endpoint, creates export jobs, answers job status by job ID and lets a partner set its own callback URL. Checks the brand scope when a partner asks for an export. Writes an audit row for each token and each job.",
       "assets": [
-        "credentials",
-        "pii"
+        "credentials"
       ],
       "source_excerpt": "A partner's system calls the export API over HTTPS. The export API is on the internet.",
       "source_label": "System description",
@@ -72,7 +71,7 @@
     {
       "id": "store:partner-registry",
       "name": "partner registry",
-      "description": "Each partner's client ID, its client secret in plain text, its scopes and its callback URL, and the audit log table. The client secrets never expire.",
+      "description": "Each partner's client ID, its client secret and its scopes, and the audit log table. The client secrets are kept in plain text, so that a partner manager can read a secret back to a partner who lost it, and they never expire.",
       "assets": [
         "credentials",
         "business-critical-data"
@@ -169,7 +168,7 @@
     {
       "id": "flow:process:export-api>store:partner-registry>check-partners",
       "name": "check partners",
-      "description": "The export API checks client IDs and secrets, reads scopes, stores callback URLs and writes an audit row for each token and each export job.",
+      "description": "The export API checks client IDs and secrets, reads scopes and writes an audit row for each token and each export job.",
       "assets": [
         "credentials"
       ],
@@ -180,7 +179,7 @@
       "destination": "store:partner-registry",
       "protocol": "unknown",
       "authentication": "unknown",
-      "data_description": "client IDs, client secrets, scopes, callback URLs and audit rows",
+      "data_description": "client IDs, client secrets, scopes and audit rows",
       "encryption_in_transit": "unknown",
       "operations": "read-write"
     },
@@ -293,7 +292,7 @@
     {
       "id": "flow:process:admin-console>store:partner-registry>manage-partners",
       "name": "manage partners",
-      "description": "The admin console writes partners, client secrets and scopes, writes an audit row for each approval, and can edit and delete any row in the registry, the audit table included.",
+      "description": "The admin console writes partners, client secrets and scopes, writes an audit row for each approval, and can edit and delete any row in the registry, the audit table included. A partner manager can read a client secret back in plain text.",
       "assets": [
         "credentials",
         "business-critical-data"

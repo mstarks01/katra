@@ -242,24 +242,24 @@ The narrower question, per record: **does this requirement apply to this system,
 **A6.** `V13.2.1` — Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry and the file store.
 
 - `flow:process:export-api>store:partner-registry>check-partners`, `flow:process:export-api>store:export-queue>queue-export-job`, `flow:process:export-worker>store:export-queue>take-export-jobs`, `flow:process:export-worker>store:export-file-store>write-export-file`, `flow:process:admin-console>store:partner-registry>manage-partners`
-- The source says nobody has written it down; the database account on the worker's read is the one connection it names.
+- The source says nobody has written it down. The worker's read of the order database is left out: the source states a database account for it, which answers how that connection authenticates. The account's reach over every brand is the question V8.4.1 holds.
 
 > mark:
 
 **A7.** `V13.3.2` — Every partner manager can read every partner's client secret back from the registry.
 
 - `store:partner-registry`, `process:admin-console`, `flow:process:admin-console>store:partner-registry>manage-partners`
-- Stated outright: the secrets are kept in plain text so a partner manager can read one back to a partner.
+- Stated outright: the secrets are kept in plain text so a partner manager can read one back to a partner. V11.4.2 is left out because it governs user passwords, and V13.3.1 because it governs the backend secrets the application itself uses. A partner's client secret is neither, so this record holds the stated plain-text storage.
 
 > mark:
 
 
 ### authorization
 
-**A8.** `V8.2.2` — Nothing states that the export API checks that a job belongs to the partner who asks for its status, and job IDs count up from 1.
+**A8.** `V8.2.2` — Anyone who holds a signed download link gets the file for seven days with no token, and nothing states that the export API checks that a job belongs to the partner who asks for its status.
 
-- `process:export-api`, `flow:entity:partner-system>process:export-api>request-exports`
-- The source says nobody wrote it down.
+- `flow:entity:partner-system>store:export-file-store>download-export`, `store:export-file-store`, `process:export-api`, `flow:entity:partner-system>process:export-api>request-exports`
+- The download half is stated outright: the file store serves the file to anyone who holds the link. The job-status half is silent and alone would be needs-code; the stated half settles the record. V14.2.1 is left out: the source does not say where the link carries its signature.
 
 > mark:
 
@@ -314,7 +314,7 @@ The narrower question, per record: **does this requirement apply to this system,
 **A15.** `V16.3.1` — Issued tokens are logged; nothing states that failed client ID and secret checks are logged.
 
 - `process:export-api`, `flow:process:export-api>store:partner-registry>check-partners`
-- The source names a row for each token issued and is silent on failures.
+- The source describes its logging in prose and names a row for each token issued. A fuller description can state whether failed checks are logged, and the code also settles it.
 
 > mark:
 
@@ -393,11 +393,11 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**4.** A partner manager edits or deletes the audit rows of an approval they made, through the admin console.
+**4.** A partner manager edits the audit rows of an approval they made, through the admin console.
 
 - `flow:process:admin-console>store:partner-registry>manage-partners`, `store:partner-registry`
 - severity: low/medium · verb: `alter`
-- Stated outright: the admin console can edit and delete any row in the partner registry, the audit table included.
+- Stated outright: the admin console can edit and delete any row in the partner registry, the audit table included. A deletion of the rows is the same reach with the verb `delete`; this claim holds the edit.
 
 > mark:
 
@@ -431,11 +431,11 @@ on either of them. That is the finding this sitting exists for.
 
 ### information-disclosure
 
-**8.** Anyone who gets hold of a download link, from a forwarded webhook, a partner's logs or a plain-http callback, downloads a brand's customer export with no token.
+**8.** Anyone who gets hold of a download link, from a forwarded webhook or a plain-http callback, downloads a brand's customer export with no token.
 
 - `flow:entity:partner-system>store:export-file-store>download-export`, `store:export-file-store`
 - severity: medium/high · verb: `read`
-- Stated outright: anyone who holds the link can download for seven days, and the download asks for no token. Nobody deletes finished files, so the store keeps every export ever made.
+- Stated outright: anyone who holds the link can download for seven days, and the download asks for no token. Nobody deletes finished files, so the store keeps every export ever made. A partner's own logs or mail are further places a link can leak; the source names none of them.
 
 > mark:
 
@@ -570,9 +570,9 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "ab06a85e26f3af2be139b9b8d8b4c3bb84c0332ca49d134425b67d220283797f",
-      "model.json": "7e177120ddf18d9148e4e9a7a8ebd6c126c8091efb2d99adc1ef99341f0cffac",
-      "claims/asvs.json": "b9aa0ab8a32036f6fafdfafcc71a3c4633902d753586d29381152942fb4f1a90",
-      "claims/stride.json": "763a7d584ab121a18eebd68481cb1550f2b1dd53399cd031c93be1924bc3d9d8"
+      "model.json": "4d9222d8229ebf05197ff4a9f1f479d2857a7c903be5cda6505c10dbb17238c6",
+      "claims/asvs.json": "ea4823c6d7bd161a189ddb97f00c33fffd454b8a9a0e1e871fd6b8efbcad12bb",
+      "claims/stride.json": "22fdcc53d18d8fcc606aff20b59947954a77cde50b9739e747ebb954a763336d"
       }
     }
   }

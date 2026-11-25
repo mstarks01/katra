@@ -303,7 +303,7 @@ decision with less context, and getting a different answer on exactly the claims
 where the difference matters.
 
 `tests/test_verb_coverage.py` fails on a claim that carries no verb, and on a
-verb outside the vocabulary. Every one of the corpus's 243 claims has one, so a
+verb outside the vocabulary. Every claim in the corpus has one, so a
 new case that skips this step is the only way that test goes red.
 
 ### 5. Label the calibration pairs

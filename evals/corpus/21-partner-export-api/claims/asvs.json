@@ -82,7 +82,7 @@
     "claim": "Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry and the file store.",
     "tier": "expected",
     "disposition": "needs-more-prose",
-    "notes": "The source says nobody has written it down; the database account on the worker's read is the one connection it names.",
+    "notes": "The source says nobody has written it down. The worker's read of the order database is left out: the source states a database account for it, which answers how that connection authenticates. The account's reach over every brand is the question V8.4.1 holds.",
     "also_acceptable": [
       "needs-config"
     ]
@@ -98,19 +98,21 @@
     "claim": "Every partner manager can read every partner's client secret back from the registry.",
     "tier": "expected",
     "disposition": "gap-from-prose",
-    "notes": "Stated outright: the secrets are kept in plain text so a partner manager can read one back to a partner."
+    "notes": "Stated outright: the secrets are kept in plain text so a partner manager can read one back to a partner. V11.4.2 is left out because it governs user passwords, and V13.3.1 because it governs the backend secrets the application itself uses. A partner's client secret is neither, so this record holds the stated plain-text storage."
   },
   {
     "chapter": "authorization",
     "requirement": "V8.2.2",
     "affected_element_ids": [
+      "flow:entity:partner-system>store:export-file-store>download-export",
+      "store:export-file-store",
       "process:export-api",
       "flow:entity:partner-system>process:export-api>request-exports"
     ],
-    "claim": "Nothing states that the export API checks that a job belongs to the partner who asks for its status, and job IDs count up from 1.",
-    "tier": "expected",
-    "disposition": "needs-code",
-    "notes": "The source says nobody wrote it down."
+    "claim": "Anyone who holds a signed download link gets the file for seven days with no token, and nothing states that the export API checks that a job belongs to the partner who asks for its status.",
+    "tier": "must-find",
+    "disposition": "gap-from-prose",
+    "notes": "The download half is stated outright: the file store serves the file to anyone who holds the link. The job-status half is silent and alone would be needs-code; the stated half settles the record. V14.2.1 is left out: the source does not say where the link carries its signature."
   },
   {
     "chapter": "authorization",
@@ -198,8 +200,11 @@
     ],
     "claim": "Issued tokens are logged; nothing states that failed client ID and secret checks are logged.",
     "tier": "expected",
-    "disposition": "needs-code",
-    "notes": "The source names a row for each token issued and is silent on failures."
+    "disposition": "needs-more-prose",
+    "notes": "The source describes its logging in prose and names a row for each token issued. A fuller description can state whether failed checks are logged, and the code also settles it.",
+    "also_acceptable": [
+      "needs-code"
+    ]
   },
   {
     "chapter": "secure-coding-and-architecture",

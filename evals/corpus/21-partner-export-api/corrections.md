@@ -10,7 +10,7 @@ one specifically.
 |---|---|---|---|
 | 1 | `data_stores` | no separate audit log store | "The audit log is a table in the partner registry." One store holds both, so the admin console's edit and delete reach the audit rows through the same flow. |
 | 2 | `data_stores` | the export queue is a store | "The export API puts an export job on the export queue"; the worker "takes jobs off" it. Both flows point at the queue, because each side starts its own interaction. |
-| 3 | `flow:…>request-exports.authentication` | client ID and secret for a one-hour token; never expires, no rotation | "The client secret never expires. We cannot rotate a secret without deleting the partner". Both qualifiers sit in the attribute the spoofing lane reads. |
+| 3 | `flow:…>request-exports` | `authentication` holds "client secret that never expires"; the description holds the one-hour token and "cannot be rotated without deleting the partner" | "The client secret never expires. We cannot rotate a secret without deleting the partner". Each stated control holds its mechanism only, so the case stays under the scan budget that `tests/test_basis.py` holds. The rotation qualifier sits in the description, which the spoofing lane also reads. |
 | 4 | `flow:…>request-exports` | one flow for token, export, status and callback calls | The source names each call, and all of them go from the partner's system to the export API. |
 | 5 | `flow:entity:partner-system>store:export-file-store>download-export` | entity to store, no process | "download the file straight from the export file store". The source names no download service. |
 | 6 | `flow:…>download-export.authentication` | stated: a signed link that works for seven days, for anyone who holds it | A signed link is a mechanism, so the control is stated, not absent. "Anyone who holds the link" and "asks for no token" stay in the detail. |
@@ -25,6 +25,9 @@ one specifically.
 | 15 | `flow:…>use-admin-console.encryption_in_transit` | `unknown` | The source names a VPN and says nothing of what it encrypts. |
 | 16 | internal flows, `protocol`, `authentication`, `encryption_in_transit` | `unknown`, with notes | "Nobody has written down how the export API, the worker and the admin console connect … or whether those connections are encrypted." |
 | 17 | `entity:partner-manager.trust_zone` | `boundary:office-vpn`, as an assumption | The source places the console's reach, not the managers. |
+| 18 | `external_entities` | no element for the company single sign-on | "Partner managers sign in with the company single sign-on, which asks for a second factor." The model already holds 22 elements, the top of the band, and the source gives the sign-on no interaction beyond this sign-in. So it is the mechanism in `use-admin-console.authentication`, not an element. |
+| 19 | `store:partner-registry` | no callback URLs | The source says partners set their callback URL through the export API and that the job carries it. It does not say where the URL is kept, so the registry does not hold it. |
+| 20 | `process:export-api.assets` | `credentials` only | The export API issues tokens and checks secrets. The source gives it no personal data: the worker reads the rows and the file store holds them. |
 
 ## Signal
 

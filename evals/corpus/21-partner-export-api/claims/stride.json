@@ -51,13 +51,13 @@
       "flow:process:admin-console>store:partner-registry>manage-partners",
       "store:partner-registry"
     ],
-    "claim": "A partner manager edits or deletes the audit rows of an approval they made, through the admin console.",
+    "claim": "A partner manager edits the audit rows of an approval they made, through the admin console.",
     "tier": "expected",
     "severity": {
       "likelihood": "low",
       "impact": "medium"
     },
-    "notes": "Stated outright: the admin console can edit and delete any row in the partner registry, the audit table included.",
+    "notes": "Stated outright: the admin console can edit and delete any row in the partner registry, the audit table included. A deletion of the rows is the same reach with the verb `delete`; this claim holds the edit.",
     "verb": "alter"
   },
   {
@@ -111,13 +111,13 @@
       "flow:entity:partner-system>store:export-file-store>download-export",
       "store:export-file-store"
     ],
-    "claim": "Anyone who gets hold of a download link, from a forwarded webhook, a partner's logs or a plain-http callback, downloads a brand's customer export with no token.",
+    "claim": "Anyone who gets hold of a download link, from a forwarded webhook or a plain-http callback, downloads a brand's customer export with no token.",
     "tier": "must-find",
     "severity": {
       "likelihood": "medium",
       "impact": "high"
     },
-    "notes": "Stated outright: anyone who holds the link can download for seven days, and the download asks for no token. Nobody deletes finished files, so the store keeps every export ever made.",
+    "notes": "Stated outright: anyone who holds the link can download for seven days, and the download asks for no token. Nobody deletes finished files, so the store keeps every export ever made. A partner's own logs or mail are further places a link can leak; the source names none of them.",
     "verb": "read"
   },
   {

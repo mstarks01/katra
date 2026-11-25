@@ -2,7 +2,7 @@
 
 The measurement [#201](https://github.com/mstarks01/katra/issues/201) asks
 for. `tests/test_claim_identity.py` answers the false-merge direction over the
-blessed reference sets: the lane and the element set separate 243 of 244 claims.
+blessed reference sets.
 The calibration set's candidate side carries element IDs, so this module
 answers the direction the issue's title names. It runs :class:`~evals.harness.identity.MechanicalIdentity` through
 :func:`~evals.harness.calibration.measure_agreement`, against the same hand
