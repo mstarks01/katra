@@ -46,6 +46,7 @@ from katra.frameworks import (
     SCHEMAS,
     SEVERITY_RUBRIC_DOC,
     run_precondition,
+    schemas_for,
     selectable_without_options,
     validate_package,
 )
@@ -1914,3 +1915,91 @@ def test_a_capability_a_statement_shows_present_is_never_asked():
 
     assert "oauth" not in asked
     assert "oauth-client" in asked
+
+
+class TestEachLaneAsksForItsOwnUnits:
+    """#2370: a lane picks a requirement of its chapter rather than composing one."""
+
+    def _requirement_enum(self, lane):
+        from katra.frameworks.asvs.record import lane_proposals
+
+        schema = lane_proposals(lane).model_json_schema()
+        [proposal] = [
+            definition
+            for name, definition in schema["$defs"].items()
+            if name.startswith("RequirementProposal_")
+        ]
+        return proposal["properties"]["requirement"]["enum"]
+
+    @pytest.mark.parametrize("lane", PACKAGES["asvs"].lanes)
+    def test_the_fan_in_knows_every_key_the_enum_offers(self, lane):
+        knows = PACKAGES["asvs"].id_rule.knows
+
+        keys = self._requirement_enum(lane)
+
+        assert keys
+        assert all(knows(lane, key) for key in keys)
+
+    def test_the_enums_together_hold_every_published_requirement(self):
+        from katra.frameworks.asvs.catalog import requirements_for
+
+        offered = {
+            (lane, key)
+            for lane in PACKAGES["asvs"].lanes
+            for key in self._requirement_enum(lane)
+        }
+
+        published = {
+            (requirement.lane, requirement.key) for requirement in requirements_for(3)
+        }
+
+        assert offered == published
+        assert len(published) == 345
+
+    def test_a_stride_lane_asks_for_the_shared_shape(self):
+        stride = schemas_for("stride")
+
+        assert all(
+            stride.lane_proposals(lane) is stride.proposals
+            for lane in PACKAGES["stride"].lanes
+        )
+
+    def test_a_lane_s_emission_reads_back_as_the_shared_shape(self):
+        from katra.frameworks.asvs.record import lane_proposals
+
+        lane = "authentication"
+        emitted = {
+            "claims": [
+                {
+                    "title": "t",
+                    "description": "d",
+                    "requirement": "2.1",
+                    "direction_and_kind": "question-prose",
+                    "absent_elements": ["ldap"],
+                }
+            ]
+        }
+        batch = lane_proposals(lane).model_validate(emitted)
+
+        again = schemas_for("asvs").proposals.model_validate(batch.model_dump())
+
+        assert [proposal.requirement for proposal in again.claims] == ["2.1"]
+
+    def test_a_key_outside_the_enum_still_validates_for_the_fan_in_to_mark(self):
+        from katra.frameworks.asvs.record import lane_proposals
+
+        emitted = {
+            "claims": [
+                {
+                    "title": "t",
+                    "description": "d",
+                    "requirement": "99.9",
+                    "direction_and_kind": "gap",
+                    "absent_elements": ["ldap"],
+                }
+            ]
+        }
+
+        batch = lane_proposals("authentication").model_validate(emitted)
+
+        assert [proposal.requirement for proposal in batch.claims] == ["99.9"]

@@ -525,6 +525,13 @@ class FrameworkSchemas:
         writes. Named rather than derived because ``id`` has no shared grammar:
         the neutral resolver reads this field, hands it to the package's own
         :class:`IdRule`, and composes an ID no agent spelled.
+    ``lane_proposals``
+        The ``proposals`` shape one lane's node asks its provider for. A
+        framework whose ID key is a catalog unit narrows the key to the lane's
+        own units (#2370), so a lane picks a unit rather than composing one; a
+        framework whose key code writes asks every lane for ``proposals``.
+        Each lane's shape validates what ``proposals`` validates, so a stored
+        batch reads back as ``proposals``.
     """
 
     proposals: type[ProposalBatch]
@@ -532,6 +539,7 @@ class FrameworkSchemas:
     ruled_record: type[RuledClaim]
     block: type[FrameworkAnalysis]
     key_field: str
+    lane_proposals: Callable[[str], type[ProposalBatch]]
 
 
 def lane_of(claim: Claim) -> str | None:
@@ -565,6 +573,7 @@ def _asvs_schemas() -> FrameworkSchemas:
         RequirementProposals,
         RequirementRuling,
         RequirementRulings,
+        lane_proposals,
     )
 
     return FrameworkSchemas(
@@ -573,6 +582,7 @@ def _asvs_schemas() -> FrameworkSchemas:
         ruled_record=RequirementRuling,
         block=AsvsAnalysis,
         key_field="requirement",
+        lane_proposals=lane_proposals,
     )
 
 
@@ -599,6 +609,7 @@ def _stride_schemas() -> FrameworkSchemas:
         ruled_record=Threat,
         block=StrideAnalysis,
         key_field="sequence",
+        lane_proposals=lambda lane: ThreatProposals,
     )
 
 

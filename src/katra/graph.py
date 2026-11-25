@@ -3163,7 +3163,7 @@ def _framework_subgraph(
                 instruction=analyze_instruction(
                     package_loader, prompt_loader, package, lane
                 ),
-                output_schema=schemas.proposals,
+                output_schema=schemas.lane_proposals(lane.lane),
                 output_key=lane.drafts_key,
                 resolve_model=resolve_model,
                 resolve_sampling=resolve_sampling,

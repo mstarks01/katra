@@ -32,10 +32,19 @@ The layering is ``Claim``, then :class:`DraftRequirementRuling`, then
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
+from functools import cache
 from types import MappingProxyType
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    computed_field,
+    create_model,
+    model_validator,
+)
 from pydantic.json_schema import SkipJsonSchema
 
 from katra.bands import Band
@@ -72,6 +81,7 @@ from katra.frameworks.asvs.applicability import (
     applicability_for,
 )
 from katra.frameworks.asvs.catalog import (
+    ASVS_LEVELS,
     ASVS_VERSION,
     CHAPTER_NUMBERS,
     DOCUMENTATION_REQUIREMENTS,
@@ -570,6 +580,42 @@ class RequirementProposals(ProposalBatch):
     # No length bound, for the reason `ProposalBatch` gives: `fan_in` carries
     # MAX_CLAIMS_PER_BATCH, so a narrowing cannot drop it.
     claims: list[RequirementProposal]  # type: ignore[assignment]
+
+
+@cache
+def lane_proposals(lane: str) -> type[RequirementProposals]:
+    """The proposals one ASVS lane's node asks for: ``requirement`` narrowed to
+    the keys of the lane's chapter, at every level (#2370).
+
+    The enum is a schema fact and not a validator, on the rule the assertion
+    predicates follow: a key outside it still validates as a
+    :class:`RequirementProposal`, and :func:`~katra.evidence.known_proposals`
+    drops and marks it. Every level, because the block keeps a ruling on a
+    requirement above the job's level (see
+    :meth:`AsvsAnalysis._level_coverage_issues`), and the graph is built once
+    for every job's level.
+    """
+    keys: list[JsonValue] = [
+        requirement.key for requirement in requirements_for(max(ASVS_LEVELS), lane)
+    ]
+    suffix = lane.replace("-", "_")
+    proposal = create_model(
+        f"RequirementProposal_{suffix}",
+        __base__=RequirementProposal,
+        requirement=(
+            Annotated[
+                str,
+                RequirementProposal.model_fields["requirement"],
+                Field(json_schema_extra={"enum": keys}),
+            ],
+            ...,
+        ),
+    )
+    return create_model(
+        f"RequirementProposals_{suffix}",
+        __base__=RequirementProposals,
+        claims=(list[proposal], ...),  # type: ignore[valid-type]
+    )
 
 
 class RequirementRulingProposal(Ruling):
