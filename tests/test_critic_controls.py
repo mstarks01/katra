@@ -629,8 +629,7 @@ def _config_proposal() -> RequirementProposals:
         title="Orders DB encryption is not stated",
         description="Whether the store encrypts at rest is a deployed setting.",
         requirement="2.1",
-        needs_evidence="config",
-        direction="question",
+        direction_and_kind="question-config",
         affected_element_ids=["store:orders-db"],
         quotes=[QuoteCandidate(text="orders are stored in Postgres", source_label="d")],
     )

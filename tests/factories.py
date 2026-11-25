@@ -1515,8 +1515,7 @@ SCRIPTED_FRAMEWORKS: Mapping[FrameworkName, ScriptedFramework] = MappingProxyTyp
                     # The agent ruled, which is the ordinary answer and the one
                     # that keeps this scripted claim a claim rather than a
                     # scope entry.
-                    needs_evidence="",
-                    direction="gap",
+                    direction_and_kind="gap",
                     evidence_refs=[
                         "crossing:flow:entity:customer>process:web-app>login"
                     ],

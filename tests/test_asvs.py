@@ -965,13 +965,14 @@ class TestAJobDefersWhatItsInputCannotSettle:
 
     @staticmethod
     def _proposal(key: str, needs: Any) -> RequirementProposal:
-        return RequirementProposal(
-            title="t",
-            description="d",
-            requirement=key,
-            needs_evidence=needs,
-            direction="question" if needs else "gap",
-            quotes=[QuoteCandidate(text="Shoppers sign in", source_label="note")],
+        return RequirementProposal.model_validate(
+            {
+                "title": "t",
+                "description": "d",
+                "requirement": key,
+                "direction_and_kind": f"question-{needs}" if needs else "gap",
+                "quotes": [{"text": "Shoppers sign in", "source_label": "note"}],
+            }
         )
 
     def test_each_documentation_requirement_sits_in_a_documentation_section(self):
