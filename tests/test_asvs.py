@@ -974,6 +974,18 @@ class TestAJobDefersWhatItsInputCannotSettle:
             quotes=[QuoteCandidate(text="Shoppers sign in", source_label="note")],
         )
 
+    def test_each_documentation_requirement_sits_in_a_documentation_section(self):
+        from katra.frameworks.asvs.catalog import (
+            DOCUMENTATION_REQUIREMENTS,
+            REQUIREMENTS,
+        )
+
+        sections = {req.id: req.section_name for req in REQUIREMENTS}
+        in_sections = {req for req, name in sections.items() if "Documentation" in name}
+
+        assert DOCUMENTATION_REQUIREMENTS <= in_sections
+        assert in_sections - DOCUMENTATION_REQUIREMENTS == {"V11.1.3", "V15.1.2"}
+
     def test_a_documentation_requirement_is_settled_by_prose(self):
         """A documentation requirement asks for a document, so code reads its
         kind as ``prose`` whatever the lane wrote (#2364)."""

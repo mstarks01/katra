@@ -184,8 +184,8 @@ TOKEN_CAPS: dict[str, int] = {
     # report calls a gap, so "does not settle" alone does not describe every
     # claim.
     f"package/{DISCLAIMER_DOC}": 300,
-    # ASVS's output contract states two readings (#1082). `needs_evidence`
-    # asks whether the submitter could answer the question, not whether a
+    # ASVS's output contract states two readings (#1082). The kind of a
+    # question asks whether the submitter could answer the question, not whether a
     # sentence would prove the control, so such a question routes to a
     # request and not to `config`. "Rule on every requirement at or below the
     # level" yields to the scope line's own list of units code ruled out.

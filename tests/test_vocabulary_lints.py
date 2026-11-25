@@ -602,6 +602,10 @@ OPEN: dict[tuple[str, str], str] = {
         "corpus case names, which are directory names under the corpus and not a"
         " type, so a new case that has no reference set adds a member"
     ),
+    ("katra.frameworks.asvs.catalog", "DOCUMENTATION_REQUIREMENTS"): (
+        "requirement IDs of the catalog the package loads, which the catalog and"
+        " not a Literal states; a test holds them to its documentation sections"
+    ),
     ("katra.auth", "_CANONICAL_ALGORITHMS"): (
         "a table of algorithm names that maps the free text of an operator's"
         " algorithm setting to the canonical spelling"

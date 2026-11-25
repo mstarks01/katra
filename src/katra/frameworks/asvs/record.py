@@ -332,7 +332,7 @@ class DraftRequirementRuling(Claim):
         covered: Collection[str],
         catalog: Mapping[str, Ground],
     ) -> tuple[list[Any], dict[str, str]]:
-        """Every requirement whose lane agent said this job cannot settle it.
+        """Every requirement whose kind, as code reads it, this job cannot settle.
 
         The agent names the kind of evidence that would settle the requirement;
         this drops the ones that kind is not among what the job carries. A
@@ -458,6 +458,9 @@ class RequirementProposal(Proposal):
     position in the graph, so a requirement naming no element is the ordinary
     case here rather than a defect.
 
+    ``direction_and_kind`` is the one field the agent writes for both halves
+    below, and code splits it into ``direction`` and ``needs_evidence``.
+
     ``direction`` is the agent's statement of which of the three things this
     draft is (ADR 0028): a ``gap`` the input states, a ``question`` the input
     does not settle, or a requirement ``excluded`` because the system has no
@@ -471,16 +474,17 @@ class RequirementProposal(Proposal):
     so the claim stands and reads as a request the submitter can act on. Any
     other kind means this job cannot reach it at all, and the requirement
     becomes a **Scope Entry** rather than a claim. A ``gap`` and an ``excluded``
-    carry the empty kind, and the validator holds the two fields together: a
-    question names a kind, and nothing else does.
+    carry the empty kind: a question names a kind, and nothing else does.
 
-    **Judgement, deliberately, rather than a table.** Whether a description
-    settles a requirement depends on what that description says: four
+    **Judgement, except where code can tell.** Whether a description settles
+    most requirements depends on what that description says: four
     requirements were ruled ``confirmed`` from prose only because the submission
     happened to describe CORS and to state that nothing rate-limited a caller.
-    A table keyed by requirement answers a question that has no fixed answer,
-    and would be wrong invisibly. This is wrong visibly, in a field a reader can
-    disagree with.
+    So the lane's kind decides, in a field a reader can disagree with. Code
+    reads the kind as ``prose`` only where the answer is fixed: a requirement
+    that asks for a document (:data:`~katra.frameworks.asvs.catalog.DOCUMENTATION_REQUIREMENTS`),
+    and a question that cites an open fact, whose value the description could
+    state (:meth:`DraftRequirementRuling.partition_proposals`).
     """
 
     model_config = ConfigDict(extra="forbid")
