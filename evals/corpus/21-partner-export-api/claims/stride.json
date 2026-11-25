@@ -1,0 +1,271 @@
+[
+  {
+    "category": "spoofing",
+    "affected_element_ids": [
+      "flow:entity:partner-system>process:export-api>request-exports",
+      "process:export-api"
+    ],
+    "claim": "An attacker who obtains a partner's client secret swaps it for access tokens and exports that partner's brands as the partner, for as long as the partner exists.",
+    "tier": "must-find",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Stated outright: the secret never expires and cannot be rotated without deleting the partner, and the registry holds it in plain text.",
+    "verb": "use-credential"
+  },
+  {
+    "category": "spoofing",
+    "affected_element_ids": [
+      "flow:entity:partner-manager>process:admin-console>use-admin-console",
+      "process:admin-console"
+    ],
+    "claim": "An attacker who takes over a partner manager's single sign-on account approves a partner they run and gives it any brand's data.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "high"
+    },
+    "notes": "A second factor and the office VPN keep the likelihood low; one manager can approve and scope a partner alone, which keeps the impact high.",
+    "verb": "use-credential"
+  },
+  {
+    "category": "tampering",
+    "affected_element_ids": [
+      "flow:process:export-api>store:export-queue>queue-export-job",
+      "store:export-queue",
+      "process:export-worker"
+    ],
+    "claim": "An attacker who can write to the export queue plants a job that names any brand and their own callback URL, and the worker exports that brand and posts the download link to them.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "high"
+    },
+    "notes": "The worker does not check the job's brand against the partner's scopes again, reads with an account that reaches every brand's tables, and posts to the callback URL the job carries. Who can write to the queue is not recorded, which keeps the likelihood low.",
+    "verb": "plant"
+  },
+  {
+    "category": "tampering",
+    "affected_element_ids": [
+      "flow:process:admin-console>store:partner-registry>manage-partners",
+      "store:partner-registry"
+    ],
+    "claim": "A partner manager edits or deletes the audit rows of an approval they made, through the admin console.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "medium"
+    },
+    "notes": "Stated outright: the admin console can edit and delete any row in the partner registry, the audit table included.",
+    "verb": "alter"
+  },
+  {
+    "category": "tampering",
+    "affected_element_ids": [
+      "flow:process:export-worker>store:export-file-store>write-export-file",
+      "store:export-file-store"
+    ],
+    "claim": "An attacker with write access to the export file store replaces a finished export before the partner downloads it, and the partner loads the changed records into its own systems.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "medium"
+    },
+    "notes": "Who can write to the file store is not recorded, and nothing states that a partner can check a file it downloads.",
+    "verb": "alter"
+  },
+  {
+    "category": "repudiation",
+    "affected_element_ids": [
+      "process:admin-console",
+      "flow:process:admin-console>store:partner-registry>manage-partners"
+    ],
+    "claim": "A partner manager widens a partner's scopes, and nothing records who made the change.",
+    "tier": "must-find",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Stated outright: scope changes are not written to the audit log, and one partner manager can widen a scope alone.",
+    "verb": "unattributable"
+  },
+  {
+    "category": "repudiation",
+    "affected_element_ids": [
+      "flow:entity:partner-system>store:export-file-store>download-export",
+      "store:export-file-store"
+    ],
+    "claim": "Someone downloads an export with a leaked link, and nothing records who downloaded it or when.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "medium"
+    },
+    "notes": "Stated outright: downloads are not recorded anywhere, because they go straight to the file store.",
+    "verb": "unattributable"
+  },
+  {
+    "category": "information-disclosure",
+    "affected_element_ids": [
+      "flow:entity:partner-system>store:export-file-store>download-export",
+      "store:export-file-store"
+    ],
+    "claim": "Anyone who gets hold of a download link, from a forwarded webhook, a partner's logs or a plain-http callback, downloads a brand's customer export with no token.",
+    "tier": "must-find",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Stated outright: anyone who holds the link can download for seven days, and the download asks for no token. Nobody deletes finished files, so the store keeps every export ever made.",
+    "verb": "read"
+  },
+  {
+    "category": "information-disclosure",
+    "affected_element_ids": [
+      "store:partner-registry",
+      "process:admin-console"
+    ],
+    "claim": "A partner manager, or an attacker who reads the partner registry, recovers every partner's client secret in plain text.",
+    "tier": "must-find",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Stated outright: the registry keeps client secrets in plain text so a partner manager can read one back. The secrets never expire.",
+    "verb": "recover-credential"
+  },
+  {
+    "category": "information-disclosure",
+    "affected_element_ids": [
+      "flow:process:export-worker>entity:partner-system>send-webhook"
+    ],
+    "claim": "An attacker on the network path of a partner's http:// callback URL intercepts the webhook and takes the download link it carries.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "high"
+    },
+    "notes": "Callback URLs can start with http://. The webhook's signature proves who sent it and hides nothing.",
+    "verb": "intercept"
+  },
+  {
+    "category": "information-disclosure",
+    "affected_element_ids": [
+      "flow:entity:partner-system>process:export-api>request-exports",
+      "process:export-api"
+    ],
+    "claim": "A partner asks the export API for the status of other job IDs, which count up from 1, and gets other partners' jobs.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Conditional: nobody wrote down whether the export API checks that a job belongs to the partner who asks.",
+    "verb": "elicit"
+  },
+  {
+    "category": "information-disclosure",
+    "affected_element_ids": [
+      "store:order-database"
+    ],
+    "claim": "An attacker with access to the order database's storage reads every brand's customers and orders.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "high"
+    },
+    "notes": "The source leaves the order database's protection at rest unrecorded, and every brand sits in it.",
+    "verb": "read"
+  },
+  {
+    "category": "denial-of-service",
+    "affected_element_ids": [
+      "process:export-worker",
+      "flow:process:export-worker>store:order-database>read-brand-rows"
+    ],
+    "claim": "A partner asks for exports with very long date ranges, and the worker, which takes jobs one at a time, spends hours on them while every other partner's exports wait.",
+    "tier": "must-find",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "medium"
+    },
+    "notes": "Stated outright: nobody set a limit on how many exports a partner can ask for or on how long the date range can be.",
+    "verb": "exhaust-resources"
+  },
+  {
+    "category": "denial-of-service",
+    "affected_element_ids": [
+      "flow:process:export-api>store:export-queue>queue-export-job",
+      "store:export-queue"
+    ],
+    "claim": "A partner sends export requests without limit and fills the export queue, so other partners' jobs wait behind them.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "medium"
+    },
+    "notes": "Stated outright: no limit on how many exports a partner can ask for.",
+    "verb": "flood"
+  },
+  {
+    "category": "denial-of-service",
+    "affected_element_ids": [
+      "flow:process:export-worker>entity:partner-system>send-webhook",
+      "process:export-worker"
+    ],
+    "claim": "A partner's callback URL answers slowly or never, and the worker, which waits for each webhook call before it takes the next job, stops every other partner's exports.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "medium"
+    },
+    "notes": "Stated outright: the worker waits for the webhook call to finish before it takes the next job, and takes jobs one at a time.",
+    "verb": "disable"
+  },
+  {
+    "category": "elevation-of-privilege",
+    "affected_element_ids": [
+      "flow:process:export-worker>entity:partner-system>send-webhook",
+      "process:export-worker"
+    ],
+    "claim": "A partner sets its callback URL to an address inside our cloud account, and the worker posts to it, so the partner sends requests to internal services that no partner may call.",
+    "tier": "must-find",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Stated outright: partners set their own callback URL, and the worker does not check where it points before it posts to it.",
+    "verb": "escalate"
+  },
+  {
+    "category": "elevation-of-privilege",
+    "affected_element_ids": [
+      "flow:entity:partner-system>process:export-api>request-exports",
+      "process:export-api"
+    ],
+    "claim": "A partner whose scope allows only orders exports a brand's customers.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "medium",
+      "impact": "high"
+    },
+    "notes": "Conditional: the export API checks the brand scope; whether it checks the customers/orders scope is a hedge nobody has confirmed.",
+    "verb": "abuse-grant"
+  },
+  {
+    "category": "elevation-of-privilege",
+    "affected_element_ids": [
+      "flow:entity:partner-manager>process:admin-console>use-admin-console",
+      "process:admin-console"
+    ],
+    "claim": "A partner manager approves a partner and gives it every brand's customers alone, with no second person to review the scope.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "high"
+    },
+    "notes": "Stated outright: one partner manager can approve a partner and widen its scopes alone.",
+    "verb": "abuse-grant"
+  }
+]

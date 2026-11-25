@@ -87,7 +87,7 @@ which questions a cheap model may answer and which it may not.
 **There is no model judge.** Claim matching is `SubsetVerbIdentity`, a rule in
 `harness/identity.py`, and it is measured on the two directions it can fail in
 (`python -m evals.harness.run calibrate`), with no provider call:
-**15 false splits of 169, 2 false merges of 92 and 8 false merges of 484.**
+**15 false splits of 169, 2 false merges of 92 and 8 false merges of 505.**
 The first two
 denominators are equivalent candidates and candidate negatives; the third is
 distinct reference pairs. Read them
@@ -97,7 +97,7 @@ denominators are different populations and none is a rate over what a live run
 emits.
 
 Equivalently by population: 15 false splits over 169 equivalent candidate pairs,
-2 false merges over 92 candidate negatives, and 8 false merges over 484
+2 false merges over 92 candidate negatives, and 8 false merges over 505
 distinct reference pairs.
 
 The 288 calibration fixtures retain their original order and reference claims.
@@ -270,7 +270,7 @@ somewhere else.
 | `harness/calibration.py` | Rule-vs-label agreement over the labelled fixtures — the scoreboard any rule change must clear. |
 | `harness/verbs.py` | The closed vocabulary of attacker actions, and what counts as one action. |
 | `harness/exemplar_verbs.py` | Which actions a package's shipped exemplars demonstrate against which its reference sets grade, and the exemplar pairs that name one place and two actions. Reads text and blessed models only, so it costs no provider call. |
-| `harness/identity.py` | Claim identity from the fields a claim carries. `SubsetVerbIdentity` has 15 false splits of 169, 2 false merges of 92 and 8 false merges of 484 with no model call. |
+| `harness/identity.py` | Claim identity from the fields a claim carries. `SubsetVerbIdentity` has 15 false splits of 169, 2 false merges of 92 and 8 false merges of 505 with no model call. |
 | `harness/fingerprint.py` | A **Claim**'s identity as a versioned value code computes. No model call. |
 | `harness/flow_ids.py` | Which **Data Flow** identity version a graph spells, and the table that lifts an archived artifact's old flow IDs to the version the corpus spells. The table comes from the graph's endpoints, because a version 1 ID omits the endpoint types. |
 | `harness/ledger.py` | The append-only record of what a **person** decided about a finding. One file per voter, named by the GitHub login. |
@@ -689,7 +689,7 @@ the next sitting, and only the rate over it is a score.
 - **holdout split** — coverage on the **Holdout Case**s beside coverage on the
   development ones (`holdout_split`, and `applicability_holdout_split` for ASVS).
   Absent while no case that is still held out is scored. Cases 14 and 15 are
-  exhausted, so every sweep today has no split. No diagnosis command reads a holdout
+  exhausted, and case 21 is the one case still held out. No diagnosis command reads a holdout
   case, so a gain on the development cases that the holdout does not repeat was
   shaped by the cases it was read on. A holdout the experiment ledger read
   `HOLDOUT_READS` times is exhausted and counts as a development case, and the
@@ -820,7 +820,7 @@ Three properties make the record worth keeping:
 
 ## The corpus
 
-20 cases, each sized so a person can enumerate its threats exhaustively
+21 cases, each sized so a person can enumerate its threats exhaustively
 (roughly 8–22 elements).
 
 The shipped prompts teach by example, and every lane's `exemplars.md` works its
@@ -859,6 +859,7 @@ too. The gap is tracked and watched, but never fails a build.
 | `18-podcast-host-quotas` | podcast hosting | far | synthetic (request limits stated, absent and hedged) |
 | `19-vet-clinic-records` | veterinary records | far | synthetic (access checks stated, absent and hedged) |
 | `20-school-coursework` | school coursework | far | synthetic (access checks stated, absent and hedged) |
+| `21-partner-export-api` | partner data export | far | synthetic, holdout (controls stated, absent, hedged and silent) |
 
 The Cookbook cases come from the [OWASP Threat Model
 Cookbook](https://github.com/OWASP/threat-model-cookbook) (CC-BY 4.0), converted
@@ -868,11 +869,12 @@ with input too sparse to model confidently (which should yield `needs-info`
 threats, not invented ones), one that over-claims security controls the text
 doesn't justify.
 
-Cases `14` and `15` carry `holdout: true`. A sweep reports a **Holdout Case**
+Cases `14`, `15` and `21` carry `holdout: true`. A sweep reports a **Holdout Case**
 apart in the holdout split, and no diagnosis command reads it, until the
 experiment ledger reads it `HOLDOUT_READS` times. The ledger read each of the
-two three times, so both are exhausted and count as development cases;
-`experiments --holdouts` prints the reads. A gain that the development cases
+first two three times, so both are exhausted and count as development cases.
+No tuning has read case `21`, so it is held out. `experiments --holdouts`
+prints the reads. A gain that the development cases
 show and the holdout cases do not was shaped by the cases it was read on.
 
 The corpus checks in `verify_corpus.py` are deterministic and need no

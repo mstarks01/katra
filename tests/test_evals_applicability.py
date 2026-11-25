@@ -472,7 +472,7 @@ def test_a_case_s_graph_is_built_for_the_frameworks_it_declares(corpus):
 
     assert sorted(built[CASE_ID]) == ["asvs", "stride"]
     with_asvs = [case_id for case_id, names in built.items() if "asvs" in names]
-    assert len(with_asvs) == 13
+    assert len(with_asvs) == 14
     assert all("stride" in names for names in built.values())
 
 
