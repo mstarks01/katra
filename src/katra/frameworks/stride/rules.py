@@ -1190,8 +1190,8 @@ PREDICATE_READERS: Mapping[str, PredicateReader] = MappingProxyType(
 # **Code decides the list, from the System Model alone.** A position belongs on
 # the list where the model shows the path it needs: a flow to sit on, a store to
 # copy, a process to run code in, a process or entity whose flow reaches the
-# place with an operation the lane can use, or a decided boundary crossing an
-# outside party comes through. No reference claim, case ID or ruling reaches
+# place with an operation the lane can use, a receiver of a store's data for
+# disclosure, or a decided boundary crossing an outside party comes through. No reference claim, case ID or ruling reaches
 # it. Whether the sources support an attack through a listed mechanism stays
 # the lane's judgement.
 
@@ -1287,8 +1287,13 @@ def _at_store(
         entries.append(("on-path", flow.id))
         if flow.operations in holding:
             entries += _holder(flow.source, elements)
+    # A flow the store sends gives its destination the store's data and no
+    # way to write it, so the destination holds the store only for a lane
+    # whose holders read.
     for flow in outbound_flows(model, store.id):
-        entries += [("on-path", flow.id), *_holder(flow.destination, elements)]
+        entries.append(("on-path", flow.id))
+        if "read" in holding:
+            entries += _holder(flow.destination, elements)
     return entries
 
 

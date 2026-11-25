@@ -152,6 +152,43 @@ def test_every_listed_mechanism_names_a_path_the_model_shows(case_id):
                     assert one.via in crossing
 
 
+def test_a_store_that_sends_a_flow_gives_its_receiver_a_read_only():
+    """The receiver gets the store's data and no way to write the store."""
+    model = model_of(CMS)
+    push = make_flow_id("store:mysql-database", "process:web-server", "push")
+    model = model.model_copy(
+        update={
+            "data_flows": [
+                *model.data_flows,
+                model.data_flows[2].model_copy(
+                    update={
+                        "id": push,
+                        "source": "store:mysql-database",
+                        "destination": "process:web-server",
+                        "operations": "write",
+                    }
+                ),
+            ]
+        }
+    )
+    model = model.model_copy(
+        update={
+            "data_flows": [
+                flow
+                for flow in model.data_flows
+                if flow.id != "flow:process:web-server>store:mysql-database>cms-data"
+            ]
+        }
+    )
+    tampering = listed(model, "tampering", "store:mysql-database")
+    disclosure = listed(model, "information-disclosure", "store:mysql-database")
+    assert ("on-path", push) in tampering
+    assert ("in-component", "process:web-server") not in tampering
+    assert ("authorized-principal", "process:web-server") not in tampering
+    assert ("authorized-principal", "process:web-server") in disclosure
+    assert ("in-component", "process:web-server") in disclosure
+
+
 #: Five of the six target rows of QA-2026-11-17-13: the place the lane was
 #: led to, and the mechanism a correct draft takes there. The sixth, 02/3, is
 #: in the test below.
