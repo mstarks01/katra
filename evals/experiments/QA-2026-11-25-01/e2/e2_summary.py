@@ -4,7 +4,7 @@ Offline: today's ``prepare`` over the changed model of case 01 on the signed
 arm, and :func:`~evals.harness.descendants.lane_must_finds` over each saved
 lane answer, as ``lane-replay`` printed them. Run from the repository root:
 
-    PYTHONPATH=src:. python evals/experiments/QA-2026-11-25-01/e2/summary.py
+    PYTHONPATH=src:. python evals/experiments/QA-2026-11-25-01/e2/e2_summary.py
 """
 
 import json
