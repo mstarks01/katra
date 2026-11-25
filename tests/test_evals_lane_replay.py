@@ -221,7 +221,7 @@ def test_the_command_refuses_a_failed_case_before_the_call(
         append=None,
         fresh_leads=False,
         prepare_today=None,
-        model=None,
+        system_model=None,
         out=None,
     )
 
@@ -258,7 +258,7 @@ def test_the_out_file_starts_with_the_record_of_the_lane_material(
         append=None,
         fresh_leads=False,
         prepare_today=None,
-        model=None,
+        system_model=None,
         out=written,
     )
 
@@ -311,7 +311,7 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
         append=None,
         fresh_leads=False,
         prepare_today="none",
-        model=None,
+        system_model=None,
         out=written,
     )
 
@@ -328,7 +328,7 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
     )
 
 
-def _todays_args(case_id, model, out=None, prepare_today="none"):
+def _todays_args(case_id, system_model, out=None, prepare_today="none"):
     return argparse.Namespace(
         artifact=None,
         case=case_id,
@@ -338,7 +338,7 @@ def _todays_args(case_id, model, out=None, prepare_today="none"):
         append=None,
         fresh_leads=False,
         prepare_today=prepare_today,
-        model=model,
+        system_model=system_model,
         out=out,
     )
 
@@ -375,7 +375,7 @@ def test_a_built_model_replaces_the_blessed_one(
     (instruction,) = instructions
     assert "a built input for the replay" in instruction
     held = json.loads(written.read_text(encoding="utf-8"))
-    assert held["record"]["table"]["model"] == str(path)
+    assert held["record"]["table"]["system_model"] == str(path)
     digests = {one["path"]: one["sha256"] for one in held["record"]["inputs"]}
     assert digests[str(path)] == hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -396,6 +396,35 @@ def test_a_model_the_gate_refuses_is_refused_before_the_call(
     assert "model.json is not valid" in capsys.readouterr().err
 
 
+def test_a_built_model_without_an_element_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """A dropped element would read the case's references on it as missed."""
+    built = case.model.model_dump(mode="json")
+    store = built["data_stores"].pop()
+    built["data_flows"] = [
+        flow
+        for flow in built["data_flows"]
+        if store["id"] not in (flow["source"], flow["destination"])
+    ]
+    flows = {flow["id"] for flow in built["data_flows"]}
+    built["assumptions"] = [
+        one
+        for one in built["assumptions"]
+        if one["element_id"] != store["id"]
+        and (one["element_id"] in flows or not one["element_id"].startswith("flow:"))
+    ]
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert lane_replay.command_lane_replay(_todays_args(case.id, path)) == 1
+    assert "holds the blessed model's element IDs" in capsys.readouterr().err
+
+
 def test_a_model_without_todays_prepare_is_refused_before_the_call(
     recorded,
     case,  # noqa: F811
@@ -410,7 +439,7 @@ def test_a_model_without_todays_prepare_is_refused_before_the_call(
     args.artifact = out
 
     assert lane_replay.command_lane_replay(args) == 1
-    assert "--model replaces" in capsys.readouterr().err
+    assert "--system-model replaces" in capsys.readouterr().err
 
 
 def test_material_without_the_user_turn_is_refused(tmp_path):

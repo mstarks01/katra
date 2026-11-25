@@ -201,7 +201,7 @@ def test_a_lane_replay_refuses_a_bad_out_before_the_call(
         append=None,
         fresh_leads=False,
         prepare_today=None,
-        model=None,
+        system_model=None,
         out=missing / "proposals.json",
     )
 

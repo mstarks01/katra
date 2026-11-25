@@ -28,7 +28,8 @@ tries its instruction this way, so both of its arms read the same prompt files.
 **Today's ``prepare``, on request.** ``--prepare-today`` builds the lane's whole
 request from the case instead of from a sweep: the real ``prepare`` node runs
 offline over the case's blessed model, with no catalog or with the case's
-signed facts as the assertion proposal. The two arms differ only in that
+signed facts as the assertion proposal. ``--system-model`` puts a built input
+in place of the blessed model: the same elements, other attribute values. The two arms differ only in that
 catalog, so a pair of replays measures what ``KATRA_ASSERTIONS`` can give a
 lane when its pass writes exactly the signed rows (#1231). The lane's drafts
 are then scored by :func:`~evals.harness.descendants.lane_must_finds`, for the
@@ -300,7 +301,8 @@ class PreparedToday:
 def prepare_today(
     case: GoldenCase, framework: FrameworkName, arm: str
 ) -> PreparedToday:
-    """Every lane input today's ``prepare`` writes over the case's blessed model.
+    """Every lane input today's ``prepare`` writes over the case's model: the
+    blessed one, or a built input that :func:`built_input` put in its place.
 
     The real node over a plain session, seeded by
     :func:`~katra.execution.seed_state` as a graph run is, with the
@@ -338,6 +340,27 @@ def prepare_today(
     return PreparedToday(
         run.lane_material([framework]), ctx.state, loaded((domains, package))
     )
+
+
+def built_input(case: GoldenCase, path: Path) -> GoldenCase:
+    """``case`` with the System Model at ``path`` in place of its blessed one.
+
+    The case's references and signed facts name the blessed model's elements,
+    so a built input holds the same element IDs; one that renames or drops an
+    element is refused, because its references would read as missed.
+    """
+    try:
+        model = load_model_file(path, archived=False)
+    except CorpusError as error:
+        raise EvalRunError(str(error)) from error
+    built = {element.id for element in model.elements()}
+    blessed = {element.id for element in case.model.elements()}
+    if built != blessed:
+        raise EvalRunError(
+            f"{path}: a built input holds the blessed model's element IDs; it"
+            f" drops {sorted(blessed - built)} and adds {sorted(built - blessed)}"
+        )
+    return replace(case, model=model)
 
 
 def parse(raw: str, framework: FrameworkName) -> BaseModel:
@@ -395,13 +418,15 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         "--prepare-today",
         choices=CATALOG_ARMS,
         help="build the request with today's prepare over the case's blessed"
-        " model, with no catalog or the case's signed facts, and score the drafts",
+        " model, or --system-model, with no catalog or the case's signed facts,"
+        " and score the drafts",
     )
     parser.add_argument(
-        "--model",
+        "--system-model",
         type=Path,
         help="with --prepare-today: a System Model file that replaces the case's"
-        " blessed model, such as a built input. It passes the validity gate first",
+        " blessed model. It passes the live validity gate and holds the blessed"
+        " model's element IDs",
     )
     parser.add_argument(
         "--out", type=Path, help="write the run record and the lane's proposals here"
@@ -423,13 +448,15 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                 "--prepare-today builds the whole request, so it takes neither"
                 " --fresh-leads nor --append"
             )
-        if args.model is not None and args.prepare_today is None:
-            raise EvalRunError("--model replaces the model --prepare-today reads")
+        if args.system_model is not None and args.prepare_today is None:
+            raise EvalRunError(
+                "--system-model replaces the model --prepare-today reads"
+            )
         check_out(args.out)
         case = load_case(REPO_ROOT / DEFAULT_CORPUS / args.case)
-        if args.model is not None:
-            case = replace(case, model=load_model_file(args.model))
-            inputs[args.model] = {}
+        if args.system_model is not None:
+            case = built_input(case, args.system_model)
+            inputs[args.system_model] = {}
         if args.prepare_today is not None:
             prepared = prepare_today(case, args.framework, args.prepare_today)
             material = prepared.material
@@ -466,7 +493,9 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                 "framework": args.framework,
                 "fresh_leads": args.fresh_leads,
                 "prepare_today": args.prepare_today,
-                "model": None if args.model is None else str(args.model),
+                "system_model": (
+                    None if args.system_model is None else str(args.system_model)
+                ),
                 "corpus_digest": corpus_digest(),
             },
             inputs,

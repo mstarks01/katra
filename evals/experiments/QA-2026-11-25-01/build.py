@@ -3,13 +3,16 @@ stated controls set to ``absent``, as an extraction that missed them writes.
 
 The signed rows of case 01 state both controls, so today's ``prepare`` holds
 each field open: the catalog offers no ``stated absent`` entry, and it offers
-the row as an open question. Run from the repository root:
+the row as an open question. The script prints what the lanes read for the
+two fields on each catalog arm (``build.txt``). Run from the repository root:
 
     PYTHONPATH=src:. python evals/experiments/QA-2026-11-25-01/build.py
 """
 
+import json
 from pathlib import Path
 
+from evals.harness.lane_replay import built_input, prepare_today
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, load_case
 from katra.system_model import ElementControl
@@ -31,6 +34,15 @@ def main() -> None:
     for element_id, attribute in BUILT:
         setattr(elements[element_id], attribute, ElementControl(state="absent"))
     OUT.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    case = built_input(load_case(REPO_ROOT / DEFAULT_CORPUS / CASE), OUT)
+    for arm in ("none", "signed"):
+        material = json.dumps(prepare_today(case, "stride", arm).material)
+        lines = material.replace("\\n", "\n").split("\n")
+        print(f"== {arm}")
+        for line in sorted(set(lines)):
+            about = "receipt-archive" in line and "encryption" in line
+            if line.startswith("|") and about:
+                print(line)
 
 
 if __name__ == "__main__":
