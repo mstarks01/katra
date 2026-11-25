@@ -173,6 +173,10 @@ PARTIAL: dict[tuple[str, str], str] = {
         "the kinds code settles without a re-ask, which is fewer than the kinds"
         " a review writes"
     ),
+    ("katra.frameworks.stride.record", "POSITION_OF_VERB"): (
+        "the verbs whose definition fixes the attacker position, which is fewer"
+        " than the verbs, because most verbs leave it to the agent"
+    ),
     ("katra.graph", "CATALOGUING_ENTRIES"): (
         "the entries whose graph ends in a resolved catalog, which is fewer"
         " than the entries that exist"

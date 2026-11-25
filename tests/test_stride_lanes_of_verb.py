@@ -39,3 +39,34 @@ def test_a_verb_outside_its_lane_is_named_with_the_lanes_it_belongs_to():
     assert "'flood'" in reason
     assert "denial-of-service" in reason
     assert DraftThreat.misfiled(sample_draft("S-01", verb="impersonate")) == ""
+
+
+def test_no_ruled_position_disagrees_with_the_position_a_verb_fixes():
+    """#2369: the table can never fix a position the corpus rules otherwise."""
+    from katra.frameworks.stride.record import POSITION_OF_VERB
+
+    ruled = [
+        (path.parent.name, row["reference"]["verb"], row["position"])
+        for path in sorted(CORPUS.glob("*/rulings.json"))
+        for row in json.loads(path.read_text("utf-8")).get("positions", [])
+    ]
+    disagree = [
+        (case, verb, position)
+        for case, verb, position in ruled
+        if verb in POSITION_OF_VERB and POSITION_OF_VERB[verb] != position
+    ]
+    fixed = [row for row in ruled if row[1] in POSITION_OF_VERB]
+
+    assert disagree == []
+    assert len(fixed) == 18
+
+
+def test_code_writes_the_position_a_verb_fixes():
+    from tests.factories import sample_proposal
+
+    proposal = sample_proposal("I-01", "information-disclosure", verb="intercept")
+    written = proposal.model_copy(update={"attacker_position": "outside"})
+
+    again = type(proposal).model_validate(written.model_dump())
+
+    assert again.attacker_position == "on-path"

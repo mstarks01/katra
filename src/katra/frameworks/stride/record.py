@@ -15,7 +15,8 @@ nothing.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from types import MappingProxyType
 from typing import Literal, Self, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -173,6 +174,21 @@ LANES_OF_VERB: dict[ActionVerb, tuple[StrideCategory, ...]] = {
     # past their privilege. A credentialed cross-origin read is the shape.
     "ride-session": ("spoofing", "elevation-of-privilege", "information-disclosure"),
 }
+
+
+#: The attacker position a verb fixes by its own definition (#2369): an
+#: interception or an alteration in transit stands on the path of a flow, and
+#: abusing a grant is done by the principal that holds it. Code writes these;
+#: the lane agent decides the position of every other verb. **A table, checked
+#: against the corpus**: ``tests/test_stride_lanes_of_verb.py`` fails if a
+#: ruled position disagrees with it.
+POSITION_OF_VERB: Mapping[ActionVerb, AttackerPosition] = MappingProxyType(
+    {
+        "intercept": "on-path",
+        "alter-in-transit": "on-path",
+        "abuse-grant": "authorized-principal",
+    }
+)
 
 
 #: The confidence of a threat that rests on an open fact: the critic's text
@@ -421,6 +437,15 @@ class ThreatProposal(Proposal):
     attacker_position: AttackerPosition
     severity: Severity
     mitigations: list[Mitigation] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _position_the_verb_fixes(self) -> Self:
+        """The position :data:`POSITION_OF_VERB` gives the verb, whatever the
+        agent wrote (#2369)."""
+        fixed = POSITION_OF_VERB.get(self.verb)
+        if fixed is not None:
+            self.attacker_position = fixed
+        return self
 
 
 class ThreatProposals(ProposalBatch):
