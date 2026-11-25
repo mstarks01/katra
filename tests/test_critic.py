@@ -1592,8 +1592,8 @@ def test_a_rejected_threat_carries_no_reading_of_its_advice(verdict, kept):
     assert claim.recommendation == (reading if kept else None)
 
 
-class TestAConfirmedExclusion:
-    """An ASVS draft that rules its requirement out is never ``confirmed`` (#1559)."""
+class TestAnUnrejectedExclusion:
+    """An ASVS draft that rules its requirement out is always rejected (#1559, #2359)."""
 
     def _problems(self, direction, verdict):
         draft = asvs_draft(direction=direction)
@@ -1604,6 +1604,23 @@ class TestAConfirmedExclusion:
         problems = self._problems("excluded", ProposedVerdict())
 
         assert "excludes its requirement and is ruled confirmed" in "; ".join(
+            problems.messages
+        )
+        assert problems.implicated == frozenset({"v5.0.0-6.2.1"})
+
+    def test_a_needs_info_exclusion_goes_to_the_re_ask(self):
+        """``needs-info`` says the requirement applies and is unsettled, which
+        is also the opposite of what an exclusion says (#2359)."""
+        verdict = ProposedVerdict(
+            reason="encryption at rest is unknown",
+            related_unknowns=[
+                UnknownRef(element_id="store:orders-db", attribute="encryption_at_rest")
+            ],
+        )
+
+        problems = self._problems("excluded", verdict)
+
+        assert "excludes its requirement and is ruled needs-info" in "; ".join(
             problems.messages
         )
         assert problems.implicated == frozenset({"v5.0.0-6.2.1"})

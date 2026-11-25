@@ -288,14 +288,15 @@ def _verdict_shape_issues(rulings: Iterable[Ruling]) -> list[UnreconciledRuling]
     return issues
 
 
-def _confirmed_exclusion_issues(
+def _unrejected_exclusion_issues(
     drafts: Sequence[Claim], rulings: Iterable[Ruling]
 ) -> list[UnreconciledRuling]:
-    """Every completed ruling that confirms a draft ruling its own unit out.
+    """Every completed ruling that does not reject a draft ruling its own unit out.
 
     A draft that excludes its unit (:meth:`~katra.claims.Claim.excludes`)
-    says the unit does not apply, and ``confirmed`` says it does. So the two
-    cannot make one verdict. Which rejection the draft takes is the critic's
+    says the unit does not apply. ``confirmed`` says it applies, and
+    ``needs-info`` says it applies and is unsettled, so neither makes one
+    verdict with the draft. Which rejection the draft takes is the critic's
     judgement, so the ruling goes to the re-ask rather than to a rule here.
     """
     excluding = {draft.id for draft in drafts if type(draft).excludes(draft)}
@@ -304,13 +305,13 @@ def _confirmed_exclusion_issues(
             claim_id=ruling.id,
             kind="verdict-shape",
             message=f"claim {ruling.id!r} excludes its requirement and is ruled"
-            " confirmed, which says the requirement applies: rule it rejected,"
-            " set rejected_because to evidence where the stated facts show it"
-            " does not apply, or to reasoning where they do not, and write the"
-            " reason",
+            f" {ruling.verdict.status}, which says the requirement applies: rule"
+            " it rejected, set rejected_because to evidence where the stated"
+            " facts show it does not apply, or to reasoning where they do not,"
+            " and write the reason",
         )
         for ruling in rulings
-        if ruling.id in excluding and ruling.verdict.status == "confirmed"
+        if ruling.id in excluding and ruling.verdict.status != "rejected"
     ]
 
 
@@ -752,7 +753,7 @@ def review_issues(
     dropped = sorted(drafted_ids - ruled_ids)
     per_ruling = (
         _verdict_shape_issues(rulings)
-        + _confirmed_exclusion_issues(drafts, rulings)
+        + _unrejected_exclusion_issues(drafts, rulings)
         + _unresolved_unknown_ref_issues(rulings, system_model)
         + _control_row_issues(rulings, shown)
     )
