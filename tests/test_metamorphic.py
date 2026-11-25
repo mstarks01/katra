@@ -40,12 +40,12 @@ from tests.test_structural_readers import sound_report
 SEEDS = list(range(20))
 
 _CONTROLS = [
-    "unknown",
-    "none",
-    "mTLS",
-    "session cookie",
-    "unknown; hedged",
-    "none; by position",
+    {"state": "unknown", "detail": ""},
+    {"state": "absent", "detail": ""},
+    {"state": "stated", "detail": "mTLS"},
+    {"state": "stated", "detail": "session cookie"},
+    {"state": "unknown", "detail": "hedged"},
+    {"state": "absent", "detail": "by position"},
 ]
 _CLASSIFICATIONS = ["confidential", "public", "unknown", "internal"]
 _PROTOCOLS = ["HTTPS", "gRPC", "unknown", "Postgres wire protocol"]

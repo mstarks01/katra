@@ -77,6 +77,7 @@ from katra.sources import (
 from katra.system_model import (
     UNKNOWN,
     EmittedSystemModel,
+    control_from_text,
     normalize_element_ids,
 )
 from katra.validation import ValidationIssue
@@ -2372,7 +2373,7 @@ def test_prepare_renders_no_pack_block_when_none_is_earned(
     model.data_stores[0].technology = "a flat file"
     for flow in model.data_flows:
         flow.protocol = "local"
-        flow.authentication = "a shared unix account"
+        flow.authentication = control_from_text("a shared unix account")
     ctx = FakeContext()
 
     graph.prepare_analysis(

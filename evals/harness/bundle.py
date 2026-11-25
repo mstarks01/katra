@@ -608,6 +608,7 @@ def extractions_from_reports(
             FULL_FORMAT,
             sources=_source_texts(case),
             diagrams=diagram_readings(seed_state(case.sources)[STATE_DIAGRAM_READINGS]),
+            archived=True,
         )
         results[case.id] = modes.ExtractionResult(
             case_id=case.id,

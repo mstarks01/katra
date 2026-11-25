@@ -20,7 +20,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
-from katra.analysis import ControlAttribute, control_state
+from katra.analysis import ControlAttribute, held_state, held_text
 from katra.assertions import (
     REGISTRY,
     AssertionCatalog,
@@ -46,6 +46,7 @@ from katra.system_model import (
     UNKNOWN,
     ZONE_ATTRIBUTE,
     DataFlow,
+    ElementControl,
     ModelIndex,
     SystemModel,
     assumable_attribute_names,
@@ -123,9 +124,8 @@ def reference_labels(
         for name in attribute_names(element):
             words = attribute_words(name)
             labels[f"{element.id}.{name}"] = f"{names[element.id]}: {words}"
-            labels[f"{name}: {getattr(element, name)}"] = (
-                f"{words}: {getattr(element, name)}"
-            )
+            value = held_text(getattr(element, name))
+            labels[f"{name}: {value}"] = f"{words}: {value}"
     index = ModelIndex.of(model)
     for ref, ground in evidence_catalog(model, assertions).items():
         if ground.kind in _GROUND_STATE:
@@ -371,7 +371,7 @@ def open_attribute(
     """True where this attribute is a fact the model leaves open.
 
     **The one reader of "may this attribute be asked, and answered".** Open is
-    unverified by :func:`~katra.analysis.control_state`, a zone
+    unverified by :func:`~katra.analysis.held_state`, a zone
     the service inferred, or an attribute the assertion rows hold open
     against ``model`` (:func:`~katra.assertions.held_open_attributes`),
     whose value the evidence catalog does not offer as a fact. The early
@@ -380,7 +380,10 @@ def open_attribute(
     """
     element = model.get(element_id)
     value = getattr(element, attribute, None)
-    unverified = isinstance(value, str) and control_state(value) == "unverified"
+    # ``assets`` holds a list, which is never open by this rule.
+    unverified = isinstance(value, str | ElementControl) and (
+        held_state(value) == "unverified"
+    )
     assumed = (
         attribute == ZONE_ATTRIBUTE and element_id in model.assumed_zone_elements()
     )

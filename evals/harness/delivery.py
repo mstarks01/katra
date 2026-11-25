@@ -105,13 +105,14 @@ from evals.harness.scorecard import (
     charged_misses,
 )
 from evals.harness.triggers import archived_lead_rules, rebuilt_lane_inputs
-from katra.analysis import control_state
+from katra.analysis import held_state, held_text
 from katra.assertions import (
     SETTLING_REASONS,
     Assertion,
     ProjectedField,
     Projection,
     assertion_id,
+    graph_value,
     project,
     projected_attribute,
 )
@@ -124,7 +125,12 @@ from katra.graph import (
     unfence,
 )
 from katra.report import Report
-from katra.system_model import Element
+from katra.system_model import (
+    CONTROL_FIELDS,
+    Element,
+    ElementControl,
+    read_control,
+)
 
 #: How the closest candidate stands to the reference's place, or ``absent``
 #: where no candidate in the lane shares an element with it.
@@ -481,23 +487,41 @@ def field_reading(held: object, value: str, attribute: ProjectedField) -> StageR
     state, a zone by identity. Other text that it reads as the same value is
     ``present``, except two stated mechanisms in other words: those can name
     two mechanisms, so they are ``unavailable``.
+
+    A control field holds an :class:`~katra.system_model.ElementControl`, the
+    mapping a lane's model dump holds for one, or the string a recorded
+    emission holds, which the archive reader reads.
     """
     if held is None:
         return StageReading("absent", "the field is missing or null")
-    if not isinstance(held, str):
-        return StageReading("absent", f"holds {held!r}, not text")
-    if held == value:
-        return StageReading("present", f"holds {held!r}")
+    read = _field_value(held, attribute)
+    if read is None:
+        return StageReading("absent", f"holds {held!r}, not a value of the field")
+    shown = held_text(read)
+    projected = graph_value(attribute, value)
+    if read == projected:
+        return StageReading("present", f"holds {shown!r}")
     compared = PROJECTION_COMPARED[attribute]
-    if compared(held) != compared(value):
-        return StageReading("absent", f"holds {held!r}")
-    if control_state(held) != "stated":
-        return StageReading("present", f"holds {held!r}")
+    if compared(read) != compared(projected):
+        return StageReading("absent", f"holds {shown!r}")
+    if held_state(read) != "stated":
+        return StageReading("present", f"holds {shown!r}")
     return StageReading(
         "unavailable",
-        f"holds {held!r}, in the same state as {value!r}; whether it names the"
+        f"holds {shown!r}, in the same state as {value!r}; whether it names the"
         " same mechanism is a reader's question",
     )
+
+
+def _field_value(held: object, attribute: str) -> str | ElementControl | None:
+    """``held`` as the field ``attribute`` holds it, or ``None`` where it is
+    no value of that field."""
+    if attribute not in CONTROL_FIELDS:
+        return held if isinstance(held, str) else None
+    try:
+        return read_control(held)
+    except ValidationError:
+        return None
 
 
 def catalog_reading(fact: str, facts: CaseFacts) -> tuple[StageReading, str]:

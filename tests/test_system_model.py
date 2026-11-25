@@ -25,6 +25,7 @@ from katra.system_model import (
     Process,
     SystemModel,
     TrustBoundary,
+    control_text,
     derive_element_id,
     element_prefix,
     flow_id_version,
@@ -225,7 +226,7 @@ class TestSchema:
     def test_unknown_is_a_legal_security_attribute_value(self):
         model = valid_model()
         store = model.data_stores[0]
-        assert store.encryption_at_rest == "unknown"
+        assert control_text(store.encryption_at_rest) == "unknown"
 
     def test_illegal_enum_value_is_rejected(self):
         with pytest.raises(ValidationError):

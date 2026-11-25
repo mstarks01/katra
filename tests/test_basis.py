@@ -21,7 +21,7 @@ from katra.basis import (
     read_controls,
     unbased_controls,
 )
-from katra.system_model import SystemModel
+from katra.system_model import ElementControl, SystemModel
 
 # The figures published in the module docstring's table. Re-derived below, so
 # the prose and the code cannot drift apart.
@@ -34,9 +34,9 @@ def _model(**flow) -> SystemModel:
     """A two-element model whose one flow carries the values under test."""
     defaults = {
         "protocol": "HTTPS",
-        "authentication": "unknown",
+        "authentication": {"state": "unknown", "detail": ""},
         "data_description": "orders",
-        "encryption_in_transit": "unknown",
+        "encryption_in_transit": {"state": "unknown", "detail": ""},
     }
     return SystemModel.model_validate(
         {
@@ -87,7 +87,10 @@ WORKED_EXAMPLE = {"System description": "The API sends payment requests to Strip
 
 def test_the_worked_example_is_flagged_on_every_invented_control():
     """#465's example: two controls asserted from a sentence that states neither."""
-    model = _model(authentication="OAuth 2.0", encryption_in_transit="TLS 1.3")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="OAuth 2.0"),
+        encryption_in_transit=ElementControl(state="stated", detail="TLS 1.3"),
+    )
 
     flagged = unbased_controls(model, WORKED_EXAMPLE)
 
@@ -101,7 +104,11 @@ def test_the_worked_example_is_flagged_on_every_invented_control():
 
 def test_a_value_sharing_one_word_with_its_source_passes():
     """The weak rung: one content token is enough, and the rest is wording."""
-    model = _model(authentication="OAuth 2.0 bearer token issued by the broker")
+    model = _model(
+        authentication=ElementControl(
+            state="stated", detail="OAuth 2.0 bearer token issued by the broker"
+        )
+    )
     sources = {"System description": "Callers present a bearer credential."}
 
     assert unbased_controls(model, sources) == []
@@ -109,7 +116,11 @@ def test_a_value_sharing_one_word_with_its_source_passes():
 
 def test_a_token_matches_at_the_start_of_a_word():
     """Through ``matches_term``, so ``encrypt`` reaches ``encrypted``."""
-    model = _model(encryption_in_transit="encrypt in transit")
+    model = _model(
+        encryption_in_transit=ElementControl(
+            state="stated", detail="encrypt in transit"
+        )
+    )
     sources = {"System description": "Traffic is encrypted between the two."}
 
     assert unbased_controls(model, sources) == []
@@ -117,8 +128,12 @@ def test_a_token_matches_at_the_start_of_a_word():
 
 def test_a_sentinel_states_no_control_and_is_never_flagged():
     """``unknown`` and ``none`` assert nothing, so there is no basis to want."""
-    unknown = _model(authentication="unknown; nobody said")
-    absent = _model(authentication="none; the endpoint is open")
+    unknown = _model(
+        authentication=ElementControl(state="unknown", detail="nobody said")
+    )
+    absent = _model(
+        authentication=ElementControl(state="absent", detail="the endpoint is open")
+    )
 
     assert unbased_controls(unknown, WORKED_EXAMPLE) == []
     assert unbased_controls(absent, WORKED_EXAMPLE) == []
@@ -133,7 +148,9 @@ def test_a_value_of_function_words_alone_is_not_flagged():
     diagnostic line on a value that names no mechanism, and it is the drawback
     of a list nobody tuned against the sample it reports on.
     """
-    model = _model(authentication="it is the same as that")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="it is the same as that")
+    )
 
     assert unbased_controls(model, WORKED_EXAMPLE) == []
 
@@ -146,7 +163,7 @@ def test_a_value_of_function_words_alone_is_reported_as_unread(caplog):
     could say otherwise. It cannot — there is no token to search — so it says
     that instead of saying nothing.
     """
-    model = _model(authentication="the")
+    model = _model(authentication=ElementControl(state="stated", detail="the"))
 
     read = coverage(model, WORKED_EXAMPLE)
 
@@ -157,7 +174,7 @@ def test_a_value_of_function_words_alone_is_reported_as_unread(caplog):
 
 def test_an_element_citing_a_source_the_job_never_carried_is_passed_over():
     """The validity gate refuses that shape; this reports on it a second time."""
-    model = _model(authentication="OAuth 2.0")
+    model = _model(authentication=ElementControl(state="stated", detail="OAuth 2.0"))
 
     assert unbased_controls(model, {"Some other label": "anything"}) == []
 
@@ -169,7 +186,9 @@ def test_an_erased_citation_is_counted_as_unread_not_as_clean(caplog):
     that results is indistinguishable from a model whose every control echoed
     its source. ``coverage`` is what tells the two apart.
     """
-    model = _model(authentication="arbitrary nonsense")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="arbitrary nonsense")
+    )
     for element in model.elements():
         element.source_excerpt = ""
         element.source_label = ""
@@ -373,7 +392,10 @@ def test_the_scan_stops_at_the_budget_and_says_so(caplog):
     echoed, because a diagnostic that ran out of work must not start accusing.
     """
     source = "quaternary " * 200
-    model = _model(authentication="zeta eta theta iota", encryption_in_transit="kappa")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="zeta eta theta iota"),
+        encryption_in_transit=ElementControl(state="stated", detail="kappa"),
+    )
 
     with caplog.at_level(logging.WARNING, logger="katra.basis"):
         flagged = unbased_controls(model, {"System description": source})
@@ -397,7 +419,10 @@ def test_a_control_the_stopped_scan_reaches_is_unmeasured_not_clean():
     two controls no search ever touched.
     """
     source = "quaternary " * 200
-    model = _model(authentication="zeta", encryption_in_transit="kappa")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="zeta"),
+        encryption_in_transit=ElementControl(state="stated", detail="kappa"),
+    )
 
     with mock.patch.object(basis, "MAX_SCAN_WORK", 0):
         flags, read = read_controls(model, {"System description": source})
@@ -417,7 +442,10 @@ def test_a_control_is_undecided_when_one_of_its_tokens_went_unsearched():
     unsearched token could have echoed.
     """
     source = "quaternary " * 200
-    model = _model(authentication="zeta", encryption_in_transit="zeta kappa")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="zeta"),
+        encryption_in_transit=ElementControl(state="stated", detail="zeta kappa"),
+    )
 
     with mock.patch.object(basis, "MAX_SCAN_WORK", len(source)):
         flags, read = read_controls(model, {"System description": source})
@@ -433,7 +461,10 @@ def test_one_token_is_searched_once_however_many_values_carry_it():
     naming the same token spend one token's worth of it.
     """
     source = "quaternary " * 200
-    model = _model(authentication="zeta", encryption_in_transit="zeta")
+    model = _model(
+        authentication=ElementControl(state="stated", detail="zeta"),
+        encryption_in_transit=ElementControl(state="stated", detail="zeta"),
+    )
 
     with mock.patch.object(basis, "MAX_SCAN_WORK", len(source)):
         flagged = unbased_controls(model, {"System description": source})

@@ -37,7 +37,12 @@ from evals.harness.roster import STANDINGS
 from katra.assertions import QUALIFIED_SPELLING, UNKNOWN
 from katra.claims import ATTRIBUTE_GROUNDS
 from katra.sources import FORMATTING_CATEGORIES
-from katra.system_model import Element, all_attribute_names
+from katra.system_model import (
+    CONTROL_FIELDS,
+    Element,
+    ElementControl,
+    all_attribute_names,
+)
 from tests.source_tree import (
     EXPERIMENTS_LEFT_OUT,
     PYTHON,
@@ -605,17 +610,19 @@ def test_the_respelling_scan_finds_one_when_there_is_one(tmp_path):
 def _qualifiable_attributes() -> frozenset[str]:
     """The attributes that can hold a qualified ``unknown``.
 
-    A free-text field in some element type, less the fields the projection
-    spells bare (:data:`~katra.assertions.QUALIFIED_SPELLING`),
-    where the gate refuses anything after the sentinel. A closed field holds
-    the bare sentinel or nothing, so an exact comparison reads it correctly.
+    A free-text field or a control field in some element type, less the
+    fields the projection spells bare
+    (:data:`~katra.assertions.QUALIFIED_SPELLING`), where the gate refuses
+    anything after the sentinel. A closed field holds the bare sentinel or
+    nothing, so an exact comparison reads it correctly. A control field never
+    equals a string, so an exact comparison with ``unknown`` is always false.
     """
     return frozenset(
         name
         for element_type in get_args(Element)
         for name, field in element_type.model_fields.items()
         if name in all_attribute_names()
-        and field.annotation is str
+        and field.annotation in (str, ElementControl)
         and QUALIFIED_SPELLING.get(name) != "bare"
     )
 
@@ -693,6 +700,66 @@ def test_the_unknown_comparison_scan_finds_one_when_there_is_one(tmp_path):
     )
 
     assert _unknown_comparisons(probe, _qualifiable_attributes()) == [3, 5]
+
+
+# --- A control field is read by its state -------------------------------------
+#
+# A control field holds an ElementControl, and ``control_state`` reads text by
+# its first word. A call of it on a control field reads the wrong shape, and
+# mypy sees only the calls whose argument it can type.
+
+
+def _first_word_reads_of_a_control(path: Path) -> list[int]:
+    """Lines that call ``control_state`` on a control field."""
+
+    def control_field(node: ast.expr) -> bool:
+        if isinstance(node, ast.Attribute):
+            return node.attr in CONTROL_FIELDS
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "getattr"
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value in CONTROL_FIELDS
+        )
+
+    return [
+        node.lineno
+        for node in ast.walk(parse(path))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "control_state"
+        and any(control_field(arg) for arg in node.args)
+    ]
+
+
+def test_no_site_reads_a_control_field_by_its_first_word():
+    offenders = {
+        f"{path.relative_to(REPO_ROOT)}:{line}"
+        for path in source_files(*PYTHON)
+        for line in _first_word_reads_of_a_control(path)
+    }
+
+    assert not offenders, (
+        f"these read a control field by its first word: {sorted(offenders)}."
+        " Ask analysis.control_reading or analysis.held_state."
+    )
+
+
+def test_the_first_word_scan_finds_one_when_there_is_one(tmp_path):
+    probe = tmp_path / "probe.py"
+    probe.write_text(
+        "def flow(f):\n"
+        "    return control_state(f.authentication)\n"
+        "def store(s):\n"
+        "    return control_state(getattr(s, 'encryption_at_rest'))\n"
+        "def text(p):\n"
+        "    return control_state(p.exposure)\n",
+        encoding="utf-8",
+    )
+
+    assert _first_word_reads_of_a_control(probe) == [2, 4]
 
 
 # --- One reader of a case file's name -----------------------------------------

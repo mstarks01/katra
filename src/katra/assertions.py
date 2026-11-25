@@ -67,7 +67,12 @@ from typing import Literal, NamedTuple, Self, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from katra.analysis import ABSENT_WORD, ControlAttribute, control_state
+from katra.analysis import (
+    ControlAttribute,
+    ControlState,
+    held_state,
+    held_text,
+)
 from katra.grounding import (
     IndexedSource,
     fragments,
@@ -88,6 +93,8 @@ from katra.sources import (
     text_digest,
 )
 from katra.system_model import (
+    ABSENT_WORD,
+    CONTROL_FIELDS,
     CONTROL_VALUE_MAX_CHARS,
     ELEMENT_ID,
     ELEMENT_ID_MAX_CHARS,
@@ -97,6 +104,7 @@ from katra.system_model import (
     DataClassification,
     DataFlow,
     Element,
+    ElementControl,
     ElementPrefix,
     SystemModel,
     TrustBoundary,
@@ -176,6 +184,7 @@ __all__ = [
     "disagree",
     "disputed",
     "graph_subject_type",
+    "graph_value",
     "held_open_attributes",
     "hidden_qualifications",
     "missing_value",
@@ -3297,7 +3306,7 @@ class Projection:
     ``value`` is spelled the way the **System Model** spells it: a mechanism as
     written, :data:`~katra.system_model.UNKNOWN` where the catalog
     does not settle the attribute, and ``"none"`` for a stated absence, which is
-    the word :func:`~katra.analysis.control_state` reads as absent.
+    the word :func:`graph_value` writes as an absent control.
 
     ``rows`` names the assertions behind it, so a reader of a degraded value can
     see what would not fit.
@@ -3382,7 +3391,7 @@ def contradictions(
 
     **Opposed states only, and that is the whole rule.** A projection and an
     attribute are compared through
-    :func:`~katra.analysis.control_state`, and a pair is reported
+    :func:`~katra.analysis.held_state`, and a pair is reported
     only when one reads ``stated`` and the other ``absent``. That is the defect
     this layer exists for: an explicit lack of MFA must not stand in the graph
     as a control with nothing in the report to say the two disagree.
@@ -3417,7 +3426,7 @@ def contradictions(
         element = carried.get(projection.element_id)
         if element is None:
             continue
-        held = str(getattr(element, projection.attribute, ""))
+        held = getattr(element, projection.attribute, "")
         stating = [
             entry
             for entry in _value_rows([entries[ref] for ref in projection.rows])
@@ -3426,14 +3435,14 @@ def contradictions(
         values = tuple(
             dict.fromkeys(_graph_spelling(entry, subjects) for entry in stating)
         )
-        states = {control_state(value) for value in values}
-        if len(states) == 1 and states | {control_state(held)} == {"stated", "absent"}:
+        states = {_value_state(projection.attribute, value) for value in values}
+        if len(states) == 1 and states | {held_state(held)} == {"stated", "absent"}:
             found.append(
                 Contradiction(
                     element_id=projection.element_id,
                     attribute=projection.attribute,
                     values=values,
-                    carried=held,
+                    carried=held_text(held),
                     rows=tuple(sorted(assertion_id(entry) for entry in stating)),
                 )
             )
@@ -3795,14 +3804,18 @@ def _projected_model(
         if hold_unchecked and _unchecked_over_lead(projection, held, behind):
             # A stated absence stays: the row states the opposite, so it is an
             # open question beside the absence (contradicted), as two rows are.
-            if control_state(str(held)) != "absent":
+            if held_state(held) != "absent":
                 setattr(
                     element,
                     projection.attribute,
                     qualified(projection, behind, subjects, because=UNCHECKED_BECAUSE),
                 )
             continue
-        setattr(element, projection.attribute, projection.value)
+        setattr(
+            element,
+            projection.attribute,
+            graph_value(projection.attribute, projection.value),
+        )
         bases = {entry.basis for entry in behind}
         if "inferred" in bases and not any(
             entry.element_id == projection.element_id
@@ -3847,8 +3860,7 @@ def hidden_qualifications(
         for projection in project(catalog)
         if PROJECTION_EFFECT[projection.reason] == "qualify"
         and (element := elements.get(projection.element_id)) is not None
-        and control_state(str(getattr(element, projection.attribute, "")))
-        != "unverified"
+        and held_state(getattr(element, projection.attribute, "")) != "unverified"
     )
 
 
@@ -3886,11 +3898,11 @@ def _unchecked_over_lead(
     absence is itself a lead. A stated control over a stated one closes
     nothing, whichever is right, so it is left to the projection.
     """
-    if control_state(projection.value) != "stated":
+    if _value_state(projection.attribute, projection.value) != "stated":
         return False
     if any(_drives_value(entry) for entry in rows):
         return False
-    if control_state(str(held)) == "stated":
+    if held_state(held) == "stated":
         return False
     return not any(entry.assessment == "supported" for entry in rows)
 
@@ -3901,12 +3913,14 @@ def qualified(
     subjects: Mapping[str, Subject],
     *,
     because: str = "",
-) -> str:
+) -> str | ElementControl:
     """The ``unknown`` a qualifying projection writes, with what the rows state.
 
-    Leads with the sentinel, so :func:`~katra.analysis.control_state`
-    reads the attribute as unsettled and the **Evidence Catalog** offers it as
-    a question. What follows is the loss the projection could not fit in one
+    A control field takes an unknown
+    :class:`~katra.system_model.ElementControl` whose ``detail`` holds the
+    rest. A text field takes the sentinel, then ``; `` and the rest, so
+    :func:`~katra.analysis.control_state` reads it as unsettled. Either way the
+    **Evidence Catalog** offers the attribute as a question. What follows is the loss the projection could not fit in one
     value — each row's value and scope — so a reader of the attribute alone
     still sees the facts behind it. Cut at the field's bound; the rows stay in
     the catalog whole.
@@ -3930,9 +3944,34 @@ def qualified(
     text = f"{UNKNOWN}; {because or _QUALIFIED_BECAUSE[projection.reason]}" + (
         f": {said}" if said else ""
     )
-    if len(text) <= CONTROL_VALUE_MAX_CHARS:
-        return text
-    return text[: CONTROL_VALUE_MAX_CHARS - 1] + "…"
+    if len(text) > CONTROL_VALUE_MAX_CHARS:
+        text = text[: CONTROL_VALUE_MAX_CHARS - 1] + "…"
+    if projection.attribute in CONTROL_FIELDS:
+        return ElementControl(state="unknown", detail=text[len(f"{UNKNOWN}; ") :])
+    return text
+
+
+def graph_value(attribute: str, value: str) -> str | ElementControl:
+    """``value`` as the graph field ``attribute`` holds it.
+
+    A text field holds ``value`` as it is. A control field holds an
+    :class:`~katra.system_model.ElementControl`, read from the catalog's own
+    spelling by exact match: :data:`~katra.system_model.ABSENT_WORD` is an
+    absent control, :data:`~katra.system_model.UNKNOWN` is an unknown one, and
+    any other value is the mechanism of a stated one.
+    """
+    if attribute not in CONTROL_FIELDS:
+        return value
+    if value == ABSENT_WORD:
+        return ElementControl(state="absent")
+    if value == UNKNOWN:
+        return ElementControl(state="unknown")
+    return ElementControl(state="stated", detail=value)
+
+
+def _value_state(attribute: str, value: str) -> ControlState:
+    """The reading of a catalog value written into ``attribute``."""
+    return held_state(graph_value(attribute, value))
 
 
 def projected_attribute(predicate: str, subject: str) -> ProjectedField | Literal[""]:
@@ -3974,7 +4013,8 @@ def offered(catalog: AssertionCatalog, model: SystemModel) -> tuple[Assertion, .
         for projection in project(catalog)
         if projection.reason in SETTLING_REASONS
         and (element := held.get(projection.element_id)) is not None
-        and getattr(element, projection.attribute, None) == projection.value
+        and getattr(element, projection.attribute, None)
+        == graph_value(projection.attribute, projection.value)
         for identity in projection.rows
     }
     return tuple(

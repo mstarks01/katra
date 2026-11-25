@@ -31,14 +31,16 @@ model field that asks it as the file loads. :data:`Sha256Hex` is the one
 shape of a SHA-256 digest that a model field holds. :func:`member` asks
 which member of a closed set a string is, so a caller gets the set's
 ``Literal`` back without a cast, and :func:`table_entry` reads a closed table by
-that member.
+that member. :func:`leading_word` asks which word of a closed set a value opens
+with.
 """
 
 from __future__ import annotations
 
 import math
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
+from functools import cache
 from typing import Annotated, TypeGuard, TypeVar
 
 from pydantic import BeforeValidator, Field
@@ -79,6 +81,28 @@ def non_negative(value: object) -> TypeGuard[int | float]:
         return math.isfinite(value) and value >= 0
     except OverflowError:
         return False
+
+
+@cache
+def _leading_word_re(words: tuple[str, ...]) -> re.Pattern[str]:
+    alternatives = "|".join(
+        re.escape(word) for word in sorted(words, key=len, reverse=True)
+    )
+    return re.compile(rf"^\s*({alternatives})\b", re.IGNORECASE)
+
+
+def leading_word(value: str, words: Collection[str]) -> str | None:
+    """The word ``value`` opens with, lower-cased, if it is one of ``words``.
+
+    **The one reader of "what does this value open with".** A word ends at a
+    word boundary, so ``no-mfa`` and ``no/unknown`` open with ``no`` and
+    ``nobody`` opens with nothing on this list.
+    :func:`~katra.system_model.first_word_state` reads the two sentinels
+    through it, and the validity gate reads the ambiguous negations through
+    it, so the two cannot disagree about where a word ends.
+    """
+    match = _leading_word_re(tuple(sorted(words))).match(value)
+    return match.group(1).lower() if match else None
 
 
 def member(value: str, members: Iterable[_Member]) -> _Member | None:

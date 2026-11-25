@@ -13,12 +13,13 @@ that reordered its output between runs would make two otherwise identical jobs
 send two different instructions, and would break the cacheable prefix for
 nothing.
 
-A helper may not decide that a control is absent. The System Model's security
-attributes are free-form strings whose one reserved value is ``unknown``, so
-this module reads only the leading token of an attribute
-(:func:`control_state`) and classifies it as ``unverified``, ``absent`` or
-``stated``. ``"none; accepted by network position"`` is absent because it says
-so. ``"company SSO"`` is stated, and this module has nothing further to say
+A helper may not decide that a control is absent. A control field holds a
+:class:`~katra.system_model.ElementControl` whose ``state`` the model wrote, and this
+module reads that state (:func:`control_reading`) as ``unverified``,
+``absent`` or ``stated``. A text attribute such as ``exposure`` is read by its
+leading token only (:func:`control_state`). An absent control is absent
+because the model says so. ``"company SSO"`` is a stated mechanism, and this
+module has nothing further to say
 about whether that SSO is any good. That judgement is the category agent's, and
 pushing it here would be the thing this design exists to avoid.
 
@@ -37,8 +38,7 @@ this is analysis over it.
 from __future__ import annotations
 
 import re
-from collections.abc import Collection, Iterable, Iterator, Mapping
-from functools import cache
+from collections.abc import Iterable, Iterator, Mapping
 from types import MappingProxyType
 from typing import Literal, NamedTuple, get_args
 
@@ -47,31 +47,36 @@ from pydantic import BaseModel, ConfigDict, Field
 from katra.system_model import (
     CONTROL_VALUE_MAX_CHARS,
     ELEMENT_ID_MAX_CHARS,
-    UNKNOWN,
     AssetTag,
     BoundaryCrossing,
+    ControlStateWord,
     DataFlow,
     Element,
+    ElementControl,
     SystemModel,
+    control_text,
+    first_word_state,
 )
 
 __all__ = [
-    "ABSENT_WORD",
     "CONTROL_ATTRIBUTES",
+    "CONTROL_READING",
     "TEXT_ATTRIBUTES",
     "WHOLE_WORD",
     "ControlState",
     "ModelText",
     "UnknownControl",
     "comparable_asset_tags",
+    "control_reading",
     "control_state",
     "cross_boundary_flows",
     "crossing_facts",
     "crossings_by_flow",
+    "held_state",
+    "held_text",
     "inbound_flows",
     "internet_exposed_elements",
     "is_unverified",
-    "leading_word",
     "matches_term",
     "model_text",
     "names_term",
@@ -85,14 +90,12 @@ __all__ = [
 
 ControlState = Literal["unverified", "absent", "stated"]
 
-#: The word a control attribute leads with to say the control is **not there**.
-#: The second of :func:`control_state`'s two sentinels, beside
-#: :data:`~katra.system_model.UNKNOWN`, and named here because it is
-#: read in two places: this classifier, and the projection that writes a
-#: catalog's stated absence back into an attribute
-#: (:func:`~katra.assertions.project`). Two spellings of one word is
-#: two chances to spell it differently.
-ABSENT_WORD = "none"
+#: The reading of each :class:`~katra.system_model.ElementControl` state. **The one
+#: mapping** from what a model writes to what a reader decides on: a control
+#: nobody stated reads as ``unverified``.
+CONTROL_READING: Mapping[ControlStateWord, ControlState] = MappingProxyType(
+    {"stated": "stated", "absent": "absent", "unknown": "unverified"}
+)
 
 # The five attributes ``prompts/extract.md`` names as security-relevant and
 # defaults to ``unknown``. The list is here rather than derived from the
@@ -120,34 +123,6 @@ SENSITIVE_ASSET_TAGS: frozenset[AssetTag] = frozenset(
 )
 
 
-# A control attribute states its own absence or its own unverifiability in its
-# first token, which is the only position this module reads. Everything after
-# it is prose for the agent: ``"none; accepted by network position"`` is
-# absent, ``"unknown; possibly a shared group account"`` is unverified, and
-# ``"no MFA on the password login"`` is *stated* — it describes a mechanism
-# that exists, and reading "no" as absence would delete a control the text
-# actually named.
-@cache
-def _leading_word_re(words: tuple[str, ...]) -> re.Pattern[str]:
-    alternatives = "|".join(
-        re.escape(word) for word in sorted(words, key=len, reverse=True)
-    )
-    return re.compile(rf"^\s*({alternatives})\b", re.IGNORECASE)
-
-
-def leading_word(value: str, words: Collection[str]) -> str | None:
-    """The word ``value`` opens with, lower-cased, if it is one of ``words``.
-
-    **The one reader of "what does this attribute open with".** A word ends at
-    a word boundary, so ``no-mfa`` and ``no/unknown`` open with ``no`` and
-    ``nobody`` opens with nothing on this list. :func:`control_state` reads the
-    two sentinels through it, and the validity gate reads the ambiguous
-    negations through it, so the two cannot disagree about where a word ends.
-    """
-    match = _leading_word_re(tuple(sorted(words))).match(value)
-    return match.group(1).lower() if match else None
-
-
 class UnknownControl(BaseModel):
     """One security-relevant attribute that the model does not verify.
 
@@ -168,32 +143,51 @@ class UnknownControl(BaseModel):
 
 
 def control_state(value: str) -> ControlState:
-    """Classify one control attribute from its leading token alone.
+    """Classify one text attribute from its leading token alone.
+
+    For ``exposure``, ``data_classification`` and ``protocol``, which hold
+    text. A :class:`~katra.system_model.ElementControl` field has its state as a
+    field, and :func:`control_reading` reads it.
 
     ``unverified`` for ``unknown`` and for a blank value, ``absent`` for
-    ``none``, ``stated`` for everything else. Reading only the leading token is
-    what keeps this from becoming a natural-language classifier with a security
-    opinion. It is safe only because the validity gate refuses a value that
-    opens with any other negation — ``no``, ``not``, ``without`` — and sends it
-    to repair (``ambiguous-control``), so a value that reaches a reader leads
-    with one of the two sentinels or with the mechanism.
-
-    **A blank value is a control nobody stated, so it reads as ``unverified``.**
-    Nothing upstream rules a blank out: the free-text control fields carry a
-    maximum length and no minimum, so an empty ``authentication`` passes
-    :func:`~katra.validation.validate`. Read as ``stated`` it would make
-    :func:`is_unverified` false, which would suppress every candidate rule that
-    asks about a missing control and the evidence row beside it. The gate
-    reports a blank field to the repair pass as well (``blank-control``), and this is
-    the reading that holds if one arrives anyway: silence about a control is the
-    same fact as a control nobody knew.
+    ``none``, ``stated`` for everything else, by
+    :func:`~katra.system_model.first_word_state`. Reading only the leading
+    token keeps this from becoming a natural-language classifier with a
+    security opinion. A blank value is a fact nobody stated, so it reads as
+    ``unverified``.
     """
-    if not value.strip():
-        return "unverified"
-    lead = leading_word(value, (UNKNOWN, ABSENT_WORD))
-    if lead is None:
-        return "stated"
-    return "unverified" if lead == UNKNOWN else "absent"
+    return CONTROL_READING[first_word_state(value)]
+
+
+def control_reading(control: ElementControl) -> ControlState:
+    """The reading of one control field, from its ``state``."""
+    return CONTROL_READING[control.state]
+
+
+def held_state(value: object) -> ControlState:
+    """The reading of the value an attribute holds: a control or text.
+
+    A :class:`~katra.system_model.ElementControl` reads by
+    its ``state`` and text by :func:`control_state`. Any other value raises
+    ``TypeError``, so a value of a shape this does not know is never read as
+    silence.
+    """
+    if isinstance(value, ElementControl):
+        return control_reading(value)
+    if isinstance(value, str):
+        return control_state(value)
+    raise TypeError(f"an attribute holds a control or text, not {value!r}")
+
+
+def held_text(value: object) -> str:
+    """The value an attribute holds, as text: a control by
+    :func:`~katra.system_model.control_text`, and text as it is. Any other
+    value raises ``TypeError``."""
+    if isinstance(value, ElementControl):
+        return control_text(value)
+    if isinstance(value, str):
+        return value
+    raise TypeError(f"an attribute holds a control or text, not {value!r}")
 
 
 def states_a_protocol(protocol: str) -> bool:
@@ -217,14 +211,14 @@ def states_a_protocol(protocol: str) -> bool:
     return control_state(protocol) == "stated"
 
 
-def is_unverified(value: str) -> bool:
-    """True when a control attribute is unverified *or* stated absent.
+def is_unverified(control: ElementControl) -> bool:
+    """True when a control is unverified *or* stated absent.
 
     The union, because it is what a trigger asks about: both states mean the
     model carries no verified control, and the difference between them is
     reported in the facts rather than in whether the candidate exists.
     """
-    return control_state(value) != "stated"
+    return control_reading(control) != "stated"
 
 
 def inbound_flows(model: SystemModel, element_id: str) -> list[DataFlow]:
@@ -385,17 +379,18 @@ def zone_kinds(model: SystemModel) -> dict[str, str]:
 
 
 def _control_values(element: Element) -> Iterator[tuple[str, str, ControlState]]:
-    """This element's control attributes, with each one's state."""
+    """This element's control attributes, with each one's text and state."""
     for attribute in CONTROL_ATTRIBUTES:
-        value = getattr(element, attribute, None)
-        if isinstance(value, str):
-            yield attribute, value, control_state(value)
+        if attribute not in type(element).model_fields:
+            continue
+        value = getattr(element, attribute)
+        yield attribute, held_text(value), held_state(value)
 
 
-#: The free-text attributes a term is matched against, per element type. Every
-#: one is a ``str`` the submitter authored, which is why a search here matches a
-#: term rather than looking a value up: #162 ruled that controls stay string
-#: attributes, so no attribute in the System Model is a closed enum to test.
+#: The free-text attributes a term is matched against, per element type. Each
+#: one holds words the submitter authored: text, or a control read through
+#: :func:`held_text`. So a search here matches a term rather than looking a
+#: value up.
 TEXT_ATTRIBUTES: tuple[str, ...] = (
     "name",
     "description",
@@ -449,10 +444,10 @@ class ModelText(NamedTuple):
 def model_text(model: SystemModel) -> ModelText:
     """The text :func:`names_term` searches, read from ``model`` once."""
     values = tuple(
-        value.lower()
+        held_text(getattr(element, attribute)).lower()
         for element in model.elements()
         for attribute in TEXT_ATTRIBUTES
-        if isinstance(value := getattr(element, attribute, ""), str)
+        if attribute in type(element).model_fields
     )
     return ModelText(values, "\n".join(values))
 

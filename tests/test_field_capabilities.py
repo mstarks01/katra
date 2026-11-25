@@ -20,6 +20,7 @@ from katra.system_model import (
     CapabilityStatement,
     DataFlow,
     ExternalEntity,
+    control_from_text,
 )
 from katra.validation import validate
 from tests.factories import valid_model
@@ -169,7 +170,7 @@ def test_an_internet_facing_web_process_proves_an_external_http_service():
 
 def test_a_stated_encryption_at_rest_proves_encryption_and_an_assumed_one_does_not():
     model = _model()
-    model.get("store:orders-db").encryption_at_rest = "AES-256 (KMS)"
+    model.get("store:orders-db").encryption_at_rest = control_from_text("AES-256 (KMS)")
     assert "encryption" in _written(model)
     model.assumptions.append(
         Assumption(

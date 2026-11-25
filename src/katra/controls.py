@@ -27,8 +27,13 @@ from pydantic import (
     model_validator,
 )
 
-from katra.analysis import control_state
-from katra.fact_answers import FactAnswer, key_ref, read_back
+from katra.fact_answers import (
+    FactAnswer,
+    answered_control,
+    control_answer_issue,
+    key_ref,
+    read_back,
+)
 from katra.frameworks import check_unit
 from katra.owner_files import text_lines, text_refusal
 from katra.parsing import Sha256Hex
@@ -45,7 +50,6 @@ from katra.system_model import (
     ZONE_ATTRIBUTE,
     make_element_id,
 )
-from katra.validation import ambiguous_lead
 
 CONTROL_ID = r"^control-[0-9a-f]{32}$"
 EVIDENCE_ID = r"^evidence-[0-9a-f]{32}$"
@@ -171,8 +175,8 @@ def states_a_protection(fact: FactAnswer) -> bool:
 
     **The one rule of a protective answer.** An attribute takes its
     statement's value, or, where the owner writes how, a value that
-    :func:`~katra.analysis.control_state` reads as stated and
-    that opens with no ambiguous lead. A
+    :func:`~katra.fact_answers.answered_control` reads as stated and
+    that :func:`~katra.fact_answers.control_answer_issue` does not refuse. A
     ``yes-no`` kind takes the answer it protects on, and a ``facets`` kind
     takes, for each facet it names, the answer that facet protects on. A
     ``text`` kind states no protection.
@@ -185,7 +189,8 @@ def states_a_protection(fact: FactAnswer) -> bool:
         if statement.value is not None:
             return fact.value == statement.value
         return (
-            control_state(fact.value) == "stated" and ambiguous_lead(fact.value) is None
+            answered_control(fact.value).state == "stated"
+            and control_answer_issue(fact.value) is None
         )
     name = parse_question_kind(ref.question)
     if name is None:

@@ -11,7 +11,7 @@ from evals.harness import plants
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, development_cases, load_corpus
 from evals.reference_facts import facts_path, load_facts
-from katra.analysis import control_state
+from katra.analysis import held_state, held_text
 
 #: Each stated control of a development case that no plant inverts, with the
 #: reading that skips it. A new skip fails until it is listed here, and a
@@ -232,8 +232,8 @@ def test_each_plant_inverts_a_control_its_model_states():
     for plant in written:
         element = models[plant.fact.case].get(plant.fact.element_id)
         stated = getattr(element, plant.fact.attribute)
-        assert stated == plant.fact.stated
-        assert control_state(stated) == "stated"
+        assert held_text(stated) == plant.fact.stated
+        assert held_state(stated) == "stated"
         assert plants.plant_reading(stated) == "plantable"
         assert plant.category == plants.CATEGORY[plant.fact.attribute]
         assert {

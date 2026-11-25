@@ -7,6 +7,7 @@ from itertools import product
 
 from evals.harness.early_rounds import paused_state
 from evals.harness.shared_answers import blanked, boxes, shareable
+from katra.system_model import control_from_text, control_text
 from tests import test_webapp
 from tests.factories import valid_model
 
@@ -33,18 +34,20 @@ def test_the_instrument_and_the_page_share_one_rule():
 def test_a_stated_attribute_is_made_unknown_and_kept_as_the_truth():
     blessed = valid_model()
     flow = blessed.data_flows[0]
-    flow.authentication = "mutual TLS"
+    flow.authentication = control_from_text("mutual TLS")
     model, truth = blanked(blessed)
     assert truth[(flow.id, "authentication")] == "mutual TLS"
-    assert model.get(flow.id).authentication == "unknown"
-    assert blessed.data_flows[0].authentication == "mutual TLS"
+    assert control_text(model.get(flow.id).authentication) == "unknown"
+    assert control_text(blessed.data_flows[0].authentication) == "mutual TLS"
 
 
 def test_a_box_of_two_true_values_counts_one_over_claim():
     blessed = valid_model()
     for flow in blessed.data_flows:
-        flow.authentication = "mutual TLS"
-    blessed.data_flows[0].authentication = "none; accepted by network position"
+        flow.authentication = control_from_text("mutual TLS")
+    blessed.data_flows[0].authentication = control_from_text(
+        "none; accepted by network position"
+    )
     found = [
         box
         for box in boxes("case", blessed)

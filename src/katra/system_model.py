@@ -4,8 +4,10 @@ Terminology for this schema lives in GLOSSARY.md.
 
 The five element types are the classic DFD-based STRIDE-per-element taxonomy.
 Free-form security-relevant attributes accept the sentinel value ``"unknown"``,
-meaning the input neither stated nor allowed inference of the fact; category agents
-treat an unknown control as unverified, never as present or absent. Inferred
+meaning the input neither stated nor allowed inference of the fact. The three
+control fields hold a :class:`ElementControl`, whose ``state`` is ``stated``,
+``absent`` or ``unknown``; category agents treat an unknown control as
+unverified, never as present or absent. Inferred
 values are recorded in the attribute *and* in the top-level ``assumptions``
 list — never as silent guesses.
 
@@ -25,9 +27,17 @@ from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, ClassVar, Literal, Self, get_args
+from typing import Annotated, Any, ClassVar, Literal, Self, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    model_validator,
+)
 
 from katra.capabilities import (
     CAPABILITIES,
@@ -35,11 +45,17 @@ from katra.capabilities import (
     Presence,
     StatedPresence,
 )
-from katra.parsing import member
+from katra.parsing import leading_word, member
 from katra.references import canonical
 from katra.sources import MAX_LABEL_CHARS, check_answer_quotes
 
 UNKNOWN = "unknown"
+
+#: The word that says a control is **not there**, where a value holds a
+#: control as text: an archived control field (:func:`control_from_text`),
+#: the rendered text of a :class:`ElementControl` (:func:`control_text`), and an
+#: assertion row's graph spelling.
+ABSENT_WORD = "none"
 
 #: The attribute a :class:`ZonedElement` carries its zone in, and the one an
 #: :class:`Assumption` names when extraction placed that element itself. Named
@@ -426,6 +442,125 @@ EXCERPT_MAX_CHARS = 1000
 #: and scope qualifier that projects into the field, read this one bound.
 CONTROL_VALUE_MAX_CHARS = 200
 
+#: What a model states about a control: the mechanism (``stated``), that the
+#: control is not there (``absent``), or nothing (``unknown``).
+ControlStateWord = Literal["stated", "absent", "unknown"]
+
+#: The names of the element fields that hold a :class:`ElementControl`.
+ControlField = Literal["authentication", "encryption_in_transit", "encryption_at_rest"]
+CONTROL_FIELDS: tuple[ControlField, ...] = get_args(ControlField)
+
+
+class ElementControl(BaseModel):
+    """One control of an element: its state, and the words that go with it.
+
+    ``detail`` names the mechanism of a ``stated`` control, and a stated
+    control without one is refused. On an ``absent`` or an ``unknown``
+    control, ``detail`` is an optional reason, such as "accepted by network
+    position". A reader decides on ``state`` alone and never reads ``detail``
+    for the state.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    state: ControlStateWord
+    detail: str = Field(default="", max_length=CONTROL_VALUE_MAX_CHARS)
+
+    @model_validator(mode="after")
+    def _stated_names_its_mechanism(self) -> Self:
+        if self.state == "stated" and not self.detail.strip():
+            raise ValueError("a stated control names its mechanism in 'detail'")
+        return self
+
+
+def first_word_state(value: str) -> ControlStateWord:
+    """The state a control written as text holds, from its first word alone.
+
+    **The one first-word rule.** ``unknown`` for a blank value and for a value
+    that opens with ``unknown``, ``absent`` for one that opens with ``none``,
+    and ``stated`` for every other value. ``no MFA on the login`` is stated,
+    because it names a mechanism. :func:`control_from_text` reads a control
+    written as text with it, and
+    :func:`~katra.analysis.control_state` reads a text attribute with it.
+    """
+    if not value.strip():
+        return "unknown"
+    lead = leading_word(value, (UNKNOWN, ABSENT_WORD))
+    if lead is None:
+        return "stated"
+    return "unknown" if lead == UNKNOWN else "absent"
+
+
+def control_from_text(value: str) -> ElementControl:
+    """The :class:`ElementControl` that a control written as one line holds.
+
+    It reads by :func:`first_word_state`. A stated value keeps the whole string as its
+    mechanism. After a sentinel, the rest of the string is the reason. Two
+    kinds of value are text: an archived control field, which a recorded
+    emission, a Baseline and a stored report hold (the archive reader,
+    :func:`_control_field`), and the value of an answer to a control field,
+    which the HTTP API takes as one line
+    (:func:`~katra.fact_answers.answered_control`).
+    """
+    state = first_word_state(value)
+    if state == "stated":
+        return ElementControl(state="stated", detail=value)
+    sentinel = UNKNOWN if state == "unknown" else ABSENT_WORD
+    reason = value.strip()[len(sentinel) :].lstrip(" ;:,.-\u2013\u2014")
+    return ElementControl(state=state, detail=reason)
+
+
+def control_text(control: ElementControl) -> str:
+    """``control`` as one line of text, for an agent or a person to read.
+
+    A stated control is its mechanism. An absent control is ``none`` and an
+    unknown control is ``unknown``, each followed by ``; <reason>`` where
+    it carries one. These are the words the prompts use for the two states.
+    """
+    if control.state == "stated":
+        return control.detail
+    word = UNKNOWN if control.state == "unknown" else ABSENT_WORD
+    return f"{word}; {control.detail}" if control.detail else word
+
+
+#: The validation context of a System Model that a model wrote. Under it, a
+#: control field refuses a string (:func:`_control_field`).
+LIVE_CONTEXT: Mapping[str, bool] = MappingProxyType({"live": True})
+
+
+def _control_field(value: object, info: ValidationInfo) -> object:
+    """A control field's value, with a string read as an archived control.
+
+    **The one archive reader.** A model's output is validated under
+    :data:`LIVE_CONTEXT`, and there a string is refused: a model writes a
+    control as ``state`` and ``detail``.
+    """
+    if not isinstance(value, str):
+        return value
+    if info.context is not None and info.context.get("live"):
+        raise ValueError(
+            "a control is an object with 'state' and 'detail', never a string"
+        )
+    return control_from_text(value)
+
+
+#: The type of an element's control field.
+ControlValue = Annotated[ElementControl, BeforeValidator(_control_field)]
+
+_CONTROL_VALUE: TypeAdapter[ElementControl] = TypeAdapter(ControlValue)
+
+
+def read_control(value: object) -> ElementControl:
+    """A control field's value as an element would hold it.
+
+    For a reader of raw model JSON, such as a recorded emission, which holds a
+    control as a mapping or as an archived string. The field's own type reads
+    it, so a string goes through the archive reader. Raises
+    ``ValidationError`` for a value that is neither.
+    """
+    return _CONTROL_VALUE.validate_python(value)
+
+
 #: The tier field as a model fills it. The set is a schema fact and not a
 #: validator: a provider reads the enum, and code may still write a
 #: projected value here (``unknown; <why>: <tier>``).
@@ -532,7 +667,7 @@ class DataStore(_Element):
     technology: str = Field(max_length=200)
     trust_zone: str
     data_classification: str = DATA_CLASSIFICATION_FIELD
-    encryption_at_rest: str = Field(max_length=CONTROL_VALUE_MAX_CHARS)
+    encryption_at_rest: ControlValue
 
 
 class DataFlow(_Element):
@@ -543,9 +678,9 @@ class DataFlow(_Element):
     source: str
     destination: str
     protocol: str = Field(max_length=200)
-    authentication: str = Field(max_length=CONTROL_VALUE_MAX_CHARS)
+    authentication: ControlValue
     data_description: str = Field(max_length=1000)
-    encryption_in_transit: str = Field(max_length=CONTROL_VALUE_MAX_CHARS)
+    encryption_in_transit: ControlValue
     #: What the initiator does at the destination — the fact ``direction`` does
     #: **not** carry. A service reading a database and a service writing one are
     #: the same shape without this, so a rule about writes fired on both and told

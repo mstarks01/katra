@@ -60,10 +60,11 @@ from katra.fact_answers import (
     SkipKey,
     answered_keys,
     attribute_place,
+    control_answer,
     merged_facts,
 )
 from katra.jobs import Checkpoint
-from katra.system_model import SystemModel
+from katra.system_model import ElementControl, SystemModel
 
 #: A replay that has not ended by this save is reported as not ending.
 MAX_SAVES = 50
@@ -85,6 +86,8 @@ def _blessed(question: EarlyQuestion, blessed: SystemModel) -> FactAnswer:
     element_id, attribute = attribute_place(question.key)
     element = blessed.get(element_id)
     value = getattr(element, attribute, None) if attribute else None
+    if isinstance(value, ElementControl):
+        value = control_answer(value)
     stated = isinstance(value, str) and control_state(value) != "unverified"
     fits = not question.form.choices or value in question.form.choices
     if question.kind == "attribute" and isinstance(value, str) and stated and fits:

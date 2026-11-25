@@ -49,7 +49,7 @@ from types import MappingProxyType
 
 from katra.analysis import (
     comparable_asset_tags,
-    control_state,
+    control_reading,
     crossing_facts,
     crossings_by_flow,
     inbound_flows,
@@ -68,7 +68,7 @@ from katra.assertions import (
 )
 from katra.candidates import Fact, Match, Rule, clip_fact, with_rule_tables
 from katra.frameworks import NoRule, PredicateReader
-from katra.system_model import BoundaryKind, DataFlow, SystemModel
+from katra.system_model import BoundaryKind, DataFlow, SystemModel, control_text
 
 __all__ = [
     "ENTERED_ZONE_KINDS",
@@ -115,8 +115,8 @@ def _unverified_boundary_auth(
         yield (
             (flow.id, flow.source, flow.destination),
             {
-                "authentication": _clip(flow.authentication),
-                "authentication_state": control_state(flow.authentication),
+                "authentication": _clip(control_text(flow.authentication)),
+                "authentication_state": control_reading(flow.authentication),
                 **crossing_facts(crossings[flow.id], flow),
             },
         )
@@ -136,8 +136,8 @@ def _unverified_external_caller(
         yield (
             (flow.id, flow.source),
             {
-                "authentication": _clip(flow.authentication),
-                "authentication_state": control_state(flow.authentication),
+                "authentication": _clip(control_text(flow.authentication)),
+                "authentication_state": control_reading(flow.authentication),
                 "source_kind": "external-system",
             },
         )
@@ -180,8 +180,8 @@ def _second_factor_stated_absent(
         yield (
             (flow.id, flow.source, flow.destination),
             {
-                "authentication": _clip(flow.authentication),
-                "authentication_state": control_state(flow.authentication),
+                "authentication": _clip(control_text(flow.authentication)),
+                "authentication_state": control_reading(flow.authentication),
                 "second_factor": ABSENT,
                 "second_factor_basis": held[0].basis,
                 "second_factor_subject": "interaction" if stated_on else "principal",
@@ -317,8 +317,10 @@ def _unprotected_transit_crossing(
         yield (
             (flow.id, flow.source, flow.destination),
             {
-                "encryption_in_transit": _clip(flow.encryption_in_transit),
-                "encryption_state": control_state(flow.encryption_in_transit),
+                "encryption_in_transit": _clip(
+                    control_text(flow.encryption_in_transit)
+                ),
+                "encryption_state": control_reading(flow.encryption_in_transit),
                 "protocol": _clip(flow.protocol),
                 **crossing_facts(crossings[flow.id], flow),
             },
@@ -366,8 +368,8 @@ def _unverified_write_to_store(
         yield (
             (flow.id, store.id),
             {
-                "authentication": _clip(flow.authentication),
-                "authentication_state": control_state(flow.authentication),
+                "authentication": _clip(control_text(flow.authentication)),
+                "authentication_state": control_reading(flow.authentication),
                 "operations": flow.operations,
                 "data_classification": _clip(store.data_classification),
             },
@@ -392,8 +394,8 @@ def _unattributable_action(
         yield (
             (flow.id, destination.id),
             {
-                "authentication": _clip(flow.authentication),
-                "authentication_state": control_state(flow.authentication),
+                "authentication": _clip(control_text(flow.authentication)),
+                "authentication_state": control_reading(flow.authentication),
                 "destination_assets": ", ".join(assets),
             },
         )
@@ -465,8 +467,10 @@ def _unprotected_sensitive_transit(
         yield (
             (flow.id, flow.source, flow.destination),
             {
-                "encryption_in_transit": _clip(flow.encryption_in_transit),
-                "encryption_state": control_state(flow.encryption_in_transit),
+                "encryption_in_transit": _clip(
+                    control_text(flow.encryption_in_transit)
+                ),
+                "encryption_state": control_reading(flow.encryption_in_transit),
                 # Named for the union it holds: a fact key that says where a
                 # value came from has to keep saying it.
                 "assets_in_transit": ", ".join(assets),
@@ -483,8 +487,8 @@ def _store_at_rest_unverified(
         yield (
             (store.id,),
             {
-                "encryption_at_rest": _clip(store.encryption_at_rest),
-                "encryption_state": control_state(store.encryption_at_rest),
+                "encryption_at_rest": _clip(control_text(store.encryption_at_rest)),
+                "encryption_state": control_reading(store.encryption_at_rest),
                 "data_classification": _clip(store.data_classification),
                 "assets": ", ".join(comparable_asset_tags(store.assets)),
             },
@@ -605,7 +609,7 @@ def _privilege_zone_crossing(
     # A crossing's flow ID names a Data Flow in the model it was derived from,
     # so this lookup resolves. Indexed by type rather than reached for with a
     # defaulted ``getattr``: the default would answer a missing flow with the
-    # empty string, whose ``control_state`` is ``stated`` — a rule reporting a
+    # empty string, which is no control at all — a rule reporting a
     # control the model never named, which is the one thing this module may not
     # do. A flow that somehow does not resolve yields no candidate instead.
     flows = {flow.id: flow for flow in model.data_flows}
@@ -637,8 +641,8 @@ def _privilege_zone_crossing(
                 "zone_kind": kinds[zone],
                 "source_zone_kind": source_kind,
                 "destination_zone_kind": destination_kind,
-                "authentication": _clip(authentication),
-                "authentication_state": control_state(authentication),
+                "authentication": _clip(control_text(authentication)),
+                "authentication_state": control_reading(authentication),
                 **crossing_facts(crossing, flow),
             },
         )
@@ -662,8 +666,8 @@ def _inbound_from_exposed_process(
             (flow.id, flow.source, flow.destination),
             {
                 "source_exposure": "internet-facing",
-                "authentication": _clip(flow.authentication),
-                "authentication_state": control_state(flow.authentication),
+                "authentication": _clip(control_text(flow.authentication)),
+                "authentication_state": control_reading(flow.authentication),
                 **crossing_facts(crossings[flow.id], flow),
             },
         )

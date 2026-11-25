@@ -43,7 +43,7 @@ from katra.links import (
 )
 from katra.open_facts import open_attribute
 from katra.question_kinds import QUESTION_KINDS
-from katra.system_model import EXCERPT_MAX_CHARS, attribute_names
+from katra.system_model import EXCERPT_MAX_CHARS, ElementControl, attribute_names
 from tests import test_webapp
 from tests.factories import valid_model
 from tests.test_api import auth
@@ -109,9 +109,17 @@ def _free_text_facts():
         for attribute in attribute_names(element):
             model = valid_model()
             opened = model.get(element.id)
-            if not isinstance(getattr(opened, attribute), str):
+            value = getattr(opened, attribute)
+            if isinstance(value, ElementControl):
+                setattr(opened, attribute, ElementControl(state="unknown"))
+            elif not isinstance(value, str):
                 continue
-            setattr(opened, attribute, "unknown")
+            else:
+                try:
+                    setattr(opened, attribute, "unknown")
+                except ValidationError:
+                    # A closed field that takes no "unknown" takes no text.
+                    continue
             key = (element.id, attribute, "", "", "", "")
             if not answer_choices(key, model, None) and _admits_text(model, key):
                 yield pytest.param(model, key, id=f"{element.id}.{attribute}")

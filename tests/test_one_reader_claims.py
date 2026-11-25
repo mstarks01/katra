@@ -139,7 +139,7 @@ UNGUARDED_CLAIMS: dict[Site, str] = dict.fromkeys(
         ("evals/review_submission.py", "_case_problems"),
         ("src/katra/analysis.py", "comparable_asset_tags"),
         ("src/katra/analysis.py", "crossings_by_flow"),
-        ("src/katra/analysis.py", "leading_word"),
+        ("src/katra/parsing.py", "leading_word"),
         ("src/katra/answer_forms.py", "answer_limit"),
         ("src/katra/answer_sets.py", "within_held_limits"),
         ("src/katra/answer_state.py", "passes_floor"),

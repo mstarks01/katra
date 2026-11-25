@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from katra.analysis import held_text
 from katra.answer_forms import YES_NO, answer_choices, answer_form
 from katra.answer_sets import NO_ANSWERS, AnswerSet, SentAnswers
 from katra.answer_state import EARLY_RULES, passes_floor
@@ -35,6 +36,7 @@ from katra.system_model import (
     SystemModel,
     all_attribute_names,
     attribute_names,
+    control_from_text,
 )
 from tests.factories import valid_model
 from tests.source_tree import REPO_ROOT
@@ -115,7 +117,9 @@ class TestWhatIsAsked:
     def test_a_qualified_unknown_is_asked(self):
         """The reading the evidence catalog uses, not an exact match (#1289, Q4)."""
         model = valid_model()
-        model.get(STORE).encryption_at_rest = "unknown; the sources are silent"
+        model.get(STORE).encryption_at_rest = control_from_text(
+            "unknown; the sources are silent"
+        )
         asked = keys({"DataStore": {"encryption_at_rest": 1.0}}, model)
         assert asked == [(STORE, "encryption_at_rest", "", "", "", "")]
 
@@ -139,7 +143,7 @@ class TestWhatIsAsked:
         """Counted from an ASVS sweep older than the question kinds (#1284)."""
         model = valid_model()
         for flow in model.data_flows:
-            flow.authentication = "unknown"
+            flow.authentication = control_from_text("unknown")
         asked = early_questions(model, {"asvs": {"level": 1}}, None)
         assert QUESTION_PRIOR["asvs"].runs
         assert "attribute" in {question.kind for question in asked}
@@ -322,7 +326,7 @@ def test_the_shipped_prior_puts_an_unknown_attribute_near_the_top():
     assert asked[0][1] or asked[0][4]
     assert (STORE, "encryption_at_rest", "", "", "", "") in asked[:3]
     assert all(
-        getattr(valid_model().get(key[0]), key[1]) == UNKNOWN
+        held_text(getattr(valid_model().get(key[0]), key[1])) == UNKNOWN
         for key in asked
         if key[1] and key[1] != ZONE_ATTRIBUTE
     )

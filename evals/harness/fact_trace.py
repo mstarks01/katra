@@ -48,7 +48,13 @@ from typing import Any, Literal, cast, get_args
 from evals.harness.alignment import Alignment, ProtocolState
 from evals.harness.modes import STATE_REDUCED, AttributeCheck, reduce_attribute
 from katra.analysis import ControlState
-from katra.system_model import ELEMENT_GROUPS, SystemModel, duplicate_ids
+from katra.system_model import (
+    CONTROL_FIELDS,
+    ELEMENT_GROUPS,
+    SystemModel,
+    duplicate_ids,
+    read_control,
+)
 
 #: Where a check's value went wrong, if it did. The module docstring defines
 #: each stage.
@@ -187,6 +193,8 @@ def trace(
             field = type(elements[produced]).model_fields[check.attribute]
             if value is None and not field.is_required():
                 value = field.get_default(call_default_factory=True)
+            if value is not None and check.attribute in CONTROL_FIELDS:
+                value = read_control(value)
         traced.append(
             FactTrace(
                 check,

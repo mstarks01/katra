@@ -20,7 +20,6 @@ from typing import Literal, get_args
 
 from pydantic import ValidationError
 
-from katra.analysis import control_state
 from katra.answer_forms import answer_choices, answer_limit
 from katra.assertions import (
     ABSENT,
@@ -44,8 +43,10 @@ from katra.capabilities import lineage, parse_capability_key
 from katra.fact_answers import (
     FactAnswer,
     answer_facets,
+    answered_control,
     answered_row,
     attribute_place,
+    control_answer_issue,
     detail_note,
     fact_label,
     fact_line,
@@ -62,6 +63,7 @@ from katra.open_facts import (
 from katra.question_kinds import parse_question_kind
 from katra.sources import ANSWERS_LABEL
 from katra.system_model import (
+    CONTROL_FIELDS,
     CapabilityStatement,
     SystemModel,
     attribute_names,
@@ -249,15 +251,22 @@ def _check_attribute_values(answers: Sequence[FactAnswer], model: SystemModel) -
     """Refuse an attribute answer the validity gate would refuse in that field.
 
     A resumed run starts at ``prepare`` and never meets the gate, so the gate's
-    own rules are asked here: a field's length, and a control that is blank or
-    opens with a negation other than ``none``, which
-    :func:`~katra.analysis.control_state` would read as stated.
+    own rules are asked here: a field's length, and a text control that is
+    blank or opens with a negation other than ``none``. A control field's
+    answer is refused where it does not say which state it means
+    (:func:`~katra.fact_answers.control_answer_issue`).
     """
     attributes = [
         answer for answer in answers if answer.kind == "attribute" and answer.known
     ]
     if not attributes:
         return
+    for answer in attributes:
+        if attribute_place(answer.key)[1] not in CONTROL_FIELDS:
+            continue
+        refusal = control_answer_issue(answer.value)
+        if refusal is not None:
+            raise ValueError(refusal)
     try:
         answered = answered_model(model, attributes)
     except ValidationError as error:
@@ -305,7 +314,11 @@ def answered_model(model: SystemModel, answers: Sequence[FactAnswer]) -> SystemM
         if element is None:
             continue
         if answer.known:
-            element[attribute] = answer.value
+            element[attribute] = (
+                answered_control(answer.value).model_dump(mode="json")
+                if attribute in CONTROL_FIELDS
+                else answer.value
+            )
             note = f'The submitter answered {attribute}: "{answer.value}".'
         else:
             note = f"The submitter does not know {attribute}."
@@ -440,7 +453,9 @@ def fact_rows(
     written: dict[tuple[str, str], Assertion] = {}
     for entry in scoped:
         answer, span = attributes[reached(entry)]
-        value = ABSENT if control_state(answer.value) == "absent" else answer.value
+        value = (
+            ABSENT if answered_control(answer.value).state == "absent" else answer.value
+        )
         written.setdefault(
             reached(entry),
             Assertion(

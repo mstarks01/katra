@@ -106,7 +106,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from katra.diagrams import DiagramReading
 from katra.sources import MAX_LABEL_CHARS
 from katra.system_model import (
-    CONTROL_VALUE_MAX_CHARS,
     DATA_CLASSIFICATION_FIELD,
     ELEMENT_GROUPS,
     ENDPOINT_PREFIXES,
@@ -116,6 +115,7 @@ from katra.system_model import (
     DataFlow,
     DataStore,
     Element,
+    ElementControl,
     ElementGroup,
     EntityKind,
     Exposure,
@@ -292,7 +292,7 @@ class CompactDataStore(_CompactElement):
     technology: str = Field(max_length=200)
     trust_zone: str = _ref_field(ZONE_REF)
     data_classification: str = DATA_CLASSIFICATION_FIELD
-    encryption_at_rest: str = Field(max_length=CONTROL_VALUE_MAX_CHARS)
+    encryption_at_rest: ElementControl
 
 
 class CompactDataFlow(_CompactElement):
@@ -304,9 +304,9 @@ class CompactDataFlow(_CompactElement):
     source: str = _ref_field()
     destination: str = _ref_field()
     protocol: str = Field(max_length=200)
-    authentication: str = Field(max_length=CONTROL_VALUE_MAX_CHARS)
+    authentication: ElementControl
     data_description: str = Field(max_length=1000)
-    encryption_in_transit: str = Field(max_length=CONTROL_VALUE_MAX_CHARS)
+    encryption_in_transit: ElementControl
     operations: Operations
 
 
@@ -431,6 +431,7 @@ def parse_extraction(
     *,
     sources: Mapping[str, str],
     diagrams: Mapping[str, DiagramReading],
+    archived: bool = False,
 ) -> tuple[SystemModel | None, list[ValidationIssue]]:
     """The one reader of "what extraction emitted" against "a validated model".
 
@@ -443,6 +444,8 @@ def parse_extraction(
 
     ``normalize_ids`` is not a parameter: both callers pass it, and the compact
     route *requires* it, since the IDs it hands the gate are provisional.
+    ``archived`` is true only for a recorded emission that a replay reads, and
+    lets a control field written as a string through the archive reader.
 
     Returns ``(model, issues)`` on
     :func:`~katra.validation.parse_and_validate`'s contract. A
@@ -459,7 +462,11 @@ def parse_extraction(
     elif extraction_format != FULL_FORMAT:
         raise ValueError(f"unknown extraction format: {extraction_format!r}")
     model, gate_issues = parse_and_validate(
-        payload, normalize_ids=True, sources=sources, diagrams=diagrams
+        payload,
+        normalize_ids=True,
+        sources=sources,
+        diagrams=diagrams,
+        archived=archived,
     )
     return model, issues + gate_issues
 

@@ -9,6 +9,7 @@ import pytest
 from evals.harness import early_rounds
 from evals.harness.early_rounds import ANSWERERS, replay
 from katra.frameworks.asvs.catalog import AsvsLevel
+from katra.system_model import control_from_text
 from tests.factories import FrameworkSelection, sample_report, valid_model
 from tests.test_asvs import _block
 
@@ -21,8 +22,8 @@ CORPUS = Path(__file__).resolve().parents[1] / "evals" / "corpus"
 def open_controls():
     model = valid_model()
     for flow in model.data_flows:
-        flow.authentication = "unknown"
-        flow.encryption_in_transit = "unknown"
+        flow.authentication = control_from_text("unknown")
+        flow.encryption_in_transit = control_from_text("unknown")
     return model
 
 

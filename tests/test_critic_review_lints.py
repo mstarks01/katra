@@ -21,6 +21,7 @@ import pytest
 from evals.critic_review.loading import corpus_model, load_fixtures, source_text
 from evals.critic_review.model import CriticFixture, FixtureKind
 from evals.critic_review.replay import carries_both_answers
+from katra.analysis import held_state
 from katra.frameworks import PACKAGES
 from katra.grounding import normalize, verify_normalized
 from katra.system_model import ModelIndex
@@ -117,7 +118,7 @@ def test_an_unknown_ground_names_an_attribute_the_model_really_leaves_open(fixtu
         if ground.kind != "unknown-attribute":
             continue
         value = getattr(by_id[ground.element_id], ground.attribute, None)
-        assert value == "unknown", (
+        assert value is not None and held_state(value) == "unverified", (
             f"{fixture.id}: {ground.element_id}.{ground.attribute} is {value!r},"
             " so this ground would not resolve as an unknown on a real run"
         )

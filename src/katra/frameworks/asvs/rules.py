@@ -54,8 +54,9 @@ from types import MappingProxyType
 from katra.analysis import (
     TEXT_ATTRIBUTES,
     comparable_asset_tags,
-    control_state,
+    control_reading,
     crossing_facts,
+    held_text,
     is_unverified,
     matches_term,
     model_text,
@@ -67,7 +68,7 @@ from katra.candidates import Match, Rule, clip_fact, with_rule_tables
 from katra.claims import UnknownRef
 from katra.frameworks import NoRule, PreconditionResult, PredicateReader
 from katra.protocol_defaults import NEGATED
-from katra.system_model import SystemModel
+from katra.system_model import SystemModel, control_text
 
 __all__ = [
     "PREDICATE_READERS",
@@ -119,9 +120,9 @@ def _hits(model: SystemModel, test: PresenceTest) -> Iterator[Match]:
         return
     for element in model.elements():
         for attribute in test.attributes:
-            value = getattr(element, attribute, "")
-            if not isinstance(value, str):
+            if attribute not in type(element).model_fields:
                 continue
+            value = held_text(getattr(element, attribute))
             lowered = value.lower()
             term = next((term for term in terms if matches_term(term, lowered)), "")
             if not term:
@@ -676,7 +677,7 @@ def _write_with_no_record(
                 "assets": ", ".join(
                     comparable_asset_tags(AUDITED_ASSET_TAGS & set(store.assets))
                 ),
-                "authentication": clip_fact(flow.authentication),
+                "authentication": clip_fact(control_text(flow.authentication)),
                 "record_named_anywhere": mentions,
             },
         )
@@ -724,8 +725,10 @@ def _unverified_transit(
             (flow.id, flow.source, flow.destination),
             {
                 "protocol": clip_fact(flow.protocol),
-                "encryption_in_transit": clip_fact(flow.encryption_in_transit),
-                "encryption_state": control_state(flow.encryption_in_transit),
+                "encryption_in_transit": clip_fact(
+                    control_text(flow.encryption_in_transit)
+                ),
+                "encryption_state": control_reading(flow.encryption_in_transit),
             },
         )
 

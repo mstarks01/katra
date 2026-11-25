@@ -40,7 +40,8 @@ from evals.reference_facts import (
     load_facts,
     reference_catalog,
 )
-from katra.assertions import project
+from katra.analysis import held_text
+from katra.assertions import graph_value, project
 from katra.parsing import signer
 from katra.sources import text_digest
 
@@ -162,7 +163,7 @@ def test_every_dispute_names_a_value_the_model_still_holds(drafted):
     for dispute in facts.disputed:
         element = by_id[dispute.element_id]
         assert hasattr(element, dispute.attribute), dispute.basis
-        assert str(getattr(element, dispute.attribute)) == dispute.blessed, (
+        assert held_text(getattr(element, dispute.attribute)) == dispute.blessed, (
             dispute.basis
         )
 
@@ -206,8 +207,9 @@ def test_the_rows_reproduce_every_control_the_blessed_model_states(drafted):
             continue
         assert projection.reason == stratum, f"{key}: {projection.reason}"
         compared = PROJECTION_COMPARED[projection.attribute]
-        blessed = str(getattr(by_id[key[0]], key[1]))
-        assert compared(projection.value) == compared(blessed), key
+        blessed = getattr(by_id[key[0]], key[1])
+        projected_value = graph_value(projection.attribute, projection.value)
+        assert compared(projected_value) == compared(blessed), key
     for key, projection in projected.items():
         if key in disputed or projection.reason not in ("stated", "absent"):
             continue

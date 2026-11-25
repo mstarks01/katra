@@ -34,6 +34,7 @@ from katra.reassess import (
     reviewed,
 )
 from katra.sources import ANSWERS_LABEL
+from katra.system_model import control_from_text, control_text
 from tests.factories import sample_report, sample_threat
 
 SHOPPERS = Subject(
@@ -107,8 +108,8 @@ def test_a_rejected_projection_reopens_its_lead(assessment) -> None:
     result = reassess(report(cite=False), reject(MECHANISM, assessment))
     flow = next(flow for flow in result.model.data_flows if flow.id == LOGIN)
 
-    assert flow.authentication.startswith("unknown; a reviewer set")
-    assert MECHANISM.value not in flow.authentication
+    assert control_text(flow.authentication).startswith("unknown; a reviewer set")
+    assert MECHANISM.value not in control_text(flow.authentication)
     assert assertion_id(MECHANISM) not in result.evidence
     assert f"{LOGIN}.authentication" in result.reopened
 
@@ -119,7 +120,7 @@ def test_a_supported_row_may_close_a_lead() -> None:
     result = reassess(report(cite=False), verdicts)
     flow = next(flow for flow in result.model.data_flows if flow.id == LOGIN)
 
-    assert flow.authentication == "a hardware token"
+    assert control_text(flow.authentication) == "a hardware token"
     assert result.withdrawn == ()
 
 
@@ -324,7 +325,7 @@ def test_a_row_the_graph_contradicts_after_review_does_not_stand(
     model = cited.system_model.model_copy(deep=True)
     for flow in model.data_flows:
         if flow.id == LOGIN:
-            flow.authentication = "none"
+            flow.authentication = control_from_text("none")
     unprojected = cited.model_copy(update={"system_model": model})
     assert evidence_catalog(model, record.catalog)[assertion_id(MECHANISM)].kind == (
         "assertion"

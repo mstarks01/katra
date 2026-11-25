@@ -18,7 +18,13 @@ from __future__ import annotations
 from typing import Any
 
 from katra.open_facts import element_names
-from katra.system_model import UNKNOWN, SystemModel, attribute_names
+from katra.system_model import (
+    UNKNOWN,
+    ElementControl,
+    SystemModel,
+    attribute_names,
+    control_text,
+)
 
 __all__ = ["detected_facts"]
 
@@ -57,6 +63,8 @@ def detected_facts(model: SystemModel) -> list[dict[str, object]]:
             )
         for attribute in attribute_names(element):
             value = getattr(element, attribute)
+            if isinstance(value, ElementControl):
+                value = control_text(value)
             if value in (None, "", [], UNKNOWN):
                 continue
             facts.append(

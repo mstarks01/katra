@@ -48,7 +48,7 @@ from katra.links import with_link_answers
 from katra.pipeline import _seeded_state
 from katra.principals import Identity, Principal
 from katra.sources import text_digest
-from katra.system_model import Assumption, DataStore, TrustBoundary
+from katra.system_model import Assumption, DataStore, ElementControl, TrustBoundary
 from tests import test_webapp
 from tests.factories import valid_model
 from tests.test_api import auth, make_client, one_framework, one_source
@@ -88,7 +88,7 @@ def zoned_model():
                     name="Audit Log",
                     technology="files",
                     trust_zone="unknown",
-                    encryption_at_rest="unknown",
+                    encryption_at_rest=ElementControl(state="unknown"),
                     data_classification="internal",
                     source_label=label,
                 ),

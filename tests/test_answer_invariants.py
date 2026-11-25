@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pytest
 
+from katra.analysis import held_text
 from katra.assertions import (
     ABSENT,
     PROJECTION_EFFECT,
@@ -38,7 +39,7 @@ from katra.jobs import Checkpoint
 from katra.links import check_answers
 from katra.open_facts import open_attribute
 from katra.sources import Source
-from tests.factories import DESCRIPTION_TEXT, valid_model
+from tests.factories import DESCRIPTION_TEXT, valid_model, write_text
 from tests.test_early_questions import prior_of
 from tests.test_questions import resume
 
@@ -155,7 +156,7 @@ def checkpoint(rows: list[Assertion]) -> Checkpoint:
     )
     model = valid_model()
     for attribute in ANSWERS:
-        setattr(model.data_flows[0], attribute, UNKNOWN)
+        write_text(model.data_flows[0], attribute, UNKNOWN)
     return Checkpoint(
         system_model=model,
         assertions=AssertionRecord(proposed=len(rows), catalog=catalog),
@@ -190,7 +191,7 @@ def effective(report, attribute: str) -> str:
     held = getattr(model.data_flows[0], attribute)
     again = getattr(prepared.data_flows[0], attribute)
     assert held == again, "the report's model and a later reader's view disagree"
-    return held
+    return held_text(held)
 
 
 def test_every_projection_reason_has_a_shape():
@@ -347,7 +348,7 @@ def test_the_pause_asks_exactly_what_the_lanes_read_open(reason, stated_by_extra
     attribute, rows = SHAPES[reason]
     held = checkpoint(rows)
     if stated_by_extraction:
-        setattr(held.system_model.data_flows[0], attribute, "TLS 1.2")
+        write_text(held.system_model.data_flows[0], attribute, "TLS 1.2")
     key = (FLOW, attribute, "", "", "", "")
     given = [answer(attribute, ANSWERS[attribute][0])]
     catalog = held.assertions.catalog
@@ -390,7 +391,7 @@ def test_the_pause_table_holds_both_outcomes():
         held = checkpoint(rows)
         if not lanes_read_open(held, attribute):
             settles.add(reason)
-        setattr(held.system_model.data_flows[0], attribute, "TLS 1.2")
+        write_text(held.system_model.data_flows[0], attribute, "TLS 1.2")
         if lanes_read_open(held, attribute):
             opens.add(reason)
 

@@ -10,7 +10,7 @@ each judge batch as known negatives. Plants never go into a **Case Sitting**.
 **Two readings must agree before a fact is a candidate.**
 
 1. :func:`plant_reading` reads the model's value. It refuses a value that
-   :func:`~katra.analysis.control_state` does not read as ``stated``, a value
+   :func:`~katra.analysis.held_state` does not read as ``stated``, a value
    with a negating, limiting or conditional word anywhere in it (``no``,
    ``never``, ``cannot``, ``without``, ``except``, ``only``, ``some``, ``if``, a
    contraction such as "isn't", an environment name such as ``staging``, and
@@ -50,11 +50,17 @@ from dataclasses import dataclass
 from typing import Any, Literal, get_args
 
 from evals.reference_facts import ReferenceFacts
-from katra.analysis import control_state
+from katra.analysis import held_state, held_text
 from katra.assertions import projected_attribute
 from katra.claims import Ground
 from katra.frameworks.stride.record import StrideCategory
-from katra.system_model import DataFlow, DataStore, Element, SystemModel
+from katra.system_model import (
+    DataFlow,
+    DataStore,
+    Element,
+    ElementControl,
+    SystemModel,
+)
 
 #: The control attributes a plant inverts: each control attribute of
 #: :data:`~katra.analysis.CONTROL_ATTRIBUTES` whose stated value names a
@@ -327,11 +333,14 @@ CONSEQUENCES: dict[PlantedAttribute, tuple[str, ...]] = {
 _WORD = re.compile(r"[a-z0-9]+")
 
 
-def plant_reading(value: str) -> PlantReading:
-    """Whether a plant may invert the control ``value`` states, and why not."""
-    if control_state(value) != "stated":
+def plant_reading(value: str | ElementControl) -> PlantReading:
+    """Whether a plant may invert the control ``value`` states, and why not.
+
+    ``value`` is a model's control or an assertion row's value.
+    """
+    if held_state(value) != "stated":
         return "not-stated"
-    words = set(_WORD.findall(value.casefold()))
+    words = set(_WORD.findall(held_text(value).casefold()))
     if words & QUALIFYING_WORDS:
         return "qualified"
     if not words & MECHANISM_WORDS:
@@ -393,16 +402,18 @@ def readings(
     found: dict[PlantedFact, PlantReading] = {}
     for element in model.elements():
         for attribute in PLANTED_ATTRIBUTES:
-            value = getattr(element, attribute, None)
-            if not isinstance(value, str):
+            if attribute not in type(element).model_fields:
                 continue
+            value = getattr(element, attribute)
             reading = plant_reading(value)
             if reading == "not-stated":
                 continue
             current = renamed.get(element.id, element.id)
             if reading == "plantable" and (current, attribute) not in signed:
                 reading = "unsigned"
-            found[PlantedFact(case_id, element.id, attribute, value)] = reading
+            found[PlantedFact(case_id, element.id, attribute, held_text(value))] = (
+                reading
+            )
     return found
 
 

@@ -14,6 +14,7 @@ from katra.system_model import (
     UNKNOWN,
     ExcerptRepair,
     SystemModel,
+    control_from_text,
     make_flow_id,
 )
 from katra.validation import (
@@ -152,7 +153,7 @@ class TestAssumptionsRecordAnInference:
         """ "There is no authentication here" is a fact a model can infer."""
         model = valid_model()
         flow = model.data_flows[0]
-        flow.authentication = "none; the endpoint is open"
+        flow.authentication = control_from_text("none; the endpoint is open")
         model.assumptions[0].element_id = flow.id
         model.assumptions[0].attribute = "authentication"
         assert validate(model) == []
