@@ -1705,6 +1705,24 @@ class TestAnUnruledMisfiledDraft:
     def _misfiled(self):
         return sample_draft("S-01", verb="flood")
 
+    def test_two_rulings_completion_makes_alike_are_one_ruling(self):
+        """Code writes the lane rejection over whatever verdict the critic
+        ruled, so two rulings on a misfiled draft that differ only in their
+        verdict complete alike, and code keeps one without a re-ask (#2360)."""
+        rejected = ProposedVerdict(rejected_because="reasoning", reason="no")
+        problems = review_issues(
+            [self._misfiled()],
+            [sample_ruling("S-01"), sample_ruling("S-01", verdict=rejected)],
+            valid_model(),
+            {},
+            ruled_in=(),
+        )
+
+        assert not problems
+        assert [(mark.kind, mark.claim_id) for mark in problems.settled] == [
+            ("repeated-ruling", "S-01")
+        ]
+
     def test_it_raises_no_problem_for_the_re_ask(self):
         problems = review_issues([self._misfiled()], [], valid_model(), {}, ruled_in=())
 

@@ -2143,9 +2143,10 @@ def route_review(
     :class:`~katra.critic_round.Reask` or a
     :class:`~katra.critic_round.Failed`, and this function parks
     what the value carries and routes on which one it got. Clean output routes
-    to ``accept``; a critic that dropped, invented or duplicated a ruling, or
-    hung a ``needs-info`` verdict on an element the model does not contain,
-    routes to ``revise``, with the failing rulings and the problem list parked
+    to ``accept``, and so does a ruling code drops without a re-ask
+    (:func:`~katra.critic.settle_in_code`). A critic that dropped a ruling,
+    ruled one ID two different ways, or hung a ``needs-info`` verdict on an
+    element the model does not contain, routes to ``revise``, with the failing rulings and the problem list parked
     where the re-ask prompt reads them.
 
     Both of a framework's review nodes run this same function. What differs

@@ -2207,6 +2207,8 @@ class UnreconciledRuling(BaseModel):
 
     ``message`` stays, and it is the half the re-ask reads: the sentences are
     what the bounded re-ask is asked to fix, in the words a model can act on.
+    For a kind in :data:`SETTLED_UNRECONCILED_KINDS`, no re-ask reads it, and
+    it says what code dropped.
 
     **A claim named here need not be in the block.** An ``invented`` kind names
     an ID no lane drafted, and a ``dropped`` kind names one the re-ask may have
