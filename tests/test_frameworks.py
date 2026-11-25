@@ -172,8 +172,9 @@ def test_precondition_facts_that_are_not_callable_fail_the_gate():
 
 def _undecidable_models():
     """Every corpus model, the shared model with nothing said about its
-    interfaces or its transport (#1542 F1), and the shared model with no
-    process and each pair of flow protocols below."""
+    interfaces or its transport (#1542 F1), the shared model with no
+    process and each pair of flow protocols below, and the shared model whose
+    interfaces are unsaid and whose flows state non-web protocols."""
     from katra.system_model import SystemModel
 
     models = [
@@ -201,7 +202,18 @@ def _undecidable_models():
         for first, second in pairs
     ]
     bare = valid_model().model_copy(update={"processes": [], "data_flows": []})
-    return [*models, ("silent", silent), *flows_only, ("no process, no flow", bare)]
+    unsaid = valid_model()
+    for process in unsaid.processes:
+        process.interface_kind = "unknown"
+    for flow, protocol in zip(unsaid.data_flows, ("MQTT", "SFTP"), strict=True):
+        flow.protocol = protocol
+    return [
+        *models,
+        ("silent", silent),
+        *flows_only,
+        ("no process, no flow", bare),
+        ("unsaid interfaces, non-web flows", unsaid),
+    ]
 
 
 def _without_processes(*protocols):
