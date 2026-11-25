@@ -1,9 +1,9 @@
 """The re-ask replay injects one fault and rebuilds the re-ask.
 
 Two claims are tested offline. The round's check names exactly the injected
-fault, the problems ``PROBLEMS_BY_SHAPE`` gives the shape on the faulted draft, for each
-shape. And the re-ask request rebuilt from an archive equals the one a scripted
-graph run sent, instruction and user turn, byte for byte.
+fault, the problems ``PROBLEMS_BY_SHAPE`` gives the shape on the faulted
+draft, for each shape. And the re-ask request rebuilt from an archive equals
+the one a scripted graph run sent, instruction and user turn, byte for byte.
 """
 
 from __future__ import annotations

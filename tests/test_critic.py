@@ -1647,7 +1647,7 @@ def test_a_rejected_threat_carries_no_reading_of_its_advice(verdict, kept):
 
 
 class TestAnUnrejectedExclusion:
-    """An ASVS draft that rules its requirement out is always rejected (#1559, #2359)."""
+    """An ASVS draft that rules its unit out is always rejected (#1559, #2359)."""
 
     def _problems(self, direction, verdict):
         draft = asvs_draft(direction=direction)
