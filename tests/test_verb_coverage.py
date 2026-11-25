@@ -43,7 +43,7 @@ CLAIMS_PER_CASE: dict[str, int] = {
     "18-podcast-host-quotas": 18,
     "19-vet-clinic-records": 21,
     "20-school-coursework": 18,
-    "21-partner-export-api": 18,
+    "21-partner-export-api": 19,
 }
 
 

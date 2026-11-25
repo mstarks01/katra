@@ -106,6 +106,21 @@
     "verb": "unattributable"
   },
   {
+    "category": "repudiation",
+    "affected_element_ids": [
+      "flow:process:admin-console>store:partner-registry>manage-partners",
+      "store:partner-registry"
+    ],
+    "claim": "A partner manager deletes the audit rows of an approval they made, and the record then holds no trace that the approval happened.",
+    "tier": "expected",
+    "severity": {
+      "likelihood": "low",
+      "impact": "medium"
+    },
+    "notes": "Stated outright: the admin console can delete any row in the partner registry, and the audit log is a table there. The edit of the same rows is the tampering claim with the verb `alter`.",
+    "verb": "delete"
+  },
+  {
     "category": "information-disclosure",
     "affected_element_ids": [
       "flow:entity:partner-system>store:export-file-store>download-export",

@@ -141,7 +141,7 @@
       "source": "entity:partner-system",
       "destination": "process:export-api",
       "protocol": "HTTPS",
-      "authentication": "client secret that never expires",
+      "authentication": "client secret never expires and we cannot rotate it",
       "data_description": "token requests, export requests for one brand, record type and date range, job status by job ID, and callback URLs",
       "encryption_in_transit": "HTTPS",
       "operations": "read-write"

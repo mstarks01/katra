@@ -219,7 +219,7 @@ FUNCTION_WORDS: frozenset[str] = frozenset(
 #:
 #: Measured, on the tree that carries this constant: a search runs at about
 #: 930,000 characters per millisecond, so 20 million characters is about 21 ms
-#: of CPU (#1316). The worst corpus case spends 58,788, which is 340 times
+#: of CPU (#1316). The worst corpus case spends 64,976, which is 307 times
 #: under the budget. A job that spends it names over a thousand different words
 #: across its controls and matches none of them, which is not a model this
 #: measures usefully.

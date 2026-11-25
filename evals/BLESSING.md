@@ -249,8 +249,8 @@ No severity — the package grades nothing.
   lane of every carried package has a `must-find` record *somewhere in the
   corpus*, not in every case.
 - **`affected_element_ids` may be empty.** Most requirements address a coding
-  practice with no position in the graph. One record in 63 uses this today; it is
-  legal, and it drops out of candidate-trigger recall by name rather than
+  practice with no position in the graph. An empty list is legal, and it drops
+  out of candidate-trigger recall by name rather than
   counting as a miss.
 
 **Then say what this submission can conclude**, in `disposition`. The

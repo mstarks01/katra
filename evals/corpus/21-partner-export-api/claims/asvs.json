@@ -76,13 +76,14 @@
       "flow:process:export-api>store:partner-registry>check-partners",
       "flow:process:export-api>store:export-queue>queue-export-job",
       "flow:process:export-worker>store:export-queue>take-export-jobs",
+      "flow:process:export-worker>store:order-database>read-brand-rows",
       "flow:process:export-worker>store:export-file-store>write-export-file",
       "flow:process:admin-console>store:partner-registry>manage-partners"
     ],
-    "claim": "Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry and the file store.",
+    "claim": "Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry, the order database and the file store.",
     "tier": "expected",
     "disposition": "needs-more-prose",
-    "notes": "The source says nobody has written it down. The worker's read of the order database is left out: the source states a database account for it, which answers how that connection authenticates. The account's reach over every brand is the question V8.4.1 holds.",
+    "notes": "The source says nobody has written it down. It names a database account for the worker's read of the order database, but not how that connection authenticates, and an account that reads every brand's tables can be a shared privileged account.",
     "also_acceptable": [
       "needs-config"
     ]

@@ -133,7 +133,7 @@ Not part of the question, but the records cite these names, so you need them.
 
 | id | source | destination | protocol | authentication | in transit |
 |---|---|---|---|---|---|
-| flow:entity:partner-system>process:export-api>request-exports | entity:partner-system | process:export-api | HTTPS | client secret that never expires | HTTPS |
+| flow:entity:partner-system>process:export-api>request-exports | entity:partner-system | process:export-api | HTTPS | client secret never expires and we cannot rotate it | HTTPS |
 | flow:entity:partner-system>store:export-file-store>download-export | entity:partner-system | store:export-file-store | unknown | signed link | unknown |
 | flow:process:export-api>store:partner-registry>check-partners | process:export-api | store:partner-registry | unknown | unknown | unknown |
 | flow:process:export-api>store:export-queue>queue-export-job | process:export-api | store:export-queue | unknown | unknown | unknown |
@@ -239,10 +239,10 @@ The narrower question, per record: **does this requirement apply to this system,
 
 > mark:
 
-**A6.** `V13.2.1` — Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry and the file store.
+**A6.** `V13.2.1` — Nothing states how the export API, the worker and the admin console authenticate to the queue, the registry, the order database and the file store.
 
-- `flow:process:export-api>store:partner-registry>check-partners`, `flow:process:export-api>store:export-queue>queue-export-job`, `flow:process:export-worker>store:export-queue>take-export-jobs`, `flow:process:export-worker>store:export-file-store>write-export-file`, `flow:process:admin-console>store:partner-registry>manage-partners`
-- The source says nobody has written it down. The worker's read of the order database is left out: the source states a database account for it, which answers how that connection authenticates. The account's reach over every brand is the question V8.4.1 holds.
+- `flow:process:export-api>store:partner-registry>check-partners`, `flow:process:export-api>store:export-queue>queue-export-job`, `flow:process:export-worker>store:export-queue>take-export-jobs`, `flow:process:export-worker>store:order-database>read-brand-rows`, `flow:process:export-worker>store:export-file-store>write-export-file`, `flow:process:admin-console>store:partner-registry>manage-partners`
+- The source says nobody has written it down. It names a database account for the worker's read of the order database, but not how that connection authenticates, and an account that reads every brand's tables can be a shared privileged account.
 
 > mark:
 
@@ -348,7 +348,7 @@ The narrower question, per record: **does this requirement apply to this system,
 
 > mark:
 
-## Part 3 — the 18 recorded STRIDE threats
+## Part 3 — the 19 recorded STRIDE threats
 
 Only after your own list exists.
 
@@ -428,10 +428,18 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
+**8.** A partner manager deletes the audit rows of an approval they made, and the record then holds no trace that the approval happened.
+
+- `flow:process:admin-console>store:partner-registry>manage-partners`, `store:partner-registry`
+- severity: low/medium · verb: `delete`
+- Stated outright: the admin console can delete any row in the partner registry, and the audit log is a table there. The edit of the same rows is the tampering claim with the verb `alter`.
+
+> mark:
+
 
 ### information-disclosure
 
-**8.** Anyone who gets hold of a download link, from a forwarded webhook or a plain-http callback, downloads a brand's customer export with no token.
+**9.** Anyone who gets hold of a download link, from a forwarded webhook or a plain-http callback, downloads a brand's customer export with no token.
 
 - `flow:entity:partner-system>store:export-file-store>download-export`, `store:export-file-store`
 - severity: medium/high · verb: `read`
@@ -439,7 +447,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**9.** A partner manager, or an attacker who reads the partner registry, recovers every partner's client secret in plain text.
+**10.** A partner manager, or an attacker who reads the partner registry, recovers every partner's client secret in plain text.
 
 - `store:partner-registry`, `process:admin-console`
 - severity: medium/high · verb: `recover-credential`
@@ -447,7 +455,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**10.** An attacker on the network path of a partner's http:// callback URL intercepts the webhook and takes the download link it carries.
+**11.** An attacker on the network path of a partner's http:// callback URL intercepts the webhook and takes the download link it carries.
 
 - `flow:process:export-worker>entity:partner-system>send-webhook`
 - severity: low/high · verb: `intercept`
@@ -455,7 +463,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**11.** A partner asks the export API for the status of other job IDs, which count up from 1, and gets other partners' jobs.
+**12.** A partner asks the export API for the status of other job IDs, which count up from 1, and gets other partners' jobs.
 
 - `flow:entity:partner-system>process:export-api>request-exports`, `process:export-api`
 - severity: medium/high · verb: `elicit`
@@ -463,7 +471,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**12.** An attacker with access to the order database's storage reads every brand's customers and orders.
+**13.** An attacker with access to the order database's storage reads every brand's customers and orders.
 
 - `store:order-database`
 - severity: low/high · verb: `read`
@@ -474,7 +482,7 @@ on either of them. That is the finding this sitting exists for.
 
 ### denial-of-service
 
-**13.** A partner asks for exports with very long date ranges, and the worker, which takes jobs one at a time, spends hours on them while every other partner's exports wait.
+**14.** A partner asks for exports with very long date ranges, and the worker, which takes jobs one at a time, spends hours on them while every other partner's exports wait.
 
 - `process:export-worker`, `flow:process:export-worker>store:order-database>read-brand-rows`
 - severity: medium/medium · verb: `exhaust-resources`
@@ -482,7 +490,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**14.** A partner sends export requests without limit and fills the export queue, so other partners' jobs wait behind them.
+**15.** A partner sends export requests without limit and fills the export queue, so other partners' jobs wait behind them.
 
 - `flow:process:export-api>store:export-queue>queue-export-job`, `store:export-queue`
 - severity: medium/medium · verb: `flood`
@@ -490,7 +498,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**15.** A partner's callback URL answers slowly or never, and the worker, which waits for each webhook call before it takes the next job, stops every other partner's exports.
+**16.** A partner's callback URL answers slowly or never, and the worker, which waits for each webhook call before it takes the next job, stops every other partner's exports.
 
 - `flow:process:export-worker>entity:partner-system>send-webhook`, `process:export-worker`
 - severity: medium/medium · verb: `disable`
@@ -501,7 +509,7 @@ on either of them. That is the finding this sitting exists for.
 
 ### elevation-of-privilege
 
-**16.** A partner sets its callback URL to an address inside our cloud account, and the worker posts to it, so the partner sends requests to internal services that no partner may call.
+**17.** A partner sets its callback URL to an address inside our cloud account, and the worker posts to it, so the partner sends requests to internal services that no partner may call.
 
 - `flow:process:export-worker>entity:partner-system>send-webhook`, `process:export-worker`
 - severity: medium/high · verb: `escalate`
@@ -509,7 +517,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**17.** A partner whose scope allows only orders exports a brand's customers.
+**18.** A partner whose scope allows only orders exports a brand's customers.
 
 - `flow:entity:partner-system>process:export-api>request-exports`, `process:export-api`
 - severity: medium/high · verb: `abuse-grant`
@@ -517,7 +525,7 @@ on either of them. That is the finding this sitting exists for.
 
 > mark:
 
-**18.** A partner manager approves a partner and gives it every brand's customers alone, with no second person to review the scope.
+**19.** A partner manager approves a partner and gives it every brand's customers alone, with no second person to review the scope.
 
 - `flow:entity:partner-manager>process:admin-console>use-admin-console`, `process:admin-console`
 - severity: low/high · verb: `abuse-grant`
@@ -570,9 +578,9 @@ your missing list, your notes and a digest of each file you read:
       "notes": "<counts, and anything you would change>",
       "opened_digests": {
       "source.md": "ab06a85e26f3af2be139b9b8d8b4c3bb84c0332ca49d134425b67d220283797f",
-      "model.json": "4d9222d8229ebf05197ff4a9f1f479d2857a7c903be5cda6505c10dbb17238c6",
-      "claims/asvs.json": "ea4823c6d7bd161a189ddb97f00c33fffd454b8a9a0e1e871fd6b8efbcad12bb",
-      "claims/stride.json": "22fdcc53d18d8fcc606aff20b59947954a77cde50b9739e747ebb954a763336d"
+      "model.json": "33bc78758a47838af34af50d30bce4c9337c12651e1f5a25d51fe7e71251cd6b",
+      "claims/asvs.json": "0442cd2dec7200471f23f657d447e1f096426b70e4ca73526593cbfc91919641",
+      "claims/stride.json": "019399cd345279d3ce0d8d4768984a01b5393fb928d43d540e0a876ba1f163dc"
       }
     }
   }

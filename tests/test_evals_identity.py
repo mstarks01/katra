@@ -80,7 +80,7 @@ MEASURED = {
 #: on two thirds of the corpus.** ``affected_element_ids`` is a list whose order
 #: no rule reads, so a claim naming two processes says nothing about which way
 #: the attacker moves between them. A claim naming a **Data Flow** says it
-#: through that flow's endpoints, and 268 of 377 corpus claims name exactly one.
+#: through that flow's endpoints, and 269 of 378 corpus claims name exactly one.
 #:
 #: The two readings of an absent direction are both dead ends, and the numbers
 #: below are why. Read it as a mismatch and the rule splits 71 of the 154
@@ -89,8 +89,8 @@ MEASURED = {
 #: survives the verb runs two ways.
 DIRECTION = {
     # Over the corpus, what a claim yields without a new field.
-    "claims": 377,
-    "one_flow_cited": 268,
+    "claims": 378,
+    "one_flow_cited": 269,
     "several_flows_cited": 11,
     "no_flow_cited": 98,
     # Over the 8 reference merges the shipped rule makes.
@@ -129,17 +129,17 @@ FRONTIER = {
         "candidate_merges": 2,
         "reference_merges": 8,
     },
-    "endpoint equality": {"splits": 49, "candidate_merges": 33, "reference_merges": 15},
+    "endpoint equality": {"splits": 49, "candidate_merges": 33, "reference_merges": 16},
     "subset": {"splits": 33, "candidate_merges": 54, "reference_merges": 26},
-    "endpoint subset": {"splits": 12, "candidate_merges": 69, "reference_merges": 55},
-    "overlap": {"splits": 3, "candidate_merges": 66, "reference_merges": 84},
+    "endpoint subset": {"splits": 12, "candidate_merges": 69, "reference_merges": 56},
+    "overlap": {"splits": 3, "candidate_merges": 66, "reference_merges": 85},
     # Case 02's calibration pair about disabling the Pub/Sub topic names
     # ``store:pub-sub`` (#925), which is one candidate that does not merge
     # under the loosest rung.
     "endpoint overlap": {
         "splits": 1,
         "candidate_merges": 81,
-        "reference_merges": 231,
+        "reference_merges": 232,
     },
 }
 
@@ -407,8 +407,8 @@ class TestAClaimThatNamesNoPlaceMatchesNothing:
 #: is what survives the verb. The gap between them is what the verb adds.
 VERB_MEASURED = {
     "cases": 21,
-    "within_lane_pairs": 505,
-    "subset": 55,
+    "within_lane_pairs": 507,
+    "subset": 56,
     "subset_verb": 8,
 }
 
@@ -506,7 +506,7 @@ def test_every_surviving_merge_is_a_recorded_one(corpus, flows_by_case):
 def test_a_direction_is_underivable_on_a_third_of_the_corpus(corpus, flows_by_case):
     """#652's first obstacle: the field a direction would come from is absent.
 
-    A component the corpus cannot state on 98 of 377 claims is not a component
+    A component the corpus cannot state on 98 of 378 claims is not a component
     the identity can read. Moving this number means a blessing pass re-cited
     claims against flows, which is the one thing that would reopen the question.
     """
