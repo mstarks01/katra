@@ -1,0 +1,488 @@
+{
+  "record": {
+    "command": "lane-replay",
+    "commit": "23589cdead3a56c319965ecfd652dced6c170a2e",
+    "clean": true,
+    "table": {
+      "case": "01-payments-checkout",
+      "lane": "tampering",
+      "framework": "stride",
+      "fresh_leads": false,
+      "prepare_today": "signed",
+      "system_model": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/evals/experiments/QA-2026-11-25-01/case01-system-model.json",
+      "corpus_digest": "b814eb5b59b5ede5211acbb0514d09012d818a0c44d128fc6c4ad9753730dbcd"
+    },
+    "inputs": [
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/domains/databases.md",
+        "sha256": "5d7c794119006e3ac31f564c02936c476fcfb7e4c69d02a3823f8f2da31a2250",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/domains/http-api.md",
+        "sha256": "5d17db9796d6345ba4eddd5a8358fffac5be6cfaa0f1e14b192df56248f7f177",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/domains/multi-tenant-saas.md",
+        "sha256": "5742942787899eebdf4a4d39c7c67066139235ad3abb9d80b3dc7c98e7f95b79",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/domains/oauth-oidc.md",
+        "sha256": "463109f0bc775a93efafd3870b0565beeb1bd88978006dbebb2084a033408cdd",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/evals/experiments/QA-2026-11-25-01/case01-system-model.json",
+        "sha256": "cca73445cd5d7bce18b55026dcf2f0e4779b32823bdd76aeff6f0f33b052281b",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/cases/chained-benign-facts.md",
+        "sha256": "a6364623a915ddbd3d94b1d1e4f24536bc16507448bc8ddcd7989658913edb1c",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/cases/shared-credential-attribution.md",
+        "sha256": "599923038704f22a7cb6247a817bb4588cce15ea86f51eb9437f384472b504d5",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/cases/spoofing-or-elevation.md",
+        "sha256": "accd4efee6fe004537bd7adbab20f7b40fd6e94b42e8738adad0d64b40f56dac",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/cases/stated-control-outside-the-model.md",
+        "sha256": "f1fd95eba0188cbaa31ae6c6e13e71b86f53e66bb5e23e51dcd1c215e638f031",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/cases/two-threats-one-flow.md",
+        "sha256": "43777daff8315bf10736a6bdbdfa604116f2525b1df739d515b0173b97655d14",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/cases/unknown-is-not-absent.md",
+        "sha256": "742833f29f956a43fb87be3889521106af3a0f95a303d069751769d82b1e917d",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/critic.md",
+        "sha256": "8a60d426062b6f51d1d165adc1a527b98ff9680649dca8612e9c502dc36cb1b1",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/disclaimer.md",
+        "sha256": "91d6fe7c4ed8f0be4293ad8549969bcf5223b57ec7f6776932e56c0e256702af",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lane_closing.md",
+        "sha256": "1d005a304561e159e2027e3a91e917e9a9e3e98636741678910d81e19285bdc1",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/denial-of-service/exemplars.md",
+        "sha256": "01d2d10bcaa75a8c6f2d76ff3fd03a58ac1f1bbadf17277b118e764e50637903",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/denial-of-service/skill.md",
+        "sha256": "fea940b2329b3b8491294760bd012f5ce54f5bd884aa79f89ec6fdb9a9a55c8a",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/elevation-of-privilege/exemplars.md",
+        "sha256": "24173be4a4bf71a9dcccc30d4cb99463f1bc318b3bb023ee236982295d4e098a",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/elevation-of-privilege/skill.md",
+        "sha256": "9b7fdd761b7e5e8baff1979b0a3ec854e0dc817939970b06f0836d966abd2b08",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/information-disclosure/exemplars.md",
+        "sha256": "4b54a714e94c4ecc6f8b6f07b92ca8009f8daf2eab7c4ecd5c7d438052fb2810",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/information-disclosure/skill.md",
+        "sha256": "9b32be1b0dbd614b44c710edbd1758e8b5ef43c4695abcb41b6b1823bab75c81",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/repudiation/exemplars.md",
+        "sha256": "840556eae4fe06b21cfbb268fade7e9f30ddafcc28eb971594d7c31bfe43be0e",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/repudiation/skill.md",
+        "sha256": "c3887305fcd867accd45b2dc90e478109f091aeec12626f3e23d628c04d9306e",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/spoofing/exemplars.md",
+        "sha256": "425dffdafe2a1d31fec467d6a9026af2ffa54cbc80512e3660af49e128de273f",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/spoofing/skill.md",
+        "sha256": "e4072ad2d37f979ad49b72b40d2cb9012f292a19822f443b1417dfd93c62ae55",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/tampering/exemplars.md",
+        "sha256": "ec76e84f7774489f8abdd4ff32c6df235c1d453969a9c518773141a1a07fa0e4",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/lanes/tampering/skill.md",
+        "sha256": "43af5fefe3d4a0fafe69033e886b25c87d16ae2ad26b8989a3c05991c7ed3ad0",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/attribution-and-audit.md",
+        "sha256": "6dba337dae1fd906ad9c14794bef35d13070f1803d484ef6b804f3779e3a2fed",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/callback-and-webhook-trust.md",
+        "sha256": "4bdd8ac57ee5745b15b1f3357dcb3289493e97d5630566846a87e7caca2abd52",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/compromise-inheritance.md",
+        "sha256": "e937fe3c5e2cb601edfd48db9f2a5d8ea0dd4bee90c21dce80b2204891900b5f",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/cost-of-an-unauthenticated-request.md",
+        "sha256": "d02e3447fb9a19a3f9458abe9afdc1fb2e416125f2edd319175b9fa342d92d2c",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/failure-coupling.md",
+        "sha256": "96f493be2afacebc965f78174015abc81f002176fb3431929caf8b45c5f1f04b",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/identity-at-a-boundary.md",
+        "sha256": "b4ec8f49e3ea0ef7ffa236b02518091f168ea4f0b9abad373da7853d9e337831",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/privilege-transitions.md",
+        "sha256": "b4e905595f0de7f72591f9235e0ced858c12999618d394b0d35b229aa847a71e",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/protection-at-rest.md",
+        "sha256": "3d0118e6d9c785d447d0028e05e54af8908091ae4952b0a746a6502b0b1ade38",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/transport-protection.md",
+        "sha256": "913c609b4a128650b4825084206c208ac444398647539d7b30c14374aa3767ec",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/notes/write-path-integrity.md",
+        "sha256": "73e39c90f6a4fc0eabeaf0989966d9e52f3a7b2455ab33056124c430392d4014",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/output.md",
+        "sha256": "4586e1872cbc90ddd78f7db0d10c2c426771e5d881b65c5eba8b8f46cd54c088",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/frameworks/stride/severity_rubric.md",
+        "sha256": "9c4d0ae18c0504af28b0ab00fe81dac915180be4268f11850541af90f48a85cf",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/analyze.md",
+        "sha256": "64d049fe14b07f12a25e02226bcc7be2683bbf1f3fea7e1df8889b80d9d7a6e3",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/assert.md",
+        "sha256": "5b27d936cec6c7c361b76abf94331cd1d5c483aa8a9fd2ec04bfc46d8f879497",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/capabilities.md",
+        "sha256": "8bdf154fa558d026cbdec26162085338b6f4d6439fe83d2655039b3edde8d8b6",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/critic.md",
+        "sha256": "7c3fda81375bca0255a34ba2a251891986ebe1686ec59475cce6dfa5c796b506",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/extract-compact.md",
+        "sha256": "0339b3225a0edfd09330bf000307d561b0251df2e5c992ff587b4f70741ba185",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/extract.md",
+        "sha256": "a056480601d248d7200a55af86d2704b16acff9f5dfd8a5b45ba33e159b27008",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/recritic.md",
+        "sha256": "4ea466669239e9bcaf1ba9ff560bade9a2f79a566e788e08d24a1fc820300cd3",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/prompts/repair.md",
+        "sha256": "d6ee5d59b7bfe6ec5a3a398217daf895fb777611ac5a102233d421b372b9251b",
+        "selections": {}
+      }
+    ]
+  },
+  "claims": [
+    {
+      "title": "Conditional on-path alteration of shopper order submissions",
+      "description": "`flow:entity:shopper>process:storefront-api>place-order` crosses from the public internet to the storefront DMZ, but its `protocol` and `encryption_in_transit` are unknown. If the unresolved transport protection does not provide authenticated integrity, an attacker who obtains an on-path position can modify order contents, shipping addresses, or card-last-four data before `process:storefront-api` accepts the shopper's session-authenticated request. The altered order can then be forwarded on `flow:process:storefront-api>process:order-service>submit-order` for capture and persistence in `store:orders-db`; this is conditional on the currently unverified transport control, not an assertion that the shopper channel is plaintext.",
+      "affected_element_ids": [
+        "flow:entity:shopper>process:storefront-api>place-order",
+        "process:storefront-api"
+      ],
+      "verb": "alter-in-transit",
+      "evidence_refs": [
+        "crossing:flow:entity:shopper>process:storefront-api>place-order",
+        "unknown:flow:entity:shopper>process:storefront-api>place-order:protocol",
+        "unknown:flow:entity:shopper>process:storefront-api>place-order:encryption_in_transit"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 1,
+      "attacker_position": "on-path",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "high",
+        "level": "high",
+        "justification": "Likelihood is medium and conditional: `flow:entity:shopper>process:storefront-api>place-order` is a public-internet boundary crossing, while its protocol and transport encryption are unverified, but exploitation still requires an on-path position. Impact is high because the flow carries `financial` order data and shopper PII, and altered orders reach `process:order-service` and the confidential `store:orders-db`."
+      },
+      "mitigations": [
+        {
+          "summary": "Verify authenticated transport for shopper orders",
+          "detail": "Record and enforce HTTPS with TLS 1.2+ or stronger on `flow:entity:shopper>process:storefront-api>place-order`; require certificate validation and authenticated encryption rather than confidentiality alone."
+        },
+        {
+          "summary": "Protect order semantics at the receiving service",
+          "detail": "Have `process:storefront-api` validate order fields and bind the accepted order to the authenticated shopper session before forwarding it to `process:order-service`."
+        }
+      ]
+    },
+    {
+      "title": "Conditional on-path alteration of payment settlement callbacks",
+      "description": "`flow:entity:card-processor>process:storefront-api>settlement-webhook` crosses from the public internet into `process:storefront-api`, carries a settlement confirmation that marks an order paid, and has unknown protocol and transport-encryption state. If the unresolved transport control lacks authenticated integrity, an attacker positioned between the card processor and storefront can alter the order identifier or settlement result in transit so the storefront processes a changed payment status. This is conditional on the unverified transport attribute; the model does not establish that the callback is unprotected.",
+      "affected_element_ids": [
+        "flow:entity:card-processor>process:storefront-api>settlement-webhook",
+        "process:storefront-api"
+      ],
+      "verb": "alter-in-transit",
+      "evidence_refs": [
+        "crossing:flow:entity:card-processor>process:storefront-api>settlement-webhook",
+        "unknown:flow:entity:card-processor>process:storefront-api>settlement-webhook:protocol",
+        "unknown:flow:entity:card-processor>process:storefront-api>settlement-webhook:encryption_in_transit"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 2,
+      "attacker_position": "on-path",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "high",
+        "level": "high",
+        "justification": "Likelihood is medium and conditional because the callback crosses the public-internet boundary and transport protection is unverified, though an attacker must gain an on-path position. Impact is high because the flow carries `financial` settlement information and its stated purpose is to mark an order paid."
+      },
+      "mitigations": [
+        {
+          "summary": "Require authenticated TLS for the settlement webhook",
+          "detail": "Configure the card processor callback as HTTPS with current TLS and validated server certificates, and document the resulting `protocol` and `encryption_in_transit` controls on `flow:entity:card-processor>process:storefront-api>settlement-webhook`."
+        },
+        {
+          "summary": "Sign settlement payloads",
+          "detail": "Require a processor-generated message signature over the order identifier, settlement outcome, timestamp, and delivery identifier; verify it in `process:storefront-api` before changing payment state."
+        }
+      ]
+    },
+    {
+      "title": "Fabricated settlement updates are accepted if webhook authentication is absent",
+      "description": "`flow:entity:card-processor>process:storefront-api>settlement-webhook` has `authentication` state unknown even though it is a public-internet boundary crossing and its payload marks an order paid. If that unknown resolves to no verified processor signature or client authentication, an outside attacker can submit a crafted settlement callback to `process:storefront-api` and inject a fraudulent paid or failed status for an order. This is a conditional integrity finding about the unresolved callback-authentication control, not a claim that the processor webhook is currently unsigned.",
+      "affected_element_ids": [
+        "flow:entity:card-processor>process:storefront-api>settlement-webhook",
+        "process:storefront-api"
+      ],
+      "verb": "inject",
+      "evidence_refs": [
+        "crossing:flow:entity:card-processor>process:storefront-api>settlement-webhook",
+        "unknown:flow:entity:card-processor>process:storefront-api>settlement-webhook:authentication"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 3,
+      "attacker_position": "outside",
+      "severity": {
+        "likelihood": "high",
+        "impact": "high",
+        "level": "critical",
+        "justification": "Likelihood is high conditional on the unknown authentication state because `process:storefront-api` is internet-facing and the callback crosses from `boundary:public-internet`, so an outside party can attempt delivery without a prior internal foothold. Impact is high because the callback carries `financial` settlement information and marks orders paid."
+      },
+      "mitigations": [
+        {
+          "summary": "Establish and enforce processor webhook authentication",
+          "detail": "Confirm how `flow:entity:card-processor>process:storefront-api>settlement-webhook` is authenticated, then require a processor-specific signed webhook with key rotation and constant-time signature verification."
+        },
+        {
+          "summary": "Reject replayed or mismatched settlement events",
+          "detail": "Bind verified callbacks to the expected processor transaction and order, enforce timestamp and nonce or event-ID replay protection, and reject state transitions inconsistent with the order's payment lifecycle."
+        }
+      ]
+    },
+    {
+      "title": "Conditional on-path alteration of gRPC orders entering the core network",
+      "description": "`flow:process:storefront-api>process:order-service>submit-order` crosses from the storefront DMZ into the core-services zone with `encryption_in_transit` state unknown and with authentication explicitly absent. If the unresolved transport control does not provide authenticated integrity, an attacker who gains a position on this segment can rewrite shopper identifiers, shipping addresses, or order contents before `process:order-service` captures them. The unauthenticated receiver has no stated sender identity check for this call. Second-order, the order service writes the modified order rows into `store:orders-db`, where the corruption affects confidential records tagged `pii` and `financial`.",
+      "affected_element_ids": [
+        "flow:process:storefront-api>process:order-service>submit-order",
+        "process:order-service"
+      ],
+      "verb": "alter-in-transit",
+      "evidence_refs": [
+        "crossing:flow:process:storefront-api>process:order-service>submit-order",
+        "absent:flow:process:storefront-api>process:order-service>submit-order:authentication",
+        "unknown:flow:process:storefront-api>process:order-service>submit-order:encryption_in_transit"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 4,
+      "attacker_position": "on-path",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "high",
+        "level": "high",
+        "justification": "Likelihood is medium and conditional: the DMZ-to-core flow crosses a boundary, transport integrity is unverified, and authentication is stated absent, but the attacker still needs an on-path foothold. Impact is high because altered `financial` and PII-bearing order data is captured by `process:order-service` and written to confidential `store:orders-db`."
+      },
+      "mitigations": [
+        {
+          "summary": "Use mutual TLS for the storefront-to-order-service call",
+          "detail": "Require mTLS with certificate validation on `flow:process:storefront-api>process:order-service>submit-order` so the gRPC hop has authenticated encryption and both peers are identified."
+        },
+        {
+          "summary": "Bind orders to an authenticated service identity",
+          "detail": "Make `process:order-service` authorize only the storefront workload identity for order submission and reject requests without valid service authentication."
+        }
+      ]
+    },
+    {
+      "title": "A compromised storefront can inject arbitrary orders into the unauthenticated order service",
+      "description": "`process:order-service` accepts `flow:process:storefront-api>process:order-service>submit-order` without authentication. An attacker running code in `process:storefront-api`, or otherwise using its DMZ network position, can send arbitrary gRPC order submissions directly to the order service rather than only forwarding valid shopper orders. The order service captures the injected data and can write it through `flow:process:order-service>store:orders-db>read-write-orders`, corrupting confidential financial and PII-bearing order records. This threat is plain rather than conditional because authentication on the submit-order flow is stated absent.",
+      "affected_element_ids": [
+        "process:storefront-api",
+        "flow:process:storefront-api>process:order-service>submit-order",
+        "process:order-service"
+      ],
+      "verb": "inject",
+      "evidence_refs": [
+        "crossing:flow:process:storefront-api>process:order-service>submit-order",
+        "absent:flow:process:storefront-api>process:order-service>submit-order:authentication",
+        "assertion:authorization-grant~principal:anything-that-can-reach-the-order-service~s.90376b99c8e4~v.5e601438d136"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 5,
+      "attacker_position": "in-component",
+      "severity": {
+        "likelihood": "low",
+        "impact": "high",
+        "level": "medium",
+        "justification": "Likelihood is low because exploitation requires compromise or control of `process:storefront-api` or another party able to reach the core-facing gRPC service, although the submit-order authorization grant is stated as accepted without authentication. Impact is high because injected order data reaches `store:orders-db`, a confidential store tagged `pii` and `financial`."
+      },
+      "mitigations": [
+        {
+          "summary": "Authenticate and authorize the order-submission caller",
+          "detail": "Require `process:order-service` to accept submit-order requests only from the verified workload identity of `process:storefront-api`, using mTLS or short-lived service credentials."
+        },
+        {
+          "summary": "Validate order submissions independently",
+          "detail": "At `process:order-service`, enforce schema, field allowlists, order-state transitions, and integrity checks rather than trusting that data arriving from the storefront is already valid."
+        }
+      ]
+    },
+    {
+      "title": "A leaked application-account password permits direct rewriting of all orders",
+      "description": "The application account used on `flow:process:order-service>store:orders-db>read-write-orders` has full read/write authority over `store:orders-db`, and its password is kept in an environment variable on `process:order-service`. An attacker who obtains that static credential can connect as the application account and alter order rows, shopper addresses, or payment-related fields directly, bypassing validation in `process:order-service`. Second-order, subsequent reads by the order service consume the tampered records as database state; the model does not state a separate integrity check that would distinguish them from legitimate writes.",
+      "affected_element_ids": [
+        "store:orders-db",
+        "flow:process:order-service>store:orders-db>read-write-orders",
+        "process:order-service"
+      ],
+      "verb": "alter",
+      "evidence_refs": [
+        "assertion:authorization-grant~principal:application-account~s.96924e46de53~v.527ec0f9b94c",
+        "assertion:credential-presented~principal:application-account~any~credential:application-account-password",
+        "assertion:credential-custody~credential:application-account-password~any~v.ce417b2f4e00"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 6,
+      "attacker_position": "outside",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "high",
+        "level": "high",
+        "justification": "Likelihood is medium because the password is a static credential held in an environment variable, so an attacker must obtain it but can then use it directly. Impact is high because the account has stated full read/write access to `store:orders-db`, which is confidential and holds assets tagged `pii` and `financial`."
+      },
+      "mitigations": [
+        {
+          "summary": "Replace the static database password with workload identity",
+          "detail": "Use short-lived workload-federated database credentials for `process:order-service` instead of a long-lived password stored in its environment."
+        },
+        {
+          "summary": "Reduce the application account's write authority",
+          "detail": "Limit the database principal to the tables, columns, and write operations required by order capture; separate read and write identities where practical."
+        }
+      ]
+    },
+    {
+      "title": "Offline alteration of order records is possible if storage encryption is not verified",
+      "description": "`store:orders-db` holds confidential shopper addresses, card-last-four data, and order records tagged `pii` and `financial`, but its `encryption_at_rest` state is unknown. If this unknown resolves to absent storage protection, or to protection that does not authenticate snapshots and restore media, an attacker holding a database disk, snapshot, or backup copy can alter order records offline and cause the changed data to be restored or consumed as authentic. This is conditional on the unresolved at-rest protection; it does not claim that orders-db media is currently unencrypted.",
+      "affected_element_ids": [
+        "store:orders-db",
+        "flow:process:order-service>store:orders-db>read-write-orders"
+      ],
+      "verb": "alter",
+      "evidence_refs": [
+        "unknown:store:orders-db:encryption_at_rest"
+      ],
+      "quotes": [],
+      "absent_elements": [],
+      "sequence": 7,
+      "attacker_position": "storage-copy",
+      "severity": {
+        "likelihood": "low",
+        "impact": "high",
+        "level": "medium",
+        "justification": "Likelihood is low because the attacker must first obtain a storage copy, backup, or snapshot, although `store:orders-db` encryption at rest is unverified. Impact is high because the store is classified confidential and contains `pii` and `financial` order data whose corruption is consumed by `process:order-service`."
+      },
+      "mitigations": [
+        {
+          "summary": "Verify authenticated encryption for database media",
+          "detail": "Enable and document encryption at rest with managed keys for `store:orders-db`, including backups, snapshots, replicas, and decommissioned media."
+        },
+        {
+          "summary": "Validate restores before production use",
+          "detail": "Require authenticated backup integrity verification, controlled restore authorization, and reconciliation of restored orders before `process:order-service` consumes them."
+        }
+      ]
+    }
+  ],
+  "invalid": []
+}

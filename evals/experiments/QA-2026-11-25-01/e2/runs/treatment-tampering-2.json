@@ -1,0 +1,450 @@
+{
+  "record": {
+    "command": "lane-replay",
+    "commit": "d04e51a0412601c5c173d78672ef023308538ca8",
+    "clean": true,
+    "table": {
+      "case": "01-payments-checkout",
+      "lane": "tampering",
+      "framework": "stride",
+      "fresh_leads": false,
+      "prepare_today": "signed",
+      "system_model": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/evals/experiments/QA-2026-11-25-01/case01-system-model.json",
+      "corpus_digest": "b814eb5b59b5ede5211acbb0514d09012d818a0c44d128fc6c4ad9753730dbcd"
+    },
+    "inputs": [
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-ctl/evals/experiments/QA-2026-11-25-01/case01-system-model.json",
+        "sha256": "cca73445cd5d7bce18b55026dcf2f0e4779b32823bdd76aeff6f0f33b052281b",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/domains/databases.md",
+        "sha256": "5d7c794119006e3ac31f564c02936c476fcfb7e4c69d02a3823f8f2da31a2250",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/domains/http-api.md",
+        "sha256": "5d17db9796d6345ba4eddd5a8358fffac5be6cfaa0f1e14b192df56248f7f177",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/domains/multi-tenant-saas.md",
+        "sha256": "5742942787899eebdf4a4d39c7c67066139235ad3abb9d80b3dc7c98e7f95b79",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/domains/oauth-oidc.md",
+        "sha256": "463109f0bc775a93efafd3870b0565beeb1bd88978006dbebb2084a033408cdd",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/cases/chained-benign-facts.md",
+        "sha256": "a6364623a915ddbd3d94b1d1e4f24536bc16507448bc8ddcd7989658913edb1c",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/cases/shared-credential-attribution.md",
+        "sha256": "599923038704f22a7cb6247a817bb4588cce15ea86f51eb9437f384472b504d5",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/cases/spoofing-or-elevation.md",
+        "sha256": "accd4efee6fe004537bd7adbab20f7b40fd6e94b42e8738adad0d64b40f56dac",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/cases/stated-control-outside-the-model.md",
+        "sha256": "f1fd95eba0188cbaa31ae6c6e13e71b86f53e66bb5e23e51dcd1c215e638f031",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/cases/two-threats-one-flow.md",
+        "sha256": "43777daff8315bf10736a6bdbdfa604116f2525b1df739d515b0173b97655d14",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/cases/unknown-is-not-absent.md",
+        "sha256": "742833f29f956a43fb87be3889521106af3a0f95a303d069751769d82b1e917d",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/critic.md",
+        "sha256": "8a60d426062b6f51d1d165adc1a527b98ff9680649dca8612e9c502dc36cb1b1",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/disclaimer.md",
+        "sha256": "91d6fe7c4ed8f0be4293ad8549969bcf5223b57ec7f6776932e56c0e256702af",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lane_closing.md",
+        "sha256": "1d005a304561e159e2027e3a91e917e9a9e3e98636741678910d81e19285bdc1",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/denial-of-service/exemplars.md",
+        "sha256": "01d2d10bcaa75a8c6f2d76ff3fd03a58ac1f1bbadf17277b118e764e50637903",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/denial-of-service/skill.md",
+        "sha256": "fea940b2329b3b8491294760bd012f5ce54f5bd884aa79f89ec6fdb9a9a55c8a",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/elevation-of-privilege/exemplars.md",
+        "sha256": "24173be4a4bf71a9dcccc30d4cb99463f1bc318b3bb023ee236982295d4e098a",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/elevation-of-privilege/skill.md",
+        "sha256": "9b7fdd761b7e5e8baff1979b0a3ec854e0dc817939970b06f0836d966abd2b08",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/information-disclosure/exemplars.md",
+        "sha256": "4b54a714e94c4ecc6f8b6f07b92ca8009f8daf2eab7c4ecd5c7d438052fb2810",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/information-disclosure/skill.md",
+        "sha256": "9b32be1b0dbd614b44c710edbd1758e8b5ef43c4695abcb41b6b1823bab75c81",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/repudiation/exemplars.md",
+        "sha256": "840556eae4fe06b21cfbb268fade7e9f30ddafcc28eb971594d7c31bfe43be0e",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/repudiation/skill.md",
+        "sha256": "c3887305fcd867accd45b2dc90e478109f091aeec12626f3e23d628c04d9306e",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/spoofing/exemplars.md",
+        "sha256": "425dffdafe2a1d31fec467d6a9026af2ffa54cbc80512e3660af49e128de273f",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/spoofing/skill.md",
+        "sha256": "e4072ad2d37f979ad49b72b40d2cb9012f292a19822f443b1417dfd93c62ae55",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/tampering/exemplars.md",
+        "sha256": "ec76e84f7774489f8abdd4ff32c6df235c1d453969a9c518773141a1a07fa0e4",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/lanes/tampering/skill.md",
+        "sha256": "43af5fefe3d4a0fafe69033e886b25c87d16ae2ad26b8989a3c05991c7ed3ad0",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/attribution-and-audit.md",
+        "sha256": "6dba337dae1fd906ad9c14794bef35d13070f1803d484ef6b804f3779e3a2fed",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/callback-and-webhook-trust.md",
+        "sha256": "4bdd8ac57ee5745b15b1f3357dcb3289493e97d5630566846a87e7caca2abd52",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/compromise-inheritance.md",
+        "sha256": "e937fe3c5e2cb601edfd48db9f2a5d8ea0dd4bee90c21dce80b2204891900b5f",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/cost-of-an-unauthenticated-request.md",
+        "sha256": "d02e3447fb9a19a3f9458abe9afdc1fb2e416125f2edd319175b9fa342d92d2c",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/failure-coupling.md",
+        "sha256": "96f493be2afacebc965f78174015abc81f002176fb3431929caf8b45c5f1f04b",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/identity-at-a-boundary.md",
+        "sha256": "b4ec8f49e3ea0ef7ffa236b02518091f168ea4f0b9abad373da7853d9e337831",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/privilege-transitions.md",
+        "sha256": "b4e905595f0de7f72591f9235e0ced858c12999618d394b0d35b229aa847a71e",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/protection-at-rest.md",
+        "sha256": "3d0118e6d9c785d447d0028e05e54af8908091ae4952b0a746a6502b0b1ade38",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/transport-protection.md",
+        "sha256": "913c609b4a128650b4825084206c208ac444398647539d7b30c14374aa3767ec",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/notes/write-path-integrity.md",
+        "sha256": "73e39c90f6a4fc0eabeaf0989966d9e52f3a7b2455ab33056124c430392d4014",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/output.md",
+        "sha256": "4586e1872cbc90ddd78f7db0d10c2c426771e5d881b65c5eba8b8f46cd54c088",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/frameworks/stride/severity_rubric.md",
+        "sha256": "9c4d0ae18c0504af28b0ab00fe81dac915180be4268f11850541af90f48a85cf",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/analyze.md",
+        "sha256": "f9498cb5e395083987105d08f1d5b4fea7bd414e5ebb21e823e5a59b66952374",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/assert.md",
+        "sha256": "5b27d936cec6c7c361b76abf94331cd1d5c483aa8a9fd2ec04bfc46d8f879497",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/capabilities.md",
+        "sha256": "8bdf154fa558d026cbdec26162085338b6f4d6439fe83d2655039b3edde8d8b6",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/critic.md",
+        "sha256": "8349f02358cde23624a60f0199d6d3dfecc0115e489dfe0e2148a1fc42e59797",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/extract-compact.md",
+        "sha256": "0339b3225a0edfd09330bf000307d561b0251df2e5c992ff587b4f70741ba185",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/extract.md",
+        "sha256": "a056480601d248d7200a55af86d2704b16acff9f5dfd8a5b45ba33e159b27008",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/recritic.md",
+        "sha256": "4aba215fcaec5bbd55aed8f265c19eb52279cdc0eff17692ab638862ac25382c",
+        "selections": {}
+      },
+      {
+        "path": "/tmp/claude-1000/-home-me-katra/2eed979a-0c7c-453b-8f10-f662ac48aac3/scratchpad/wt-trt/prompts/repair.md",
+        "sha256": "d6ee5d59b7bfe6ec5a3a398217daf895fb777611ac5a102233d421b372b9251b",
+        "selections": {}
+      }
+    ]
+  },
+  "claims": [
+    {
+      "title": "Unauthenticated settlement callbacks can falsely mark orders paid",
+      "description": "`flow:entity:card-processor>process:storefront-api>settlement-webhook` crosses from the public internet to the internet-facing `process:storefront-api`, while its `authentication` state is unknown. If callback authentication is not enforced, an outside attacker can forge a settlement confirmation on that flow so `process:storefront-api` marks an order paid without a genuine processor callback. This is conditional on resolving the webhook authentication gap; it does not assert that authentication is absent.",
+      "affected_element_ids": [
+        "flow:entity:card-processor>process:storefront-api>settlement-webhook",
+        "process:storefront-api",
+        "entity:card-processor"
+      ],
+      "verb": "forge",
+      "evidence_refs": [
+        "crossing:flow:entity:card-processor>process:storefront-api>settlement-webhook",
+        "unknown:flow:entity:card-processor>process:storefront-api>settlement-webhook:authentication"
+      ],
+      "quotes": [
+        {
+          "text": "I would have to check how that callback is authenticated.",
+          "source_label": "System description"
+        }
+      ],
+      "absent_elements": [],
+      "sequence": 1,
+      "attacker_position": "outside",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "medium",
+        "level": "medium",
+        "justification": "Likelihood is medium and conditional because `process:storefront-api` is internet-facing and the webhook crosses the public-internet boundary, but `authentication` is unverified rather than stated absent. Impact is medium because the flow carries financial settlement status and the described action changes whether an order is treated as paid."
+      },
+      "mitigations": [
+        {
+          "summary": "Authenticate and sign settlement webhooks",
+          "detail": "Require verification of a processor-specific signature or mTLS identity on `flow:entity:card-processor>process:storefront-api>settlement-webhook`, rejecting callbacks that do not authenticate as the processor."
+        },
+        {
+          "summary": "Bind callbacks to expected payment state",
+          "detail": "Validate the order identifier, expected amount, processor transaction identifier, and permitted payment-state transition before `process:storefront-api` marks an order paid; retain replay-resistant delivery identifiers."
+        }
+      ]
+    },
+    {
+      "title": "A compromised storefront API can forge orders accepted by the core service",
+      "description": "`flow:process:storefront-api>process:order-service>submit-order` crosses into the core-services zone, and `process:order-service` accepts submissions without authentication. An attacker controlling `process:storefront-api` can forge or alter order submissions on that flow, including shopper identifiers and shipping addresses, and `process:order-service` will process them as accepted work. Second-order, the order service persists the fabricated order data through `flow:process:order-service>store:orders-db>read-write-orders` and writes a receipt through `flow:process:order-service>store:receipt-archive>append-receipt`.",
+      "affected_element_ids": [
+        "process:storefront-api",
+        "flow:process:storefront-api>process:order-service>submit-order",
+        "process:order-service"
+      ],
+      "verb": "forge",
+      "evidence_refs": [
+        "crossing:flow:process:storefront-api>process:order-service>submit-order",
+        "absent:flow:process:storefront-api>process:order-service>submit-order:authentication",
+        "assertion:authorization-grant~principal:anything-that-can-reach-the-order-service~s.90376b99c8e4~v.5e601438d136"
+      ],
+      "quotes": [
+        {
+          "text": "Orders, shopper addresses and card-last-four live in a PostgreSQL database (orders-db) that the order service reads and writes with a single application account that has full read/write.",
+          "source_label": "System description"
+        }
+      ],
+      "absent_elements": [],
+      "sequence": 2,
+      "attacker_position": "in-component",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "high",
+        "level": "high",
+        "justification": "Likelihood is medium: exploiting the unauthenticated core-service operation requires control of `process:storefront-api` or another way to reach the internal service, but the order-service authorization grant accepts anything that does reach it. Impact is high because forged orders are persisted with shopper addresses and payment-related card-last-four data and can produce authoritative receipts."
+      },
+      "mitigations": [
+        {
+          "summary": "Require workload authentication for order submission",
+          "detail": "Require mTLS or workload identity on `flow:process:storefront-api>process:order-service>submit-order` and authorize only the storefront API identity to submit orders."
+        },
+        {
+          "summary": "Bind orders to validated storefront context",
+          "detail": "Have `process:order-service` verify a signed, short-lived order submission context and enforce server-side validation of shopper and order fields before persistence."
+        }
+      ]
+    },
+    {
+      "title": "A stolen application-account password enables direct order-record modification",
+      "description": "The application account used on `flow:process:order-service>store:orders-db>read-write-orders` has full read/write authority, and its password is held in an environment variable on `process:order-service`. An attacker who obtains that static credential can alter rows directly in `store:orders-db`, bypassing order-service validation and rewriting orders, shipping addresses, or card-last-four-associated records. Second-order, `process:order-service` reads the altered records through the same read-write flow and can act on corrupted order state.",
+      "affected_element_ids": [
+        "process:order-service",
+        "flow:process:order-service>store:orders-db>read-write-orders",
+        "store:orders-db"
+      ],
+      "verb": "alter",
+      "evidence_refs": [
+        "assertion:authorization-grant~principal:application-account~s.96924e46de53~v.527ec0f9b94c",
+        "assertion:credential-presented~principal:application-account~any~credential:application-account-password",
+        "assertion:credential-custody~credential:application-account-password~any~v.ce417b2f4e00"
+      ],
+      "quotes": [
+        {
+          "text": "The password comes from an environment variable on the worker.",
+          "source_label": "System description"
+        }
+      ],
+      "absent_elements": [],
+      "sequence": 3,
+      "attacker_position": "outside",
+      "severity": {
+        "likelihood": "medium",
+        "impact": "high",
+        "level": "high",
+        "justification": "Likelihood is medium because an attacker must first obtain the static application-account password, but the credential is retained in the worker environment and is immediately usable. Impact is high because the account has full read/write access to `store:orders-db`, which holds orders, shopper addresses, and card-last-four data."
+      },
+      "mitigations": [
+        {
+          "summary": "Replace the static database password with workload identity",
+          "detail": "Use short-lived workload-federated database credentials for `process:order-service` rather than a long-lived password in its environment."
+        },
+        {
+          "summary": "Reduce database write authority",
+          "detail": "Replace the application account's blanket full read/write grant with least-privilege roles limited to the tables and operations required by the order service."
+        },
+        {
+          "summary": "Protect and monitor order-record integrity",
+          "detail": "Restrict direct database access to approved service paths and alert on writes not attributable to the order-service workload identity."
+        }
+      ]
+    },
+    {
+      "title": "Unverified encryption at rest leaves orders-db vulnerable to offline record tampering",
+      "description": "`store:orders-db` has `encryption_at_rest` state unknown while holding orders, shopper addresses, and card-last-four data. If the unresolved control means backups, snapshots, or other storage copies are not protected with authenticated encryption and restore-integrity checks, an attacker holding such a copy can alter order records and have corrupted data restored into `store:orders-db`. `process:order-service` then consumes the tampered state through `flow:process:order-service>store:orders-db>read-write-orders`. This is conditional on the unknown storage-encryption state and does not claim that encryption is absent.",
+      "affected_element_ids": [
+        "store:orders-db",
+        "flow:process:order-service>store:orders-db>read-write-orders",
+        "process:order-service"
+      ],
+      "verb": "alter",
+      "evidence_refs": [
+        "unknown:store:orders-db:encryption_at_rest"
+      ],
+      "quotes": [
+        {
+          "text": "Orders, shopper addresses and card-last-four live in a PostgreSQL database (orders-db)",
+          "source_label": "System description"
+        }
+      ],
+      "absent_elements": [],
+      "sequence": 4,
+      "attacker_position": "storage-copy",
+      "severity": {
+        "likelihood": "low",
+        "impact": "high",
+        "level": "medium",
+        "justification": "Likelihood is low and conditional: exploitation requires an attacker to obtain an offline orders-db copy and the unknown encryption control to prove ineffective or absent. Impact is high because altered database records affect orders and the store holds shopper addresses and payment-related card-last-four data."
+      },
+      "mitigations": [
+        {
+          "summary": "Verify encryption and integrity protection for all orders-db copies",
+          "detail": "Establish whether `store:orders-db`, its backups, and snapshots use managed authenticated encryption with controlled keys; enforce it for every copy."
+        },
+        {
+          "summary": "Validate database restores before production use",
+          "detail": "Require signed backup manifests, integrity verification, and controlled restore approval so altered snapshots cannot be accepted as authentic order data."
+        }
+      ]
+    },
+    {
+      "title": "Conflicting receipt-archive encryption statements leave offline receipt tampering unresolved",
+      "description": "The model states absent encryption at rest for `store:receipt-archive`, while the source-derived storage-encryption assertion records a conflicting customer-managed-key statement. If the discrepancy resolves to an unprotected or unverifiable archive copy, an attacker with a storage copy can alter receipt objects before they are restored or otherwise accepted as archive content. That changes business-critical receipt records that purport to record completed orders and the order-service write. This is a conditional finding about the unresolved storage-encryption conflict, not an assertion that the bucket lacks encryption.",
+      "affected_element_ids": [
+        "store:receipt-archive",
+        "flow:process:order-service>store:receipt-archive>append-receipt",
+        "process:order-service"
+      ],
+      "verb": "alter",
+      "evidence_refs": [
+        "assertion:storage-encryption~store:receipt-archive~any~v.2e2e0428495b"
+      ],
+      "quotes": [
+        {
+          "text": "the bucket is encrypted with a customer-managed key.",
+          "source_label": "System description"
+        }
+      ],
+      "absent_elements": [],
+      "sequence": 5,
+      "attacker_position": "storage-copy",
+      "severity": {
+        "likelihood": "low",
+        "impact": "medium",
+        "level": "low",
+        "justification": "Likelihood is low and conditional because an attacker must obtain an offline archive copy and the conflicting storage-encryption statements must resolve to ineffective protection. Impact is medium because `store:receipt-archive` holds business-critical receipt records whose integrity supports completed-order evidence."
+      },
+      "mitigations": [
+        {
+          "summary": "Resolve and enforce the receipt-archive encryption configuration",
+          "detail": "Reconcile the model with the stated customer-managed-key configuration and verify that encryption covers every receipt object, version, backup, and export."
+        },
+        {
+          "summary": "Require integrity-checked receipt recovery",
+          "detail": "Maintain signed object manifests or immutable versioning and validate them during recovery so modified archived receipts cannot be restored as legitimate records."
+        }
+      ]
+    }
+  ],
+  "invalid": []
+}
