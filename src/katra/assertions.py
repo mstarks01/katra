@@ -2996,9 +2996,10 @@ def _resolve_row(
         return None
     predicate = REGISTRY[name]
 
-    subject = _subject(row.subject_type, row.subject, element_ids, labels)
+    subject_type = subject_type_of(row, element_ids, labels)
+    subject = _subject(subject_type, row.subject, element_ids, labels)
     if subject is None:
-        drop("dangling-subject", f"{row.subject!r} names no {row.subject_type}")
+        drop("dangling-subject", f"{row.subject!r} names no {subject_type}")
         return None
 
     value = row.value
@@ -3090,6 +3091,41 @@ def _subject(
     return Subject(id=identity, type=subject_type, label=written.strip())
 
 
+def subject_type_of(
+    row: AssertionProposal, element_ids: Collection[str], labels: Mapping[str, str]
+) -> SubjectType:
+    """The subject type of ``row``, as code reads it (#2357).
+
+    A model writes ``subject_type`` beside the subject, and a type that
+    disagrees with the subject drops the row. Code holds what it needs to
+    decide most rows, so the model's type decides only the rest:
+
+    1. The subject resolves to an element of exactly one graph-bound type the
+       predicate accepts: that type, because the element says what it is.
+    2. Otherwise the model's type, where the predicate accepts it.
+    3. Otherwise the one type off the graph the predicate accepts, where there
+       is exactly one.
+    4. Otherwise the model's type, and the row is refused on it.
+    """
+    name = parse_predicate(row.predicate)
+    if name is None or name not in REGISTRY:
+        return row.subject_type
+    accepted = REGISTRY[name].subjects
+    on_graph = [
+        subject_type
+        for subject_type in sorted(accepted & GRAPH_BOUND)
+        if _subject(subject_type, row.subject, element_ids, labels)
+    ]
+    off_graph = sorted(accepted - GRAPH_BOUND)
+    if len(on_graph) == 1:
+        typed = on_graph[0]
+    elif row.subject_type in accepted or len(off_graph) != 1:
+        typed = row.subject_type
+    else:
+        typed = off_graph[0]
+    return typed
+
+
 def snap_subject(
     subject_type: SubjectType, written: str, model: SystemModel
 ) -> str | None:
@@ -3099,7 +3135,9 @@ def snap_subject(
     element a proposed row *would* bind to without resolving the whole
     proposal — the binding replay asks it of the blessed model to name the
     element an extracted graph refused. One reader: it calls what
-    :func:`_resolve` calls.
+    :func:`_resolve` calls, and a caller passes the type the resolver uses:
+    :func:`subject_type_of`'s for a subject, :func:`referent_type`'s for a
+    reference value.
     """
     element_ids = [element.id for element in model.elements()]
     labels = {element.id: element.name for element in model.elements()}

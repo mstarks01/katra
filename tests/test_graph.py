@@ -3509,6 +3509,32 @@ class TestTheInstructionDigest:
         second = graph.instruction_digest(self.nodes(extract="a", critic="b"))
         assert first == second
 
+    def test_the_capability_table_is_digested_whole(self, monkeypatch):
+        """The reader's table is a state placeholder, and its rows are still
+        repo-authored text, so an edit to a meaning moves the digest, and the
+        hashed text is the instruction with every row (#2362)."""
+        from dataclasses import replace
+
+        from katra import capabilities, prompts
+        from katra.markdown_loader import MarkdownLoader
+        from katra.prompts import compose_capabilities_prompt, render_capabilities
+
+        loader = MarkdownLoader(PROJECT_ROOT / "prompts")
+        instruction = compose_capabilities_prompt(loader)
+        whole = instruction.replace(
+            "{capability_table}", render_capabilities(capabilities.CAPABILITIES)
+        )
+        before = graph.instruction_digest(self.nodes(capabilities=instruction))
+
+        assert before == graph.instruction_digest(self.nodes(capabilities=whole))
+        key = next(iter(capabilities.CAPABILITIES))
+        edited = {
+            **capabilities.CAPABILITIES,
+            key: replace(capabilities.CAPABILITIES[key], meaning="edited"),
+        }
+        monkeypatch.setattr(prompts, "CAPABILITIES", edited)
+        assert graph.instruction_digest(self.nodes(capabilities=instruction)) != before
+
     def test_editing_one_instruction_moves_it(self):
         before = graph.instruction_digest(self.nodes(extract="a", critic="b"))
         after = graph.instruction_digest(self.nodes(extract="a", critic="b "))

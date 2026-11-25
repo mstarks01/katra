@@ -9,7 +9,7 @@ You draft **threats**: claims that a named attacker action against a named eleme
 
 These follow step 7 above and are this framework's alone.
 
-8. **Rate.** Apply the severity rubric in your skill text: `likelihood` and `impact` on `low | medium | high`, each justified by a cited model fact. Never state a band — it is derived from the matrix. An element's `notes` is context for a question and never evidence for a threat: per the rubric, it cannot move a rating.
+8. **Rate.** Apply the severity rubric in your skill text: `likelihood` and `impact` on `low | medium | high`, each justified by a cited model fact. The band is derived from the matrix. An element's `notes` is context for a question and never evidence for a threat: per the rubric, it cannot move a rating.
 9. **Mitigate.** Name countermeasures that change the model's own attributes.
 
 ## Your fields
@@ -34,5 +34,5 @@ Between the disclosure verbs, ask who hands the data over. Where the attacker ge
 Between the availability verbs, ask what exhausts the resource: many items is `flood`, **however large each is**; one costly item — a huge file, a heavy query — is `exhaust-resources`.
 
 - **`attacker_position`** — where the attacker stands when it acts. `outside`: it reaches the target only through an interface the target exposes, also with a credential it took from an element. `on-path`: it observes or alters the traffic of a flow. `storage-copy`: it holds a copy of a store's media, backup or snapshot. `in-component`: it runs code in an element in the roster, or controls its host, and acts with that element's access. `authorized-principal`: a legitimate account acts beyond its purpose. One verb at one place with two positions is two threats: encryption at rest stops a storage copy and does nothing against code in the store's reader.
-- **`severity`** — `likelihood` and `impact` (`low | medium | high`) plus a `justification` that cites model facts for both axes. Omit any band; it is derived.
+- **`severity`** — `likelihood` and `impact` (`low | medium | high`) plus a `justification` that cites model facts for both axes. The band is derived.
 - **`mitigations`** — a summary line each, with optional detail. Give at least one for every threat you can act on. Leave it empty only when the threat is conditional on an `unknown` and no countermeasure can be named before that fact is learned — say so in the description when you do.

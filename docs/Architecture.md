@@ -217,7 +217,8 @@ roughly seventeen times as much for findings the endpoint never reads.
 The capability reader puts one more `base`-tier call into a job whose selected
 framework applies its units by a rule over capabilities. It runs by default
 (ADR 0087), and `KATRA_CAPABILITY_READER=false` turns it off. The `capabilities` node
-reads the sources and the capability table, and proposes each capability the
+reads the sources and the capability table, which leaves out each capability a
+statement already names, and proposes each capability the
 text says the application has, with the source's own words. The `stated` node
 then checks each row in code: the key must be in the table, the label must
 name one of the job's sources, and the quote must be in that source. It

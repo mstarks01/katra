@@ -123,13 +123,16 @@ from katra.assertions import (
     UNKNOWN,
     Assertion,
     AssertionCatalog,
+    AssertionProposal,
     AssertionRecord,
     CatalogProposal,
+    SubjectType,
     assertion_id,
     identity_parts,
     offered,
     referent_type,
     snap_subject,
+    subject_type_of,
 )
 from katra.evidence import prepared_view
 from katra.execution import source_texts
@@ -1148,9 +1151,11 @@ def bind_assertions(
         if index in refused_blessed:
             fate = "refused"
         elif index not in refused_extracted:
-            fate = "bound" if row.subject_type in GRAPH_BOUND else "own"
+            typed = _subject_type(row, extraction.extracted)
+            fate = "bound" if typed in GRAPH_BOUND else "own"
         elif "dangling-subject" in codes[index]:
-            blessed_id = snap_subject(row.subject_type, row.subject, case.model)
+            typed = _subject_type(row, case.model)
+            blessed_id = snap_subject(typed, row.subject, case.model)
             aligned = produced_of.get(blessed_id or "", "")
             fate = "renamed" if aligned else "omitted"
         elif "illegal-value" in codes[index]:
@@ -1233,6 +1238,15 @@ TREATMENT_LABELS: Mapping[TreatmentBy, str] = {
     "named": "arm {!r}",
     "sweep": "only {}",
 }
+
+
+def _subject_type(row: AssertionProposal, model: SystemModel) -> SubjectType:
+    """The type the resolver reads for ``row`` against ``model``."""
+    return subject_type_of(
+        row,
+        [element.id for element in model.elements()],
+        {element.id: element.name for element in model.elements()},
+    )
 
 
 def rendered_digest(rendered: Mapping[str, str]) -> str:

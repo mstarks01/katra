@@ -72,6 +72,15 @@ class CapabilityReading(BaseModel):
     capabilities: list[CapabilityRow] = Field(default_factory=list)
 
 
+def stated_keys(model: SystemModel) -> frozenset[str]:
+    """Each capability a statement in ``model`` already names.
+
+    The reader is not asked about these, and a row it writes on one is
+    dropped, so both read this one set.
+    """
+    return frozenset(statement.capability for statement in model.capabilities)
+
+
 def with_stated_capabilities(
     model: SystemModel, reading: CapabilityReading, sources: Mapping[str, str]
 ) -> SystemModel:
@@ -81,7 +90,7 @@ def with_stated_capabilities(
     where its key is not in the table, its label names no submitted source, its
     quote is not in that source, or a statement already names its capability.
     """
-    named = {statement.capability for statement in model.capabilities}
+    named = set(stated_keys(model))
     updated = model.model_copy(deep=True)
     for row in reading.capabilities:
         label = canonical(row.source_label, list(sources))

@@ -1,6 +1,6 @@
 # Severity Rubric
 
-Severity is qualitative **likelihood × impact**. You rate the two inputs on `low | medium | high` and give a one-sentence justification for each threat. The severity band (`low | medium | high | critical`) is **derived mechanically from the matrix below — never assert a band yourself**; a stated band that contradicts the matrix is a validation error.
+Severity is qualitative **likelihood × impact**. You rate the two inputs on `low | medium | high` and give a one-sentence justification for each threat. The severity band (`low | medium | high | critical`) is **derived mechanically from the matrix below**, so you rate only the two inputs.
 
 ## The matrix
 

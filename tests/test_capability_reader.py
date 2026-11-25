@@ -23,7 +23,7 @@ from katra.claims import ApplicabilityEntry, FrameworkName
 from katra.frameworks import PACKAGES, reads_capabilities
 from katra.jobs import JobRecord, PipelineAwaiting
 from katra.markdown_loader import MarkdownLoader
-from katra.prompts import compose_capabilities_prompt
+from katra.prompts import compose_capabilities_prompt, render_capabilities
 from katra.report import FrameworkSelection
 from katra.sources import ANSWERS_LABEL, DEFAULT_DESCRIPTION_LABEL, Source
 from katra.system_model import CapabilityStatement, SystemModel
@@ -130,10 +130,21 @@ class TestTheChecks:
 
 
 class TestThePrompt:
-    def test_the_table_is_rendered_from_the_registry(self):
+    def test_the_prompt_templates_the_job_s_table_last(self):
         prompt = compose_capabilities_prompt(MarkdownLoader(PROJECT_ROOT / "prompts"))
-        assert all(f"`{key}`" in prompt for key in CAPABILITIES)
-        assert prompt.replace("{input_text}", "").count("{") == 0
+        assert prompt.rstrip().endswith("{capability_table}")
+        assert (
+            prompt.replace("{input_text}", "").replace("{capability_table}", "")
+        ).count("{") == 0
+
+    def test_the_table_is_rendered_from_the_registry(self):
+        table = render_capabilities(CAPABILITIES.keys())
+        assert all(f"`{key}`" in table for key in CAPABILITIES)
+
+    def test_a_key_a_statement_answers_is_not_asked(self):
+        """#2362: the reader's row on a stated key would be dropped."""
+        table = render_capabilities(CAPABILITIES.keys() - {"tls-use"})
+        assert "`tls-use`:" not in table
 
 
 class TestTheGraph:
@@ -186,6 +197,34 @@ class TestTheGraph:
         assert "browser-frontend" not in stated, "its quote is not in the source"
         assert stated["tls-use"].origin == "field", "a closed field named it first"
         assert visited.index(graph.CAPABILITIES_NODE) < visited.index(graph.STATED_NODE)
+
+    def test_the_reader_is_asked_only_what_no_statement_answers(self):
+        pipeline, models = scripted_pipeline(
+            {
+                "extract": emitted(valid_model()),
+                graph.CAPABILITIES_NODE: json.dumps({"capabilities": []}),
+            },
+            entry=graph.ENTRY_HEAD_ONLY,
+            frameworks=(READER,),
+            capability_reader=True,
+        )
+        record = JobRecord.create(
+            assertion_pass=True,
+            owner_id="alice",
+            sources=[Source.description(DESCRIPTION_TEXT)],
+            frameworks=sample_selection((READER,)),
+            ask_questions=True,
+        )
+        record.transition("running")
+
+        async def on_node(node: str) -> None:
+            del node
+
+        asyncio.run(adk_runner(pipeline).run(record, on_node))
+
+        (asked,) = models[graph.CAPABILITIES_NODE].seen
+        assert "`tls-use`:" not in asked, "a closed field states it"
+        assert "`database`:" in asked
 
     def test_a_reader_that_wrote_nothing_stops_the_job(self):
         """A completion with no text writes no key; the next node says so."""

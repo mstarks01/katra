@@ -2549,3 +2549,44 @@ def test_a_proposal_may_not_claim_a_reason_only_code_writes(reason):
     assert (
         AssertionProposal.model_validate({**row, "reason": "silent"}).reason == "silent"
     )
+
+
+class TestCodeReadsTheSubjectType:
+    """The subject type comes from the subject where code can tell (#2357)."""
+
+    def resolve(self, row):
+        return TestResolvingAProposal().resolve(row)
+
+    def row(self, **overrides):
+        return TestResolvingAProposal().row(**overrides)
+
+    def test_a_flow_written_as_a_component_binds_as_an_interaction(self):
+        held, issues = self.resolve(self.row(subject_type="component"))
+
+        assert issues == []
+        assert held.entries[0].subject == FLOW
+
+    def test_a_name_off_the_graph_takes_the_one_type_the_predicate_accepts(self):
+        held, issues = self.resolve(
+            self.row(
+                subject_type="component",
+                subject="support engineers",
+                predicate="authorization-grant",
+                value="read every order",
+                scope=[
+                    Qualifier(kind="resource", value="the orders"),
+                    Qualifier(kind="operation", value="read"),
+                ],
+            )
+        )
+
+        assert issues == []
+        assert [subject.type for subject in held.subjects] == ["principal"]
+
+    def test_a_dangling_subject_of_an_accepted_type_stays_dangling(self):
+        """Code never turns a misnamed component into an invented principal."""
+        _, issues = self.resolve(
+            self.row(subject_type="interaction", subject="flow:no-such-flow")
+        )
+
+        assert [issue.code for issue in issues] == ["dangling-subject"]
