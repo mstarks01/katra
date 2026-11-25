@@ -36,6 +36,7 @@ from katra.grounding import (
     PreparedSource,
     deadline_spent,
     faithful_repair,
+    holding_label,
     normalize,
     prepare_source,
     repair_deadline,
@@ -543,8 +544,8 @@ def _assumption_issues(
     the schema, so a field added to an element type is covered here the day it
     lands and nothing lists the names twice.
 
-    Then the attribute has to hold an inference. An **Assumption** is what
-    extraction inferred with a stated basis, which makes an assumption on an
+    Then the attribute has to hold an inference. An **Assumption** is a value
+    inferred with a stated basis, which makes an assumption on an
     attribute still reading ``unknown`` a contradiction of its own record:
     nothing was inferred, so there is nothing for the basis to support.
     ``GLOSSARY.md`` draws the same line — a hedge somebody voiced is
@@ -756,6 +757,30 @@ def _quote_issue(
     return None
 
 
+def _relabelled(model: SystemModel, folded: Mapping[str, str]) -> SystemModel:
+    """``model`` with each element's ``source_label`` set to the one submitted
+    source that holds its excerpt, where its own label does not (#2367).
+
+    The label is a fact code can find: where exactly one source the submitter
+    wrote holds the quote, that source is the one quoted. An excerpt its own
+    label already holds keeps that label, so several sources holding one
+    quote leave the model's choice. The answers Source is never chosen,
+    because a model quoting it repeats an answer as a fact of its own.
+    """
+    submitted = {
+        label: text for label, text in folded.items() if label != ANSWERS_LABEL
+    }
+    relabelled = model.model_copy(deep=True)
+    for element in relabelled.elements():
+        written, label = element.source_excerpt, element.source_label
+        if not written or (
+            label in submitted and verify_normalized(written, submitted[label])
+        ):
+            continue
+        element.source_label = holding_label(written, submitted) or label
+    return relabelled
+
+
 def repair_excerpts(model: SystemModel, sources: Mapping[str, str]) -> SystemModel:
     """``model`` with each refused element excerpt replaced by its source's span.
 
@@ -768,13 +793,16 @@ def repair_excerpts(model: SystemModel, sources: Mapping[str, str]) -> SystemMod
 
     Run only on a model that arrived from a model, after
     :func:`~katra.system_model.normalize_element_ids` has snapped
-    each label to the job's spelling. An authored model is never rewritten, and
+    each label to the job's spelling. Each element's label is first set to the
+    one submitted source that holds its excerpt where its own does not
+    (:func:`_relabelled`, #2367); like a label snap, that leaves no record. An authored model is never rewritten, and
     a quote of the answers Source is the gate's to refuse. The scans of one
     call share :func:`~katra.grounding.repair_deadline`.
     """
     if not sources:
         return model
     folded = {label: normalize(text) for label, text in sources.items()}
+    model = _relabelled(model, folded)
     prepared: dict[str, PreparedSource] = {}
     deadline = repair_deadline()
     repaired = model.model_copy(deep=True)
@@ -825,7 +853,8 @@ def parse_and_validate(
     reported, because there the two disagreeing fields are an authoring error
     a human should see rather than a slug to canonicalize. It carries the same
     decision for an element's ``source_label``, which that pass snaps to the
-    job's own spelling, and for an asset tag that spells "no tag", which it
+    job's own spelling and sets to the one submitted source that holds the
+    excerpt where its own does not, and for an asset tag that spells "no tag", which it
     drops: same flag, same reason, so a model arriving from a model has one
     policy about its spellings rather than two.
 

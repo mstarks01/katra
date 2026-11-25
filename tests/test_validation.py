@@ -501,12 +501,51 @@ class TestCitationsResolve:
 
     def test_the_sources_reach_the_gate_through_parse_and_validate(self):
         model, issues = parse_and_validate(
-            self.model_citing("Some other call").model_dump(mode="json"),
+            self.model_citing("Some other call", "words nobody submitted").model_dump(
+                mode="json"
+            ),
             normalize_ids=True,
             sources=self.SOURCES,
         )
         assert model is not None
         assert "invalid-reference" in codes(issues)
+
+    def test_a_quote_two_sources_hold_keeps_its_own_label(self):
+        """Where several sources hold the quote, the model's label decides."""
+        sources = {**self.SOURCES, "Payments doc": "Ana: a quote, and nightly."}
+        model, issues = parse_and_validate(
+            self.model_citing("Nowhere", "Ana: a quote").model_dump(mode="json"),
+            normalize_ids=True,
+            sources=sources,
+        )
+        assert model is not None
+        assert model.processes[0].source_label == "Nowhere"
+        assert "invalid-reference" in codes(issues)
+
+    def test_the_answers_source_is_never_chosen(self):
+        sources = {**self.SOURCES, ANSWERS_LABEL: "Is it encrypted? the vault key"}
+        model, issues = parse_and_validate(
+            self.model_citing("Nowhere", "the vault key").model_dump(mode="json"),
+            normalize_ids=True,
+            sources=sources,
+        )
+        assert model is not None
+        assert model.processes[0].source_label == "Nowhere"
+        assert "invalid-reference" in codes(issues)
+
+    def test_a_quote_under_the_wrong_label_takes_the_source_that_holds_it(self):
+        """The label is a fact code can find (#2367): one source holds the
+        quote, so that source is the one quoted."""
+        model, issues = parse_and_validate(
+            self.model_citing("Payments doc", "orders DB is not encrypted").model_dump(
+                mode="json"
+            ),
+            normalize_ids=True,
+            sources=self.SOURCES,
+        )
+        assert model is not None
+        assert model.processes[0].source_label == "Kickoff call"
+        assert issues == []
 
     def test_every_issue_this_rule_raises_says_it_is_a_citation_issue(self):
         """The rule and ``is_citation`` are checked against each other.
@@ -642,7 +681,9 @@ class TestExcerptLabelsSnap:
 
     def test_a_label_naming_nothing_is_left_for_the_gate_to_report(self):
         model, issues = parse_and_validate(
-            TestCitationsResolve().model_citing("Nowhere").model_dump(mode="json"),
+            TestCitationsResolve()
+            .model_citing("Nowhere", "words nobody submitted")
+            .model_dump(mode="json"),
             normalize_ids=True,
             sources=self.SOURCES,
         )

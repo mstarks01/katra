@@ -4,7 +4,7 @@ A paused job asks about the facts its model leaves open. The facts the model
 states are the other half: a wrong one is fixed by an amendment (ADR 0072),
 and a person can see it only where a page lists it. :func:`detected_facts`
 lists each element with the attributes it states, the words of the source it
-was read from, and which values extraction inferred rather than read.
+was read from, and which values were inferred rather than read.
 
 **Read-only.** Nothing here writes a fact. A stated value that is wrong is
 corrected through an amendment, which reads the sources again.
@@ -38,8 +38,9 @@ def detected_facts(model: SystemModel) -> list[dict[str, object]]:
     A fact is an attribute whose value is neither ``unknown`` nor empty, and
     the element's assets. ``type`` is the element's
     :data:`~katra.system_model.ElementPrefix`. ``inferred`` holds
-    the basis where extraction recorded the value as an assumption, and is
-    empty where a source states it.
+    the basis where the model records the value as an assumption, by
+    extraction or by code after the gate, and is empty where a source states
+    it.
     """
     names = dict(element_names(model))
     basis = {(a.element_id, a.attribute): a.basis for a in model.assumptions}

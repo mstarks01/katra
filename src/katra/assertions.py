@@ -71,6 +71,7 @@ from katra.analysis import ABSENT_WORD, ControlAttribute, control_state
 from katra.grounding import (
     IndexedSource,
     fragments,
+    holding_label,
     index_source,
     keeps_text,
     locate_quote,
@@ -3185,12 +3186,21 @@ def _spans(
     """Where one proposed quote sits, or nothing where it is not there.
 
     The label resolves by :func:`~katra.references.canonical`, the
-    rule every other citation of a source follows.
+    rule every other citation of a source follows. Where the source it names
+    does not hold the quote, the one source that does is the one quoted
+    (#2367), as :func:`~katra.grounding.holding_label` reads an element's
+    label; where several or none do, the quote finds no span.
     """
     source = prepared.get(canonical(quote.source_label, prepared))
-    if source is None:
-        return ()
-    return spans_for(quote.quote, source)
+    found = spans_for(quote.quote, source) if source is not None else ()
+    if found:
+        return found
+    holder = holding_label(
+        quote.quote,
+        {label: held.indexed.haystack for label, held in prepared.items() if held},
+    )
+    held = prepared.get(holder) if holder else None
+    return spans_for(quote.quote, held) if held is not None else ()
 
 
 #: Which of two rows of one identity stands when their bases differ, lowest

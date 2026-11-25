@@ -84,7 +84,7 @@ import bisect
 import re
 import time
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Literal, NamedTuple
@@ -303,6 +303,22 @@ def verify_normalized(quote: str, haystack: str) -> bool:
     would compare two different dialects of the same string.
     """
     return match_normalized(quote, haystack) is not None
+
+
+def holding_label(quote: str, folded: Mapping[str, str]) -> str:
+    """The one label whose source holds ``quote``, or ``""`` where none or
+    several do (#2367).
+
+    ``folded`` maps each label to its text as :func:`normalize` folded it. A
+    model writes the label of the source it quoted, and code can find it:
+    where exactly one source holds the quote, that source is the one. Where
+    several hold it, code cannot say which, so this answers nothing and the
+    caller keeps only what the model's own label supports.
+    """
+    holders = [
+        label for label, text in folded.items() if verify_normalized(quote, text)
+    ]
+    return holders[0] if len(holders) == 1 else ""
 
 
 def fragments(quote: str) -> tuple[str, ...]:

@@ -13,9 +13,11 @@ already costs the owner little (ADR 0084). A wrong "present" makes a
 requirement apply that does not; it cannot rule one out.
 
 **A row carries its words, or it is dropped.** Code keeps a row only where its
-key is in the table, its label names one of the job's submitted sources, and
-its quote is in that source under the validity gate's own matcher. The
-answers source is not one of them: an answer writes its own capability
+key is in the table and its quote is in the submitted source its label names,
+under the validity gate's own matcher. Where that source does not hold the
+quote, the one submitted source that does is the label
+(:func:`~katra.grounding.holding_label`); where several or none do, the row is
+dropped. The answers source is not one of them: an answer writes its own capability
 (:func:`~katra.fact_writes.capability_statements`), and a row that
 quoted it would state that answer a second time. Each statement this module
 writes has the origin ``reader``. **A statement always wins**: a capability
@@ -33,7 +35,7 @@ from collections.abc import Mapping
 from pydantic import BaseModel, ConfigDict, Field
 
 from katra.capabilities import CAPABILITIES, parse_capability_key
-from katra.grounding import verify_quote
+from katra.grounding import holding_label, normalize, verify_normalized
 from katra.references import canonical
 from katra.sources import ANSWERS_LABEL, MAX_LABEL_CHARS
 from katra.system_model import (
@@ -87,18 +89,27 @@ def with_stated_capabilities(
     """The model with each checked row of ``reading`` written as present.
 
     **The one writer of a capability the sources state.** A row is dropped
-    where its key is not in the table, its label names no submitted source, its
-    quote is not in that source, or a statement already names its capability.
+    where its key is not in the table, a statement already names its
+    capability, or its label's source does not hold its quote and no single
+    other submitted source does. Where exactly one does, that source is the
+    label (:func:`~katra.grounding.holding_label`).
     """
     named = set(stated_keys(model))
+    folded = {
+        label: normalize(text)
+        for label, text in sources.items()
+        if label != ANSWERS_LABEL
+    }
     updated = model.model_copy(deep=True)
     for row in reading.capabilities:
-        label = canonical(row.source_label, list(sources))
-        submitted = label in sources and label != ANSWERS_LABEL
-        known = parse_capability_key(row.capability) is not None and submitted
-        if not known or row.capability in named:
+        if parse_capability_key(row.capability) is None or row.capability in named:
             continue
-        if not verify_quote(row.quote, sources[label]):
+        label = canonical(row.source_label, list(folded))
+        if not (label and verify_normalized(row.quote, folded[label])):
+            # The label is a fact code can find (#2367): the one submitted
+            # source that holds the quote.
+            label = holding_label(row.quote, folded)
+        if not label:
             continue
         updated.capabilities.append(
             CapabilityStatement(

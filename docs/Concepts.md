@@ -34,7 +34,9 @@ the sources stated from one the service placed.
 `unknown` means the sources did not establish a security-relevant attribute. It
 does not mean the control is absent.
 
-An **assumption** is an inference made during extraction. The inferred value is
+An **assumption** is an inferred value: extraction makes most of them, and code
+makes one after the gate for a protocol default and for a store tier that its
+asset tags settle. The inferred value is
 stored on the element and a separate assumption record identifies the element,
 attribute, and basis. A value left `unknown` is not an assumption. An assumption
 about a trust zone also reaches every boundary crossing that zone produces.
