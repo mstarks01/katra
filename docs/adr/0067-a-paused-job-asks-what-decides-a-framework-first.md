@@ -8,7 +8,7 @@
   [ADR 0053](0053-a-paused-job-asks-in-bounded-rounds.md), whose limits do
   not count the questions this adds
 - **Amended by**: [ADR 0135](0135-a-flow-protocol-can-satisfy-asvs-and-never-refute-it.md),
-  which names one shape that only a new submission decides
+  which names two shapes that only a new submission decides
 
 ## Context
 

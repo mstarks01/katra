@@ -56,7 +56,6 @@ from katra.analysis import (
     comparable_asset_tags,
     control_reading,
     crossing_facts,
-    held_state,
     held_text,
     is_unverified,
     matches_term,
@@ -976,7 +975,7 @@ WEB_PROTOCOL_TERMS: tuple[str, ...] = (
 def _speaks_web(protocol: str) -> bool:
     """Whether a flow's ``protocol`` names a web protocol and negates nothing.
 
-    **The one reader of a web protocol for the precondition.**
+    **The one reader of a web protocol for the precondition and its facts.**
     A ``True`` answer satisfies the precondition. A ``False`` answer rules
     nothing out (ADR 0027): the protocol can be silent, non-web, or a web
     protocol that :data:`WEB_PROTOCOL_TERMS` does not hold, such as ``h2``.
@@ -1070,14 +1069,15 @@ def asvs_precondition_facts(model: SystemModel) -> tuple[UnknownRef, ...]:
     **The precondition reads a process's interface first**, so each process
     that never stated one is asked: one "web" answer satisfies it, and "non-web"
     from every process refutes it. A model with no process is read off its
-    flows alone, so there each flow whose ``protocol`` is unverified is asked.
-    An answer that names a listed web protocol satisfies the precondition; no
-    flow answer refutes it.
+    flows alone, so there each flow that does not speak a listed web protocol
+    is named. An answer that names a listed web protocol satisfies the
+    precondition; no flow answer refutes it.
 
-    **One shape offers no fact** (ADR 0135): no process, and every flow states
-    its protocol. A stated protocol is no open fact, so the owner cannot answer
-    it, and no protocol refutes. The fact that decides the gate is a process,
-    and only a new submission adds one.
+    **The facts are candidates.** A paused job asks one only where
+    :func:`~katra.open_facts.open_attribute` says it is open, so a stated
+    protocol is never asked. With no process and no open flow, nothing the
+    owner answers decides the gate, and only a new submission that names the
+    processes does (ADR 0135).
     """
     if model.processes:
         return tuple(
@@ -1088,7 +1088,7 @@ def asvs_precondition_facts(model: SystemModel) -> tuple[UnknownRef, ...]:
     return tuple(
         UnknownRef(element_id=flow.id, attribute="protocol")
         for flow in model.data_flows
-        if held_state(flow.protocol) == "unverified"
+        if not _speaks_web(flow.protocol)
     )
 
 

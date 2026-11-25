@@ -7,7 +7,7 @@
 - **Amends**: [ADR 0014](0014-applicability-reads-what-a-process-presents.md),
   whose precondition let the flows refute ASVS for a model with no processes,
   and [ADR 0067](0067-a-paused-job-asks-what-decides-a-framework-first.md),
-  with one shape that no question decides
+  with two shapes that no question decides
 - **Relates to**: [ADR 0027](0027-vocabulary-raises-a-lead-and-rules-nothing-out.md),
   whose rule this decision applies to the precondition
 
@@ -37,19 +37,24 @@ no listed web protocol rules nothing out.
 process states a `non-web` interface. A model with no processes, whose flows
 name no listed web protocol, gives `undecidable`.
 
-`asvs_precondition_facts` names each flow whose `protocol` is unverified, on
-the path with no processes. `_speaks_web` is the one reader of a web protocol
-for the precondition.
+`asvs_precondition_facts` names each flow that does not speak a listed web
+protocol, on the path with no processes. `_speaks_web` is the one reader of a
+web protocol for the precondition and its facts. The facts are candidates: a
+paused job asks one only where `open_attribute` says it is open.
 
-**One shape is the exception to ADR 0067.** A model has no processes, every
-flow states its protocol, and no flow speaks a listed web protocol. The
-precondition gives `undecidable`, and the package offers no fact. A stated
-protocol is no open fact, so a paused job cannot ask it and
-`check_fact_answers` refuses an answer to it. The fact that decides the gate is
-a process, which no answer adds. Only a new submission that names the
-processes settles it. `tests/test_frameworks.py` holds this shape as the one
-named exception, and fails for any other undecidable shape that offers no
-answer that decides it.
+**Two shapes are the exceptions to ADR 0067.** Each is a model with no
+processes, where no fact that the package offers is open:
+
+- Every flow states its protocol, and no flow speaks a listed web protocol. A
+  stated protocol is no open fact, so a paused job cannot ask it and
+  `check_fact_answers` refuses an answer to it.
+- The model has no flows. The package offers no fact.
+
+The precondition gives `undecidable` for both. The fact that decides the gate
+is a process, which no answer adds. Only a new submission that names the
+processes settles it. `tests/test_frameworks.py` holds these shapes as the
+named exceptions, and fails for any other undecidable shape that offers no
+open fact whose answer decides it.
 
 ## Consequences
 
@@ -58,7 +63,7 @@ answer that decides it.
 - A system with no processes and only non-web flows, such as a message bus,
   also gets `undecidable` and not `refuted`. To refute ASVS, each process in
   the model must state a `non-web` interface.
-- On the exception shape, the pause asks no question for the framework. Its
+- On an exception shape, the pause asks no question for the framework. Its
   note tells the owner to submit more about the system, and the scope entry
   says that more input settles it.
 - No model under `evals/` changes its answer. Each model there with no

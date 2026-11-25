@@ -200,7 +200,8 @@ def _undecidable_models():
         )
         for first, second in pairs
     ]
-    return [*models, ("silent", silent), *flows_only]
+    bare = valid_model().model_copy(update={"processes": [], "data_flows": []})
+    return [*models, ("silent", silent), *flows_only, ("no process, no flow", bare)]
 
 
 def _without_processes(*protocols):
@@ -212,16 +213,12 @@ def _without_processes(*protocols):
     return model.model_copy(update={"processes": [], "data_flows": flows})
 
 
-def _only_a_submission_decides(model):
-    """The one exception to ADR 0067 (ADR 0135): no process, and each flow
-    states its protocol. A flow's protocol never refutes, and a stated one is
-    no open fact, so the fact that decides the gate is a process, and only a
-    new submission adds one."""
-    from katra.analysis import held_state
-
-    return not model.processes and all(
-        held_state(flow.protocol) != "unverified" for flow in model.data_flows
-    )
+def _only_a_submission_decides(model, asked):
+    """The exceptions to ADR 0067 (ADR 0135): a model with no process, where
+    no fact the package offers is open. That holds where every flow states its
+    protocol, and where the model has no flow. The fact that decides the gate
+    is a process, and only a new submission adds one."""
+    return not model.processes and not asked
 
 
 @pytest.mark.parametrize("name", sorted(PACKAGES))
@@ -235,14 +232,18 @@ def test_every_undecidable_precondition_offers_an_answer_that_decides_it(name):
     from katra.answer_forms import answer_choices
     from katra.fact_answers import FactAnswer
     from katra.fact_writes import answered_model, check_fact_answers
+    from katra.open_facts import open_attribute
 
     package = PACKAGES[name]
     for label, model in _undecidable_models():
         if run_precondition(package, model) != "undecidable":
             continue
-        offered = package.precondition_facts(model)
-        if _only_a_submission_decides(model):
-            assert offered == (), f"{name} asks a question no answer settles on {label}"
+        offered = tuple(
+            ref
+            for ref in package.precondition_facts(model)
+            if open_attribute(model, ref.element_id, ref.attribute, None)
+        )
+        if _only_a_submission_decides(model, offered):
             continue
         assert offered, f"{name} offers nothing to decide {label}"
         decided = set()
