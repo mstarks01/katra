@@ -55,6 +55,30 @@ def load_material(artifact, case_id):
     return lane_replay.material_at(lane_replay.lanes_file(artifact, case_id))
 
 
+def replay_args(**given) -> argparse.Namespace:
+    """The namespace the command's parser gives, with ``given`` in place of
+    its defaults. ``case`` has no default, so each caller names one."""
+    parser = argparse.ArgumentParser()
+    lane_replay.arguments(parser)
+    defaults = parser.parse_args(
+        [
+            "--case",
+            "-",
+            "--lane",
+            "spoofing",
+            "--framework",
+            "stride",
+            "--accept-cost",
+            "unknown",
+        ]
+    )
+    return argparse.Namespace(**{**vars(defaults), **given})
+
+
+def _no_call(*args, **kwargs):
+    raise AssertionError("the command reached the paid call")
+
+
 def record_requests(monkeypatch) -> list[tuple[str, list]]:
     """Every request the scripted model is sent from now on, as it was sent."""
     seen: list[tuple[str, list]] = []
@@ -208,21 +232,8 @@ def test_the_command_refuses_a_failed_case_before_the_call(
     out, _ = recorded
     write_emission_sweep(out, "analysis", [case.id], failed=[case.id])
 
-    def no_call(*args, **kwargs):
-        raise AssertionError("the command reached the paid call")
-
-    monkeypatch.setattr(lane_replay, "node_call", no_call)
-    args = argparse.Namespace(
-        artifact=out,
-        case=case.id,
-        lane="spoofing",
-        framework="stride",
-        accept_cost="unknown",
-        append=None,
-        fresh_leads=False,
-        prepare_today=None,
-        out=None,
-    )
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+    args = replay_args(artifact=out, case=case.id)
 
     assert lane_replay.command_lane_replay(args) == 1
     assert "an earlier sweep wrote it" in capsys.readouterr().err
@@ -248,17 +259,7 @@ def test_the_out_file_starts_with_the_record_of_the_lane_material(
     monkeypatch.setattr(lane_replay, "node_call", scripted)
     monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
     written = tmp_path / "proposals.json"
-    args = argparse.Namespace(
-        artifact=out,
-        case=case.id,
-        lane="spoofing",
-        framework="stride",
-        accept_cost="unknown",
-        append=None,
-        fresh_leads=False,
-        prepare_today=None,
-        out=written,
-    )
+    args = replay_args(artifact=out, case=case.id, out=written)
 
     assert lane_replay.command_lane_replay(args) == 0
 
@@ -300,17 +301,7 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
     monkeypatch.setattr(lane_replay, "node_call", scripted)
     monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
     written = tmp_path / "proposals.json"
-    args = argparse.Namespace(
-        artifact=None,
-        case=case.id,
-        lane="spoofing",
-        framework="stride",
-        accept_cost="unknown",
-        append=None,
-        fresh_leads=False,
-        prepare_today="none",
-        out=written,
-    )
+    args = replay_args(case=case.id, prepare_today="none", out=written)
 
     assert lane_replay.command_lane_replay(args) == 0
 
@@ -323,6 +314,164 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
         digests[str(path)] == hashlib.sha256(path.read_bytes()).hexdigest()
         for path in named
     )
+
+
+def test_a_system_model_file_replaces_the_blessed_model(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+):
+    """The lane reads the System Model file, and the record names it."""
+    built = case.model.model_copy(deep=True)
+    built.processes[0].notes = "a model in place of the blessed one"
+    path = tmp_path / "model.json"
+    path.write_text(built.model_dump_json(), encoding="utf-8")
+    instructions: list[str] = []
+
+    def scripted(*_):
+        async def call(instruction, turn):
+            instructions.append(instruction)
+            return json.dumps({"claims": []})
+
+        return call
+
+    monkeypatch.setattr(lane_replay, "node_call", scripted)
+    monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
+    written = tmp_path / "proposals.json"
+
+    assert (
+        lane_replay.command_lane_replay(
+            replay_args(
+                case=case.id, prepare_today="none", system_model=path, out=written
+            )
+        )
+        == 0
+    )
+
+    (instruction,) = instructions
+    assert "a model in place of the blessed one" in instruction
+    held = json.loads(written.read_text(encoding="utf-8"))
+    assert held["record"]["table"]["system_model"] == str(path)
+    digests = {one["path"]: one["sha256"] for one in held["record"]["inputs"]}
+    assert digests[str(path)] == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_a_model_the_gate_refuses_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    built = case.model.model_dump(mode="json")
+    built["data_flows"][0]["source"] = "process:nowhere"
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert (
+        lane_replay.command_lane_replay(
+            replay_args(case=case.id, prepare_today="none", system_model=path)
+        )
+        == 1
+    )
+    assert f"{path} is not valid" in capsys.readouterr().err
+
+
+def test_a_system_model_file_reads_through_the_live_gate(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """A control written as a string reads in the archived corpus, and the
+    live gate that a ``--system-model`` file passes refuses it."""
+    built = case.model.model_dump(mode="json")
+    built["data_stores"][0]["encryption_at_rest"] = "none"
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert (
+        lane_replay.command_lane_replay(
+            replay_args(case=case.id, prepare_today="none", system_model=path)
+        )
+        == 1
+    )
+    assert f"{path} is not valid" in capsys.readouterr().err
+
+
+def test_a_system_model_file_without_an_element_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """A dropped element would read the case's references on it as missed."""
+    built = case.model.model_dump(mode="json")
+    store = built["data_stores"].pop()
+    built["data_flows"] = [
+        flow
+        for flow in built["data_flows"]
+        if store["id"] not in (flow["source"], flow["destination"])
+    ]
+    flows = {flow["id"] for flow in built["data_flows"]}
+    built["assumptions"] = [
+        one
+        for one in built["assumptions"]
+        if one["element_id"] != store["id"]
+        and (one["element_id"] in flows or not one["element_id"].startswith("flow:"))
+    ]
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert (
+        lane_replay.command_lane_replay(
+            replay_args(case=case.id, prepare_today="none", system_model=path)
+        )
+        == 1
+    )
+    assert "must hold the blessed model's element IDs" in capsys.readouterr().err
+
+
+def test_a_system_model_file_with_an_added_element_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """An added element is one no reference names."""
+    built = case.model.model_dump(mode="json")
+    extra = {**built["external_entities"][0], "name": "auditor"}
+    extra["id"] = "entity:auditor"
+    built["external_entities"].append(extra)
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert (
+        lane_replay.command_lane_replay(
+            replay_args(case=case.id, prepare_today="none", system_model=path)
+        )
+        == 1
+    )
+    assert "adds ['entity:auditor']" in capsys.readouterr().err
+
+
+def test_a_system_model_without_prepare_today_is_refused_before_the_call(
+    recorded,
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    out, _ = recorded
+    finished(out, case.id)
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+    args = replay_args(case=case.id, artifact=out, system_model=tmp_path / "model.json")
+
+    assert lane_replay.command_lane_replay(args) == 1
+    assert "--system-model replaces" in capsys.readouterr().err
 
 
 def test_material_without_the_user_turn_is_refused(tmp_path):
@@ -540,18 +689,7 @@ def test_each_lane_scores_the_must_finds_the_run_drafts_match(recorded, case):  
     ids=["neither", "both", "fresh-leads"],
 )
 def test_a_request_with_two_sources_or_none_is_refused_before_a_call(given, capsys):
-    args = argparse.Namespace(
-        **{
-            "case": "01-payments-checkout",
-            "lane": "spoofing",
-            "framework": "stride",
-            "accept_cost": "0",
-            "append": None,
-            "fresh_leads": False,
-            "out": None,
-            **given,
-        }
-    )
+    args = replay_args(case="01-payments-checkout", accept_cost="0", **given)
 
     assert lane_replay.command_lane_replay(args) == 1
     assert "--prepare-today" in capsys.readouterr().err

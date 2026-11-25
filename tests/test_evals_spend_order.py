@@ -18,7 +18,10 @@ from evals.harness import critic_replay, lane_replay, recritic_replay, run
 from evals.harness.archive import CaseKind, kind_of
 from evals.harness.bundle import case_file
 from evals.harness.modes import EvalRunError
-from tests.test_evals_lane_replay import recorded  # noqa: F401  (fixture)
+from tests.test_evals_lane_replay import (
+    recorded,  # noqa: F401  (fixture)
+    replay_args,
+)
 from tests.test_evals_run_grounds import case  # noqa: F401  (fixture)
 
 
@@ -192,17 +195,7 @@ def test_a_lane_replay_refuses_a_bad_out_before_the_call(
     artifact = _swept(recorded)
     monkeypatch.setattr(lane_replay, "node_call", _spend_point)
     missing = tmp_path / "missing"
-    args = argparse.Namespace(
-        artifact=artifact,
-        case=case.id,
-        lane="spoofing",
-        framework="stride",
-        accept_cost="unknown",
-        append=None,
-        fresh_leads=False,
-        prepare_today=None,
-        out=missing / "proposals.json",
-    )
+    args = replay_args(artifact=artifact, case=case.id, out=missing / "proposals.json")
 
     assert lane_replay.command_lane_replay(args) == 1
     assert str(missing) in capsys.readouterr().err

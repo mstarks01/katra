@@ -1,0 +1,12 @@
+== archive
+read: 302
+no assertion pass: 250
+refused: 7
+rows: 943
+hidden qualifications: 0
+dropped absences: 0
+== signed
+cases: 18
+rows: 368
+hidden qualifications: 0
+dropped absences: 0
