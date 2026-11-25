@@ -2996,9 +2996,10 @@ def _resolve_row(
         return None
     predicate = REGISTRY[name]
 
-    subject = _subject(row.subject_type, row.subject, element_ids, labels)
+    subject_type = subject_type_of(row, element_ids, labels)
+    subject = _subject(subject_type, row.subject, element_ids, labels)
     if subject is None:
-        drop("dangling-subject", f"{row.subject!r} names no {row.subject_type}")
+        drop("dangling-subject", f"{row.subject!r} names no {subject_type}")
         return None
 
     value = row.value
@@ -3088,6 +3089,41 @@ def _subject(
     except ValueError:
         return None
     return Subject(id=identity, type=subject_type, label=written.strip())
+
+
+def subject_type_of(
+    row: AssertionProposal, element_ids: Collection[str], labels: Mapping[str, str]
+) -> SubjectType:
+    """The subject type of ``row``, as code reads it (#2357).
+
+    A model writes ``subject_type`` beside the subject, and a type that
+    disagrees with the subject drops the row. Code holds what it needs to
+    decide most rows, so the model's type decides only the rest:
+
+    1. The subject resolves to an element of exactly one graph-bound type the
+       predicate accepts: that type, because the element says what it is.
+    2. Otherwise the model's type, where the predicate accepts it.
+    3. Otherwise the one type off the graph the predicate accepts, where there
+       is exactly one.
+    4. Otherwise the model's type, and the row is refused on it.
+    """
+    name = parse_predicate(row.predicate)
+    if name is None or name not in REGISTRY:
+        return row.subject_type
+    accepted = REGISTRY[name].subjects
+    on_graph = [
+        subject_type
+        for subject_type in sorted(accepted & GRAPH_BOUND)
+        if _subject(subject_type, row.subject, element_ids, labels)
+    ]
+    off_graph = sorted(accepted - GRAPH_BOUND)
+    if len(on_graph) == 1:
+        typed = on_graph[0]
+    elif row.subject_type in accepted or len(off_graph) != 1:
+        typed = row.subject_type
+    else:
+        typed = off_graph[0]
+    return typed
 
 
 def snap_subject(
