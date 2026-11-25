@@ -1733,3 +1733,32 @@ class TestConfidenceOnAnOpenFact:
         verdict = ProposedVerdict(rejected_because="reasoning", reason="no")
 
         assert self._completed(verdict, confidence="medium").confidence == "medium"
+
+
+class TestAnEvidenceRejectionOfARuledInUnit:
+    """The package's rule and the critic must not give a unit two answers (#2358)."""
+
+    def _problems(self, verdict, ruled_in):
+        draft = asvs_draft()
+        ruling = Ruling(id=draft.id, verdict=verdict)
+        return review_issues([draft], [ruling], valid_model(), {}, ruled_in=ruled_in)
+
+    def test_it_goes_to_the_re_ask(self):
+        verdict = ProposedVerdict(rejected_because="evidence", reason="no passwords")
+
+        problems = self._problems(verdict, ruled_in={"V6.2.1"})
+
+        assert "rejected for evidence, which says its requirement does not apply" in (
+            "; ".join(problems.messages)
+        )
+        assert problems.implicated == frozenset({"v5.0.0-6.2.1"})
+
+    def test_a_reasoning_rejection_is_the_critic_s_to_make(self):
+        verdict = ProposedVerdict(rejected_because="reasoning", reason="no attack")
+
+        assert not self._problems(verdict, ruled_in={"V6.2.1"})
+
+    def test_a_unit_the_rule_did_not_apply_is_no_problem(self):
+        verdict = ProposedVerdict(rejected_because="evidence", reason="no passwords")
+
+        assert not self._problems(verdict, ruled_in=set())

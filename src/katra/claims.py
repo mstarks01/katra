@@ -2816,6 +2816,16 @@ class FrameworkAnalysis(BaseModel):
         }
         return tuple(kind for kind in get_args(UnreconciledKind) if kind in found)
 
+    def applied_units(self) -> frozenset[str]:
+        """The units the framework's rule says apply, as ``applicability`` records them.
+
+        The set the critic's check reads as ``ruled_in``, read back from a
+        written block, for a replay of a run that has no graph state.
+        """
+        return frozenset(
+            entry.unit for entry in self.applicability if entry.state == "applicable"
+        )
+
     @classmethod
     def summarize(
         cls, claims: Sequence[RuledClaim], rejected_claims: Sequence[RuledClaim]

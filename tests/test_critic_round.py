@@ -16,6 +16,7 @@ from katra import critic
 from katra.claims import (
     AnalysisMarks,
     ProposedVerdict,
+    Ruling,
     UnknownRef,
     UnverifiedGround,
 )
@@ -40,7 +41,7 @@ from katra.graph import (
     FrameworkNodes,
 )
 from katra.markdown_loader import MarkdownLoader
-from tests.factories import sample_draft, sample_ruling, valid_model
+from tests.factories import asvs_draft, sample_draft, sample_ruling, valid_model
 from tests.test_graph import PROJECT_ROOT
 
 NO_MARKS = AnalysisMarks()
@@ -60,6 +61,7 @@ def round_over(*drafts, marks: AnalysisMarks = NO_MARKS) -> CriticRound:
         None,
         (),
         quotes_checked=True,
+        ruled_in=(),
     )
 
 
@@ -354,3 +356,27 @@ def test_the_re_ask_artifacts_are_the_rendered_review_keys_but_the_view():
 
     assert reask == set(REVIEW_ARTIFACTS.values()) - {"draft_view"}
     assert reask == set(FRAMEWORK_RENDERED_ARTIFACTS) - {"draft_view"}
+
+
+def test_the_round_holds_the_rulings_to_the_units_its_rule_applies():
+    """The round passes ``ruled_in`` to the check, so the graph re-asks (#2358)."""
+    draft = asvs_draft()
+    round_ = CriticRound.of(
+        "asvs",
+        valid_model(),
+        [draft],
+        AnalysisMarks(),
+        None,
+        (),
+        quotes_checked=True,
+        ruled_in={"V6.2.1"},
+    )
+    ruling = Ruling(
+        id=draft.id,
+        verdict=ProposedVerdict(rejected_because="evidence", reason="no passwords"),
+    )
+
+    outcome = round_.first([ruling.model_dump(mode="json")])
+
+    assert isinstance(outcome, Reask)
+    assert [problem.claim_id for problem in outcome.problems] == [draft.id]

@@ -1762,6 +1762,7 @@ def test_merge_joins_drafts_in_canonical_order():
             None,
             (),
             quotes_checked=True,
+            ruled_in=(),
         ).summary()
     )
     # Two drafts on quotes and derived facts are the critic's to rule.

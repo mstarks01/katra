@@ -318,6 +318,32 @@ def _unrejected_exclusion_issues(
     ]
 
 
+def _ruled_in_rejection_issues(
+    drafts: Sequence[Claim], rulings: Iterable[Ruling], ruled_in: Collection[str]
+) -> list[UnreconciledRuling]:
+    """Every ``evidence`` rejection of a draft on a unit the package's rule applies.
+
+    An ``evidence`` rejection says the stated facts show the unit does not
+    apply, and the package's own rule over the same facts says it does
+    (:meth:`~katra.claims.Claim.ruled_in`). So the report would state both.
+    Which ruling the draft takes instead is the critic's judgement, so the
+    ruling goes to the re-ask.
+    """
+    applied = {draft.id for draft in drafts if type(draft).unit_of(draft) in ruled_in}
+    return [
+        UnreconciledRuling.of(
+            claim_id=ruling.id,
+            kind="verdict-shape",
+            message=f"claim {ruling.id!r} is rejected for evidence, which says its"
+            " requirement does not apply, but the service's rule over the stated"
+            " facts says it applies: rule it again, and reject it for reasoning"
+            " only where its argument fails",
+        )
+        for ruling in rulings
+        if ruling.id in applied and ruling.verdict.rejected_because == "evidence"
+    ]
+
+
 def _unresolved_unknown_ref_issues(
     rulings: Iterable[Ruling], system_model: SystemModel
 ) -> list[UnreconciledRuling]:
@@ -758,6 +784,8 @@ def review_issues(
     rulings: Sequence[Ruling],
     system_model: SystemModel,
     shown: ShownRows,
+    *,
+    ruled_in: Collection[str] = frozenset(),
 ) -> ReviewProblems:
     """Every way the critic's rulings fail to account for the drafts it saw.
 
@@ -799,7 +827,9 @@ def review_issues(
     reference never was.
 
     ``shown`` is the Control rows each draft was shown, each with its Control
-    (:func:`shown_rows`), which the rulings answer.
+    (:func:`shown_rows`), which the rulings answer. ``ruled_in`` is each unit
+    the package's rule applies (:meth:`~katra.claims.Claim.ruled_in`); a
+    package whose rule applies none passes nothing.
     """
     drafted_ids = {draft.id for draft in drafts}
     rulings, settled = settle_in_code(drafted_ids, rulings)
@@ -809,6 +839,7 @@ def review_issues(
     per_ruling = (
         _verdict_shape_issues(rulings)
         + _unrejected_exclusion_issues(drafts, rulings)
+        + _ruled_in_rejection_issues(drafts, rulings, ruled_in)
         + _unresolved_unknown_ref_issues(rulings, system_model)
         + _control_row_issues(rulings, shown)
     )
@@ -943,6 +974,8 @@ def assemble_claims(
     system_model: SystemModel,
     schemas: FrameworkSchemas,
     shown: ShownRows,
+    *,
+    ruled_in: Collection[str] = frozenset(),
 ) -> AssembledClaims:
     """Merge one critic's rulings onto its drafts, split into the block's arrays.
 
@@ -957,7 +990,7 @@ def assemble_claims(
     :func:`~katra.fan_in.join_drafts` left them — so the audit array does not inherit
     whatever order the critic happened to emit its rulings in.
     """
-    problems = review_issues(drafts, rulings, system_model, shown)
+    problems = review_issues(drafts, rulings, system_model, shown, ruled_in=ruled_in)
     if problems:
         raise CriticOutputError("; ".join(problems.messages))
 

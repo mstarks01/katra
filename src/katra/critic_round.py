@@ -220,7 +220,8 @@ class CriticRound:
     replay must send what the graph sent. ``controls`` is each Control that
     applies to the job (ADR 0126). ``quotes_checked`` is
     :attr:`~katra.fan_in.FanIn.quotes_checked`: where it is false,
-    no quote carries a mark because no check read one.
+    no quote carries a mark because no check read one. ``ruled_in`` is each
+    unit the package's rule applies, which the check holds the rulings to.
     """
 
     framework: FrameworkName
@@ -231,6 +232,7 @@ class CriticRound:
     quotes_checked: bool
     assertions: AssertionCatalog | None
     controls: Sequence[AppliedControl]
+    ruled_in: frozenset[str]
 
     @classmethod
     def of(
@@ -243,6 +245,7 @@ class CriticRound:
         controls: Sequence[AppliedControl],
         *,
         quotes_checked: bool,
+        ruled_in: Collection[str],
     ) -> CriticRound:
         """The round for one framework, with that framework's own schemas."""
         return cls(
@@ -254,6 +257,7 @@ class CriticRound:
             quotes_checked,
             assertions,
             controls,
+            frozenset(ruled_in),
         )
 
     def view(self, only: Collection[str] | None = None) -> list[dict]:
@@ -361,13 +365,20 @@ class CriticRound:
 
     def _checked(self, emitted: Sequence[Any]) -> tuple[list[Ruling], ReviewProblems]:
         rulings = self.rulings(emitted)
-        return rulings, review_issues(self.drafts, rulings, self.model, self.shown())
+        return rulings, review_issues(
+            self.drafts, rulings, self.model, self.shown(), ruled_in=self.ruled_in
+        )
 
     def _assembled(
         self, rulings: Sequence[Ruling], checked: ReviewProblems
     ) -> Accepted:
         claims, rejected = assemble_claims(
-            self.drafts, rulings, self.model, self.schemas, self.shown()
+            self.drafts,
+            rulings,
+            self.model,
+            self.schemas,
+            self.shown(),
+            ruled_in=self.ruled_in,
         )
         return Accepted(claims=claims, rejected=rejected, settled=list(checked.settled))
 

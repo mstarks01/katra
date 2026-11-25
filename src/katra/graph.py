@@ -2122,6 +2122,7 @@ def merge_drafts(
         held_assertions(state),
         controls,
         quotes_checked=merged.quotes_checked,
+        ruled_in=state.get(nodes.key("ruled_in")) or {},
     )
     state.prompt(nodes.key("draft_view"), render_fenced(critic_round.view()))
     return _routed(
@@ -2251,6 +2252,7 @@ def _parked_round(
         held_assertions(state),
         held_controls(state),
         quotes_checked=parked_quotes_checked(state, nodes),
+        ruled_in=state.get(nodes.key("ruled_in")) or {},
     )
 
 

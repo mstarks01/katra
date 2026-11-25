@@ -462,6 +462,7 @@ def a_ruling_whose_fields_do_not_fit_comes_back_to_the_critic(pipeline):  # noqa
         None,
         (),
         quotes_checked=True,
+        ruled_in=(),
     )
 
     outcome = critic_round.first([unreasoned.model_dump(mode="json")])

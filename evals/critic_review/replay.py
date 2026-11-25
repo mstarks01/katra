@@ -87,6 +87,8 @@ def critic_round(
         None,
         list(controls.values()),
         quotes_checked=True,
+        # A fixture carries no applicability, so no unit is ruled in.
+        ruled_in=frozenset(),
     )
 
 
@@ -558,5 +560,7 @@ async def replay(
         fixtures, model, sources, package, package_loader, prompt_loader
     )
     rulings = parse_rulings(await call(instruction, turn), package)
-    problems = review_issues(round_.drafts, rulings, model, round_.shown())
+    problems = review_issues(
+        round_.drafts, rulings, model, round_.shown(), ruled_in=round_.ruled_in
+    )
     return score(fixtures, rulings, package), list(problems.messages)
