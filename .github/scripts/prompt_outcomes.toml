@@ -260,7 +260,7 @@ check = "a_documentation_or_open_fact_question_is_settled_by_prose"
 [[outcome]]
 prompt = "frameworks/stride/output.md"
 sentence = """The service writes `on-path` for `intercept` and `alter-in-transit`,
-and `authorized-principal` for `abuse-grant`, whatever you write."""
+whatever you write."""
 modules = ["src/katra/frameworks/stride/record.py"]
 check = "a_verb_that_fixes_a_position_takes_it"
 

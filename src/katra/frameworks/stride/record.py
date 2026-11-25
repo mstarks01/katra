@@ -177,16 +177,17 @@ LANES_OF_VERB: dict[ActionVerb, tuple[StrideCategory, ...]] = {
 
 
 #: The attacker position a verb fixes by its own definition (#2369): an
-#: interception or an alteration in transit stands on the path of a flow, and
-#: abusing a grant is done by the principal that holds it. Code writes these;
-#: the lane agent decides the position of every other verb. **A table, checked
-#: against the corpus**: ``tests/test_stride_lanes_of_verb.py`` fails if a
-#: ruled position disagrees with it.
+#: interception or an alteration in transit is done on the path between two
+#: ends. Code writes these; the lane agent decides the position of every other
+#: verb. ``abuse-grant`` is not here: its grant may be used by its holder or by
+#: whoever has taken the holder's place, so the verb does not fix where the
+#: attacker stands. **A table, checked against the corpus**:
+#: ``tests/test_stride_lanes_of_verb.py`` fails if a ruled position disagrees
+#: with it.
 POSITION_OF_VERB: Mapping[ActionVerb, AttackerPosition] = MappingProxyType(
     {
         "intercept": "on-path",
         "alter-in-transit": "on-path",
-        "abuse-grant": "authorized-principal",
     }
 )
 
@@ -522,6 +523,12 @@ class ArchivedThreatProposal(ThreatProposal):
     """
 
     attacker_position: AttackerPosition | None = None  # type: ignore[assignment]
+
+    @model_validator(mode="after")
+    def _position_the_verb_fixes(self) -> Self:
+        """The stored position as the run wrote it: a record of what was stored
+        writes nothing the run did not."""
+        return self
 
 
 class ArchivedThreatProposals(ThreatProposals):

@@ -58,7 +58,7 @@ def test_no_ruled_position_disagrees_with_the_position_a_verb_fixes():
     fixed = [row for row in ruled if row[1] in POSITION_OF_VERB]
 
     assert disagree == []
-    assert len(fixed) == 18
+    assert len(fixed) == 12
 
 
 def test_code_writes_the_position_a_verb_fixes():
@@ -70,3 +70,30 @@ def test_code_writes_the_position_a_verb_fixes():
     again = type(proposal).model_validate(written.model_dump())
 
     assert again.attacker_position == "on-path"
+
+
+def test_a_stored_proposal_keeps_the_position_the_run_wrote():
+    """A read of an archive writes nothing the run did not (#2369)."""
+    from katra.frameworks.stride.record import ArchivedThreatProposal
+    from tests.factories import sample_proposal
+
+    stored = sample_proposal("I-01", "information-disclosure", verb="intercept")
+    dumped = {**stored.model_dump(), "attacker_position": None}
+
+    assert ArchivedThreatProposal.model_validate(dumped).attacker_position is None
+
+
+def test_each_exemplar_with_a_fixing_verb_shows_the_position_it_fixes():
+    """An exemplar teaches the position the service writes."""
+    from katra.frameworks.stride.record import POSITION_OF_VERB
+    from tests.test_prompt_lints import EXEMPLAR_LANES, exemplar_proposals
+
+    wrong = [
+        (lane, proposal.verb, proposal.attacker_position)
+        for framework, lane in EXEMPLAR_LANES
+        if framework == "stride"
+        for proposal in exemplar_proposals(framework, lane)
+        if proposal.verb in POSITION_OF_VERB
+        and proposal.attacker_position != POSITION_OF_VERB[proposal.verb]
+    ]
+    assert wrong == []
