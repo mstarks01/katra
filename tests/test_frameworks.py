@@ -171,8 +171,9 @@ def test_precondition_facts_that_are_not_callable_fail_the_gate():
 
 
 def _undecidable_models():
-    """Every corpus model, and the shared model with nothing said about its
-    interfaces or its transport (#1542 F1)."""
+    """Every corpus model, the shared model with nothing said about its
+    interfaces or its transport (#1542 F1), and the shared model with no
+    process and each pair of flow protocols below."""
     from katra.system_model import SystemModel
 
     models = [
@@ -184,7 +185,43 @@ def _undecidable_models():
         process.interface_kind = "unknown"
     for flow in silent.data_flows:
         flow.protocol = "unknown"
-    return [*models, ("silent", silent)]
+    pairs = (
+        ("MQTT", "SFTP"),
+        ("h2", "connect-rpc"),
+        ("AMQP, not HTTP", "MQTT"),
+        ("none", "MQTT"),
+        ("unknown", "MQTT"),
+        ("AMQP, not HTTP", "unknown"),
+    )
+    flows_only = [
+        (
+            f"no process, flows {first!r} and {second!r}",
+            _without_processes(first, second),
+        )
+        for first, second in pairs
+    ]
+    return [*models, ("silent", silent), *flows_only]
+
+
+def _without_processes(*protocols):
+    model = valid_model()
+    flows = [
+        flow.model_copy(update={"protocol": protocol})
+        for flow, protocol in zip(model.data_flows, protocols, strict=True)
+    ]
+    return model.model_copy(update={"processes": [], "data_flows": flows})
+
+
+def _only_a_submission_decides(model):
+    """The one exception to ADR 0067 (ADR 0135): no process, and each flow
+    states its protocol. A flow's protocol never refutes, and a stated one is
+    no open fact, so the fact that decides the gate is a process, and only a
+    new submission adds one."""
+    from katra.analysis import held_state
+
+    return not model.processes and all(
+        held_state(flow.protocol) != "unverified" for flow in model.data_flows
+    )
 
 
 @pytest.mark.parametrize("name", sorted(PACKAGES))
@@ -204,6 +241,9 @@ def test_every_undecidable_precondition_offers_an_answer_that_decides_it(name):
         if run_precondition(package, model) != "undecidable":
             continue
         offered = package.precondition_facts(model)
+        if _only_a_submission_decides(model):
+            assert offered == (), f"{name} asks a question no answer settles on {label}"
+            continue
         assert offered, f"{name} offers nothing to decide {label}"
         decided = set()
         for choice_at in range(2):

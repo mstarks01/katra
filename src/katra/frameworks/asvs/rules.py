@@ -56,6 +56,7 @@ from katra.analysis import (
     comparable_asset_tags,
     control_reading,
     crossing_facts,
+    held_state,
     held_text,
     is_unverified,
     matches_term,
@@ -975,7 +976,7 @@ WEB_PROTOCOL_TERMS: tuple[str, ...] = (
 def _speaks_web(protocol: str) -> bool:
     """Whether a flow's ``protocol`` names a web protocol and negates nothing.
 
-    **The one reader of a web protocol for the precondition and its facts.**
+    **The one reader of a web protocol for the precondition.**
     A ``True`` answer satisfies the precondition. A ``False`` answer rules
     nothing out (ADR 0027): the protocol can be silent, non-web, or a web
     protocol that :data:`WEB_PROTOCOL_TERMS` does not hold, such as ``h2``.
@@ -1069,11 +1070,14 @@ def asvs_precondition_facts(model: SystemModel) -> tuple[UnknownRef, ...]:
     **The precondition reads a process's interface first**, so each process
     that never stated one is asked: one "web" answer satisfies it, and "non-web"
     from every process refutes it. A model with no process is read off its
-    flows alone, so there each flow that does not speak a web protocol is asked
-    (:func:`_speaks_web`). An answer that names a listed web protocol satisfies
-    the precondition; no flow answer refutes it. Every fact is a field the
-    precondition reads, so the answer the resumed job writes onto the model is
-    the one the gate reads.
+    flows alone, so there each flow whose ``protocol`` is unverified is asked.
+    An answer that names a listed web protocol satisfies the precondition; no
+    flow answer refutes it.
+
+    **One shape offers no fact** (ADR 0135): no process, and every flow states
+    its protocol. A stated protocol is no open fact, so the owner cannot answer
+    it, and no protocol refutes. The fact that decides the gate is a process,
+    and only a new submission adds one.
     """
     if model.processes:
         return tuple(
@@ -1084,7 +1088,7 @@ def asvs_precondition_facts(model: SystemModel) -> tuple[UnknownRef, ...]:
     return tuple(
         UnknownRef(element_id=flow.id, attribute="protocol")
         for flow in model.data_flows
-        if not _speaks_web(flow.protocol)
+        if held_state(flow.protocol) == "unverified"
     )
 
 

@@ -735,18 +735,22 @@ def test_a_model_with_no_processes_is_answered_by_its_flows(protocols, expected)
 
 
 @pytest.mark.parametrize(
-    "protocols",
+    ("protocols", "asked"),
     [
-        ("h2", "connect-rpc"),
-        ("MQTT", "SFTP"),
-        ("AMQP, not HTTP", "unknown"),
+        (("h2", "connect-rpc"), ()),
+        (("MQTT", "SFTP"), ()),
+        (("none", "MQTT"), ()),
+        (("AMQP, not HTTP", "MQTT"), ()),
+        (("AMQP, not HTTP", "unknown"), (1,)),
+        (("unknown", ""), (0, 1)),
     ],
 )
-def test_the_facts_name_each_flow_that_does_not_speak_web(protocols):
-    """The facts ask each flow that holds the precondition open.
+def test_the_facts_name_each_flow_whose_protocol_is_open(protocols, asked):
+    """With no process, the facts ask only a flow whose protocol is open.
 
-    With no process, a flow that does not speak a listed web protocol holds
-    the answer open, so the facts name it.
+    A stated protocol is no open fact, so the owner cannot answer it, and a
+    flow never refutes ASVS. Where every flow states its protocol, only a new
+    submission that names the processes settles the precondition (ADR 0135).
     """
     model = valid_model()
     flows = [
@@ -756,7 +760,7 @@ def test_the_facts_name_each_flow_that_does_not_speak_web(protocols):
     open_model = model.model_copy(update={"processes": [], "data_flows": flows})
 
     assert rules.asvs_precondition_facts(open_model) == tuple(
-        UnknownRef(element_id=flow.id, attribute="protocol") for flow in flows
+        UnknownRef(element_id=flows[index].id, attribute="protocol") for index in asked
     )
 
 

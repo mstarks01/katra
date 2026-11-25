@@ -201,8 +201,9 @@ GATE_NOTES: Mapping[PreconditionResult, str | None] = MappingProxyType(
         ),
         "undecidable": (
             "The {name} analysis runs only once the system model shows that it"
-            " applies. The questions that decide this come first; its other"
-            " questions follow once an answer settles it."
+            " applies. Any question that decides this comes first; its other"
+            " questions follow once an answer settles it. If no question decides"
+            " it, submit more about the system."
         ),
     }
 )
