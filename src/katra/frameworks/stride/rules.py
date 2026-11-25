@@ -1191,17 +1191,19 @@ PREDICATE_READERS: Mapping[str, PredicateReader] = MappingProxyType(
 # the list where the model shows the path it needs: a flow to sit on, a store to
 # copy, a process to run code in, a process or entity whose flow reaches the
 # place with an operation the lane can use, a receiver of a store's data for
-# disclosure, or a decided boundary crossing an outside party comes through. No reference claim, case ID or ruling reaches
-# it. Whether the sources support an attack through a listed mechanism stays
-# the lane's judgement.
+# disclosure, or a decided boundary crossing an outside party comes through.
+# No reference claim, case ID or ruling reaches it. Whether the sources support
+# an attack through a listed mechanism stays the lane's judgement.
 
 _WRITES: frozenset[Operations] = frozenset({"write", "read-write"})
 
 #: For each lane, the operations a flow to a store must state for its sender to
 #: hold the store, or ``None`` where the lane's leads carry no mechanism list.
 #: A tampering holder must be able to write and a disclosure holder to read; an
-#: unstated operation leaves either open. The other lanes name no target of the
-#: design (QA-2026-11-17-13).
+#: unstated operation leaves either open. A lane whose set holds ``read`` also
+#: lists the receiver of a flow the store sends with data, because that receiver
+#: gets the store's data and cannot write the store. The other lanes name no
+#: target of the design (QA-2026-11-17-13).
 MECHANISM_LANES: Mapping[StrideCategory, frozenset[Operations] | None] = (
     MappingProxyType(
         {
@@ -1287,12 +1289,13 @@ def _at_store(
         entries.append(("on-path", flow.id))
         if flow.operations in holding:
             entries += _holder(flow.source, elements)
-    # A flow the store sends gives its destination the store's data and no
-    # way to write it, so the destination holds the store only for a lane
-    # whose holders read.
+    # A flow the store sends with data gives its destination the store's data
+    # and no way to write it, so the destination holds the store only for a
+    # lane whose holders read. A store that only reads its destination sends
+    # it nothing.
     for flow in outbound_flows(model, store.id):
         entries.append(("on-path", flow.id))
-        if "read" in holding:
+        if "read" in holding and flow.operations != "read":
             entries += _holder(flow.destination, elements)
     return entries
 

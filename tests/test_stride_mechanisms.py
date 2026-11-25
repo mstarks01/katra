@@ -152,34 +152,29 @@ def test_every_listed_mechanism_names_a_path_the_model_shows(case_id):
                     assert one.via in crossing
 
 
-def test_a_store_that_sends_a_flow_gives_its_receiver_a_read_only():
-    """The receiver gets the store's data and no way to write the store."""
-    model = model_of(CMS)
+def _with_store_flow(model, operations):
+    """``model`` with the web server's own flow to the database replaced by a
+    flow the database sends to the web server."""
     push = make_flow_id("store:mysql-database", "process:web-server", "push")
-    model = model.model_copy(
+    kept = [
+        flow
+        for flow in model.data_flows
+        if flow.id != "flow:process:web-server>store:mysql-database>cms-data"
+    ]
+    sent = model.data_flows[2].model_copy(
         update={
-            "data_flows": [
-                *model.data_flows,
-                model.data_flows[2].model_copy(
-                    update={
-                        "id": push,
-                        "source": "store:mysql-database",
-                        "destination": "process:web-server",
-                        "operations": "write",
-                    }
-                ),
-            ]
+            "id": push,
+            "source": "store:mysql-database",
+            "destination": "process:web-server",
+            "operations": operations,
         }
     )
-    model = model.model_copy(
-        update={
-            "data_flows": [
-                flow
-                for flow in model.data_flows
-                if flow.id != "flow:process:web-server>store:mysql-database>cms-data"
-            ]
-        }
-    )
+    return model.model_copy(update={"data_flows": [*kept, sent]}), push
+
+
+def test_a_store_receiver_holds_the_store_for_disclosure_only():
+    """The receiver gets the store's data and no way to write the store."""
+    model, push = _with_store_flow(model_of(CMS), "write")
     tampering = listed(model, "tampering", "store:mysql-database")
     disclosure = listed(model, "information-disclosure", "store:mysql-database")
     assert ("on-path", push) in tampering
@@ -187,6 +182,13 @@ def test_a_store_that_sends_a_flow_gives_its_receiver_a_read_only():
     assert ("authorized-principal", "process:web-server") not in tampering
     assert ("authorized-principal", "process:web-server") in disclosure
     assert ("in-component", "process:web-server") in disclosure
+
+
+def test_a_store_that_reads_its_destination_gives_it_nothing():
+    model, push = _with_store_flow(model_of(CMS), "read")
+    disclosure = listed(model, "information-disclosure", "store:mysql-database")
+    assert ("on-path", push) in disclosure
+    assert ("authorized-principal", "process:web-server") not in disclosure
 
 
 #: Five of the six target rows of QA-2026-11-17-13: the place the lane was
