@@ -93,7 +93,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, get_args
 
 from katra.analysis import (
     CONTROL_ATTRIBUTES,
@@ -1210,14 +1210,20 @@ def invalid_proposal_marks(
     already dropped it (:class:`~katra.claims.ProposalBatch`), and
     this records it as a :class:`~katra.claims.DroppedClaim` with
     the first error pydantic reported. The ID is composed from the package's
-    rule where the key is readable, so the mark names the claim the agent
-    meant; where it is not, the mark is keyed by the lane and the position,
-    which is the only identity left.
+    rule where the agent writes the key and the key is readable, so the mark
+    names the claim the agent meant; where it is not, the mark is keyed by the
+    lane and the position, which is the only identity left.
     """
-    key_field = schemas_for(package.name).key_field
+    schemas = schemas_for(package.name)
+    # A key the lane schema does not offer is code's to write, so a value an
+    # agent put there anyway names a draft code numbered otherwise: STRIDE's
+    # ``sequence`` is a draft's place in its lane, and a kept draft may hold
+    # the number the dropped one wrote.
+    (proposal,) = get_args(schemas.proposals.model_fields["claims"].annotation)
+    written = schemas.key_field in proposal.model_json_schema()["properties"]
     dropped: list[DroppedClaim] = []
     for entry in invalid:
-        key = entry.scalars.get(key_field)
+        key = entry.scalars.get(schemas.key_field) if written else None
         try:
             claim_id = package.compose_id(lane, key) if key is not None else ""
         except (TypeError, ValueError, KeyError):

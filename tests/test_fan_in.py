@@ -624,21 +624,50 @@ class TestNumberingByPosition:
 
         assert [proposal.sequence for proposal in batch.claims] == [1]
 
-    def test_a_draft_past_the_lane_cap_is_dropped_and_named(self):
-        proposals = [
-            sample_proposal("S-01", title=f"Threat {place}")
-            for place in range(1, MAX_SEQUENCE + 2)
+    def test_a_draft_that_fails_its_schema_is_named_by_its_place(self):
+        """The mark never takes the number the agent wrote, which code now gives
+        to a kept draft."""
+        rows = [
+            sample_proposal("S-01").model_dump(mode="json"),
+            {**sample_proposal("S-02").model_dump(mode="json"), "verb": "teleport"},
+            sample_proposal("S-03", title="Third").model_dump(mode="json"),
         ]
 
-        batch = SCHEMAS.proposals.model_validate(
-            {"claims": [proposal.model_dump(mode="json") for proposal in proposals]}
+        merged = fan_in.fan_in(
+            {"spoofing": SCHEMAS.proposals.model_validate({"claims": rows})},
+            STRIDE,
+            valid_model(),
+            SOURCES,
+            assertions=None,
         )
 
+        assert [draft.id for draft in merged.drafts] == ["S-01", "S-02"]
+        [mark] = merged.marks.dropped_claims
+        assert mark.claim_id == "stride:spoofing:proposal-1"
+
+    def test_a_draft_past_the_lane_cap_is_dropped_and_named(self):
+        rows = [
+            sample_proposal("S-01", title=f"Threat {place}").model_dump(mode="json")
+            for place in range(MAX_SEQUENCE + 1)
+        ]
+        failed = {**rows[0], "verb": "teleport"}
+
+        batch = SCHEMAS.proposals.model_validate({"claims": [failed, *rows]})
+
         assert len(batch.claims) == MAX_SEQUENCE
-        [past] = batch.invalid
-        assert past.index == MAX_SEQUENCE
-        assert past.scalars["title"] == f"Threat {MAX_SEQUENCE + 1}"
+        assert [entry.index for entry in batch.invalid] == [0, MAX_SEQUENCE + 1]
+        past = batch.invalid[1]
+        assert past.scalars["title"] == f"Threat {MAX_SEQUENCE}"
         assert str(MAX_SEQUENCE) in past.error
+
+    def test_a_batch_read_back_keeps_its_numbers(self):
+        rows = [sample_proposal("S-04").model_dump(mode="json")] * 3
+        batch = SCHEMAS.proposals.model_validate({"claims": rows})
+
+        again = SCHEMAS.proposals.model_validate(batch.model_dump())
+
+        assert [proposal.sequence for proposal in again.claims] == [1, 2, 3]
+        assert again.invalid == batch.invalid
 
 
 class TestQuoteVerification:
@@ -1441,7 +1470,8 @@ class TestTheEmissionBound:
     def test_a_batch_at_the_cap_is_analyzed(self, model):
         batch = self._batch(MAX_CLAIMS_PER_BATCH, 0)
 
-        assert len(batch.claims) + len(batch.invalid) == MAX_CLAIMS_PER_BATCH
+        assert len(batch.claims) == MAX_SEQUENCE
+        assert len(batch.invalid) == MAX_CLAIMS_PER_BATCH - MAX_SEQUENCE
         assert fan_in.fan_in(
             {"spoofing": batch}, STRIDE, model, sources={}, assertions=None
         ).drafts
@@ -1470,9 +1500,8 @@ class TestTheEmissionBound:
         half = MAX_CLAIMS_PER_BATCH // 2 + 1
         batch = self._batch(half, half)
 
-        assert len(batch.claims) < MAX_CLAIMS_PER_BATCH
-        assert len(batch.invalid) < MAX_CLAIMS_PER_BATCH
-        assert len(batch.claims) + len(batch.invalid) == half * 2
+        assert len(batch.claims) == MAX_SEQUENCE
+        assert len(batch.invalid) == half * 2 - MAX_SEQUENCE
         with pytest.raises(fan_in.DraftJoinError, match=f"emitted {half * 2}"):
             fan_in.fan_in(
                 {"spoofing": batch}, STRIDE, model, sources={}, assertions=None

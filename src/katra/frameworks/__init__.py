@@ -518,11 +518,12 @@ class FrameworkSchemas:
         summary. The envelope dispatches on ``framework`` to read the right one
         back.
     ``key_field``
-        The one field of ``proposals``' element type that is the agent's **ID
-        key** — STRIDE's ``sequence``, and a requirement-shaped framework's
-        requirement. Named rather than derived because ``id`` has no shared
-        grammar: the neutral resolver reads this field, hands it to the
-        package's own :class:`IdRule`, and composes an ID no agent spelled.
+        The one field of ``proposals``' element type that is the **ID key** —
+        STRIDE's ``sequence``, which code writes from a draft's place in its
+        lane, and a requirement-shaped framework's requirement, which the agent
+        writes. Named rather than derived because ``id`` has no shared grammar:
+        the neutral resolver reads this field, hands it to the package's own
+        :class:`IdRule`, and composes an ID no agent spelled.
     """
 
     proposals: type[ProposalBatch]

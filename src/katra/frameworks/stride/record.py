@@ -388,10 +388,10 @@ class ThreatProposal(Proposal):
     # sees. There is one node per STRIDE category and the lane is the graph's
     # fact, so :func:`~katra.evidence.resolve_proposals` composes the ID from
     # the lane and this number. :class:`ThreatProposals` sets it from the
-    # draft's place in the batch: a number the agent counted could repeat, and a
-    # repeated number dropped the second draft as a duplicate ID (#2355). Kept
-    # out of the JSON schema, so the provider never asks for it; a value an
-    # agent writes anyway is replaced.
+    # draft's place in the batch, because a number the agent counted can
+    # repeat, and :func:`~katra.fan_in.drop_duplicate_ids` drops a repeated ID.
+    # Kept out of the JSON schema, so the provider never asks for it; a value
+    # an agent writes anyway is replaced.
     sequence: SkipJsonSchema[int] = 0
     affected_element_ids: list[str] = Field(
         min_length=1, max_length=MAX_ELEMENTS_PER_PROPOSAL
@@ -452,7 +452,8 @@ class ThreatProposals(ProposalBatch):
 
         A draft past :data:`MAX_SEQUENCE` has no ID :data:`ID_FORMAT` can
         render, so it goes to ``invalid`` under its place in the emission, as a
-        draft that fails its schema does.
+        draft that fails its schema does. Each kept draft is a copy, so a
+        caller's own proposal objects keep the values they had.
         """
         emitted = len(self.claims) + len(self.invalid)
         failed = {entry.index for entry in self.invalid}
@@ -462,7 +463,7 @@ class ThreatProposals(ProposalBatch):
                 index=place,
                 scalars={"title": proposal.title[:200]},
                 error=(
-                    f"a lane numbers at most {MAX_SEQUENCE} drafts,"
+                    f"sequence: a lane numbers at most {MAX_SEQUENCE} drafts,"
                     f" and this is draft {position}"
                 ),
             )
@@ -471,9 +472,10 @@ class ThreatProposals(ProposalBatch):
             )
             if position > MAX_SEQUENCE
         ]
-        del self.claims[MAX_SEQUENCE:]
-        for position, proposal in enumerate(self.claims, start=1):
-            proposal.sequence = position
+        self.claims = [
+            proposal.model_copy(update={"sequence": position})
+            for position, proposal in enumerate(self.claims[:MAX_SEQUENCE], start=1)
+        ]
         self.invalid = sorted([*self.invalid, *past], key=lambda entry: entry.index)
         return self
 
