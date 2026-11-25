@@ -75,6 +75,8 @@ class _ModelIndex:
     process_ids: frozenset[str]
     store_ids: frozenset[str]
     systems: frozenset[str]
+    people: frozenset[str]
+    web_processes: frozenset[str]
     assumed: frozenset[tuple[str, str]]
 
     @classmethod
@@ -91,6 +93,12 @@ class _ModelIndex:
             store_ids=frozenset(s.id for s in stores),
             systems=frozenset(
                 e.id for e in model.external_entities if e.kind == "external-system"
+            ),
+            people=frozenset(
+                e.id for e in model.external_entities if e.kind == "human"
+            ),
+            web_processes=frozenset(
+                p.id for p in processes if p.interface_kind == "web"
             ),
             assumed=frozenset((a.element_id, a.attribute) for a in model.assumptions),
         )
@@ -117,6 +125,19 @@ def _internal(
     ``states`` holds of the flow's protocol."""
     for flow in index.stated:
         if index.ends(flow) <= index.own and states(flow):
+            yield flow
+
+
+def _person_to_web(index: _ModelIndex) -> Iterator[DataFlow]:
+    """Flows from a person to a process that presents a web interface (#2371).
+
+    Kind, interface and flow ends are closed fields, so the row reads only
+    what the model states. A mobile or command-line client of a web process
+    reads as present too; a wrong "present" only adds requirements to check
+    (ADR 0085), and absence stays with the lane.
+    """
+    for flow in index.flows:
+        if flow.source in index.people and flow.destination in index.web_processes:
             yield flow
 
 
@@ -210,6 +231,11 @@ class FieldCapability:
 
 
 FIELD_CAPABILITIES: tuple[FieldCapability, ...] = (
+    FieldCapability(
+        "browser-frontend",
+        _person_to_web,
+        "a person reaches a process that presents a web interface",
+    ),
     FieldCapability(
         "tls-use",
         _tls,

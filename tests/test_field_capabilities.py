@@ -30,12 +30,13 @@ STORE = "flow:process:web-app>store:orders-db>store-order"
 
 
 def _model(**protocols):
-    """The shared model, with no asset tags and no exposure, and each named
-    flow's protocol set."""
+    """The shared model, with no asset tags, no exposure and no person among
+    its callers, and each named flow's protocol set."""
     model = valid_model()
     for element in model.elements():
         element.assets = []
     model.get("process:web-app").exposure = "internal"
+    model.get("entity:customer").kind = "external-system"
     for flow_id, protocol in protocols.items():
         model.get(flow_id).protocol = protocol
     return model
@@ -53,6 +54,7 @@ def test_the_example_rows_write_present_with_their_basis_and_a_quote_the_gate_ac
     written = with_field_capabilities(model)
     statements = {s.capability: s for s in written.capabilities}
     assert set(statements) == {
+        "browser-frontend",
         "tls-use",
         "cryptographic-operations",
         "cryptographic-keys",
@@ -336,3 +338,19 @@ def test_a_second_projection_changes_nothing():
     )
     twice, _, _ = prepared_view(once, _exposed("internet-facing"))
     assert twice == once
+
+
+def test_a_person_reaching_a_web_process_proves_a_browser_frontend():
+    """#2371: kind, interface and flow ends are closed fields."""
+    model = _model()
+    model.get("entity:customer").kind = "human"
+    model.get("process:web-app").interface_kind = "web"
+
+    assert "browser-frontend" in _written(model)
+
+
+def test_a_machine_reaching_a_web_process_proves_none():
+    model = _model()
+    model.get("process:web-app").interface_kind = "web"
+
+    assert "browser-frontend" not in _written(model)

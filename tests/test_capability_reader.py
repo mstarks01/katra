@@ -214,7 +214,9 @@ class TestTheGraph:
         assert isinstance(outcome, PipelineAwaiting)
         stated = {s.capability: s for s in outcome.checkpoint.system_model.capabilities}
         assert stated["database"].origin == "reader"
-        assert "browser-frontend" not in stated, "its quote is not in the source"
+        assert stated["browser-frontend"].origin == "field", (
+            "its quote is not in the source, and a closed field named it"
+        )
         assert stated["tls-use"].origin == "field", "a closed field named it first"
         assert visited.index(graph.CAPABILITIES_NODE) < visited.index(graph.STATED_NODE)
 
