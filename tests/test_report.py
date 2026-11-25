@@ -718,6 +718,14 @@ class TestTheBlockAnswersWhichProblemsAReAskInherited:
 
         assert block.re_ask_kinds("S-01") == ("dropped", "verdict-shape")
 
+    def test_a_ruling_code_settled_is_not_a_re_asked_claim(self):
+        """Code settles a repeated ruling without a re-ask (#2360)."""
+        (block,) = sample_report(
+            unreconciled_rulings=[unreconciled("S-01", "repeated-ruling")]
+        ).analyses
+
+        assert block.re_ask_kinds("S-01") == ()
+
     def test_a_mark_on_another_claim_answers_nothing_here(self):
         (block,) = sample_report(
             unreconciled_rulings=[unreconciled("S-02", "dropped")]

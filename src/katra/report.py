@@ -150,9 +150,10 @@ from katra.vendors import ServedTrust, vendor_for_route
 #   and checked on load, and empty where the fan-in wrote it, because the fan-in
 #   refuses one that moves a negation or a number; and ``scan_complete``,
 #   whether the rung ranked every window, ``None`` on an archived repair (#675).
-# * ``unreconciled_rulings``: how the *first* critic pass failed to reconcile
-#   with its drafts, before the bounded re-ask. Each entry is a record — the
-#   claim, a closed ``kind``, and the sentence (#710).
+# * ``unreconciled_rulings``: how the critic's rulings failed to reconcile
+#   with its drafts: a first-pass problem the bounded re-ask was asked to fix,
+#   or a ruling code dropped without one. Each entry is a record — the claim,
+#   a closed ``kind``, and the sentence (#710).
 # * ``rejected_because`` on a verdict: which of the critic's checks ended a
 #   rejected draft. ``None`` is the answer for a rejection with no recorded
 #   cause. The substance check answers in two values, ``evidence`` and

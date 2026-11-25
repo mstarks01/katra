@@ -2131,8 +2131,11 @@ UNNAMED_CLAIM = "(unnamed)"
 #: causes without parsing the sentence that describes one:
 #:
 #: * ``dropped`` — the critic returned no ruling on a draft it was shown;
-#: * ``invented`` — it ruled on an ID no lane agent drafted;
-#: * ``duplicate-id`` — one ID carries more than one ruling;
+#: * ``invented`` — it ruled on an ID no lane agent drafted, and code dropped
+#:   the ruling;
+#: * ``duplicate-id`` — one ID carries two rulings that differ;
+#: * ``repeated-ruling`` — one ID carries a ruling twice, word for word, and
+#:   code kept one;
 #: * ``confirmed-on-unknown`` — archived only: see
 #:   :data:`ARCHIVED_UNRECONCILED_KINDS`;
 #: * ``duplicate-on-unit`` — archived only: see
@@ -2150,14 +2153,17 @@ UNNAMED_CLAIM = "(unnamed)"
 #: * ``unbriefed-change`` — the re-ask changed a ruling no problem named, and
 #:   the first pass's ruling was kept.
 #:
-#: The last is the second look's problem and the others are the first
-#: pass's, which is why one field carries both: each is a way the review did
-#: not reconcile, and a reader asking "did this run repair itself" wants one
-#: list rather than two.
+#: Code settles ``invented`` and ``repeated-ruling`` without a re-ask
+#: (:data:`SETTLED_UNRECONCILED_KINDS`), on either look. ``unbriefed-change``
+#: is the second look's. The others are the first pass's, and the re-ask
+#: repairs them. One field carries all of them, because each is a way the
+#: review did not reconcile, and a reader asking "did this run repair itself"
+#: wants one list rather than several.
 UnreconciledKind = Literal[
     "dropped",
     "invented",
     "duplicate-id",
+    "repeated-ruling",
     "confirmed-on-unknown",
     "dismissal-off-grounds",
     "duplicate-on-unit",
@@ -2180,6 +2186,13 @@ UnreconciledKind = Literal[
 #: entry, so no review writes this kind.
 ARCHIVED_UNRECONCILED_KINDS: frozenset[UnreconciledKind] = frozenset(
     {"confirmed-on-unknown", "dismissal-off-grounds", "duplicate-on-unit"}
+)
+
+#: The kinds code settles without a re-ask (:func:`~katra.critic.settle_in_code`).
+#: A ruling dropped this way changed no claim the block carries, so
+#: :meth:`FrameworkAnalysis.re_ask_kinds` does not count it.
+SETTLED_UNRECONCILED_KINDS: frozenset[UnreconciledKind] = frozenset(
+    {"invented", "repeated-ruling"}
 )
 
 
@@ -2334,10 +2347,12 @@ class AnalysisMarks(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     unverified_grounds: list[UnverifiedGround] = Field(default_factory=list)
-    #: How the *first* critic pass failed to reconcile with its drafts, one
+    #: How the critic's rulings failed to reconcile with its drafts, one
     #: :class:`UnreconciledRuling` per problem, carrying the claim it is about,
-    #: the kind of problem, and the sentence the bounded re-ask was asked to fix
-    #: it by. Empty means the first pass was clean.
+    #: the kind of problem, and its sentence. A first-pass problem is one the
+    #: bounded re-ask was asked to fix; a kind in
+    #: :data:`SETTLED_UNRECONCILED_KINDS` is one code settled without a re-ask.
+    #: Empty means the critic's rulings were clean.
     #:
     #: **Recorded because nothing else can see it.** ``route_review`` renders
     #: these messages into the re-ask's prompt, and without this list a
@@ -2796,7 +2811,8 @@ class FrameworkAnalysis(BaseModel):
         """Which problems the *first* critic pass recorded against one claim.
 
         Empty for a claim the first pass ruled cleanly, which is the common
-        case. A non-empty answer says the ruling this block carries came out of
+        case. A kind code settled without a re-ask
+        (:data:`SETTLED_UNRECONCILED_KINDS`) does not count. A non-empty answer says the ruling this block carries came out of
         the bounded re-ask, and names what the first pass got wrong — which is
         the difference between a rejection the critic argued for and one that
         arrived after a repair.
@@ -2812,7 +2828,9 @@ class FrameworkAnalysis(BaseModel):
         set. Count the marks themselves for the multiplicity.
         """
         found = {
-            mark.kind for mark in self.unreconciled_rulings if mark.claim_id == claim_id
+            mark.kind
+            for mark in self.unreconciled_rulings
+            if mark.claim_id == claim_id and mark.kind not in SETTLED_UNRECONCILED_KINDS
         }
         return tuple(kind for kind in get_args(UnreconciledKind) if kind in found)
 

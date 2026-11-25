@@ -790,7 +790,7 @@ def test_an_invented_ruling_alone_makes_no_re_ask():
     assert RECRITIC not in visited
     marks = block(outcome.report).unreconciled_rulings
     assert [(mark.kind, mark.claim_id) for mark in marks] == [
-        ("duplicate-id", "S-01"),
+        ("repeated-ruling", "S-01"),
         ("invented", "X-99"),
     ]
 

@@ -307,11 +307,11 @@ def _unrejected_exclusion_issues(
         UnreconciledRuling.of(
             claim_id=ruling.id,
             kind="verdict-shape",
-            message=f"claim {ruling.id!r} excludes its requirement and is ruled"
-            f" {ruling.verdict.status}, which says the requirement applies: rule"
-            " it rejected, set rejected_because to evidence where the stated"
-            " facts show it does not apply, or to reasoning where they do not,"
-            " and write the reason",
+            message=f"claim {ruling.id!r} excludes its unit and is ruled"
+            f" {ruling.verdict.status}, which says the unit applies: rule it"
+            " rejected, set rejected_because to evidence where the stated facts"
+            " show it does not apply, or to reasoning where they do not, and"
+            " write the reason",
         )
         for ruling in rulings
         if ruling.id in excluding and ruling.verdict.status != "rejected"
@@ -335,9 +335,9 @@ def _ruled_in_rejection_issues(
             claim_id=ruling.id,
             kind="verdict-shape",
             message=f"claim {ruling.id!r} is rejected for evidence, which says its"
-            " requirement does not apply, but the service's rule over the stated"
-            " facts says it applies: rule it again, and reject it for reasoning"
-            " only where its argument fails",
+            " unit does not apply, but the service's rule over the stated facts"
+            " says it applies: rule it again, and reject it for reasoning only"
+            " where its argument fails",
         )
         for ruling in rulings
         if ruling.id in applied and ruling.verdict.rejected_because == "evidence"
@@ -742,7 +742,9 @@ def settle_in_code(
 
     A ruling on an ID no lane agent drafted rules on nothing, so code drops it.
     A ruling that repeats an earlier ruling on the same ID word for word adds
-    nothing, so code keeps the first. Neither needs a model to decide, and a
+    nothing, so code keeps the first. It reads the rulings after
+    :func:`complete_rulings`, so two rulings that completion makes the same,
+    such as two on a misfiled draft, are one. Neither needs a model to decide, and a
     re-ask for either costs a paid call that can only return what code already
     knows. Two rulings on one ID that differ stay: which one the draft gets is
     the critic's judgement.
@@ -766,7 +768,7 @@ def settle_in_code(
             settled.append(
                 UnreconciledRuling.of(
                     claim_id=ruling.id,
-                    kind="duplicate-id",
+                    kind="repeated-ruling",
                     message=(
                         f"critic ruled claim {ruling.id!r} twice alike; code kept"
                         " one ruling"
@@ -785,7 +787,7 @@ def review_issues(
     system_model: SystemModel,
     shown: ShownRows,
     *,
-    ruled_in: Collection[str] = frozenset(),
+    ruled_in: Collection[str],
 ) -> ReviewProblems:
     """Every way the critic's rulings fail to account for the drafts it saw.
 
@@ -795,8 +797,8 @@ def review_issues(
     drafted ID, once each, with each verdict's fields making a coherent
     verdict, and each ``needs-info`` naming only unknowns the model actually
     contains. A ruling on an ID no lane drafted, and a ruling that repeats an
-    earlier one word for word, are dropped first by :func:`settle_in_code`,
-    and its marks ride on the result as ``settled``. It reads the rulings after
+    earlier one word for word once completed, are dropped by
+    :func:`settle_in_code`, and its marks ride on the result as ``settled``. It reads the rulings after
     :func:`complete_rulings`, so the status each one reads is the one code
     decides.
 
@@ -829,11 +831,10 @@ def review_issues(
     ``shown`` is the Control rows each draft was shown, each with its Control
     (:func:`shown_rows`), which the rulings answer. ``ruled_in`` is each unit
     the package's rule applies (:meth:`~katra.claims.Claim.ruled_in`); a
-    package whose rule applies none passes nothing.
+    package whose rule applies none passes an empty set.
     """
     drafted_ids = {draft.id for draft in drafts}
-    rulings, settled = settle_in_code(drafted_ids, rulings)
-    rulings = complete_rulings(drafts, rulings)
+    rulings, settled = settle_in_code(drafted_ids, complete_rulings(drafts, rulings))
     ruled_ids = {ruling.id for ruling in rulings}
     dropped = sorted(drafted_ids - ruled_ids)
     per_ruling = (
@@ -975,7 +976,7 @@ def assemble_claims(
     schemas: FrameworkSchemas,
     shown: ShownRows,
     *,
-    ruled_in: Collection[str] = frozenset(),
+    ruled_in: Collection[str],
 ) -> AssembledClaims:
     """Merge one critic's rulings onto its drafts, split into the block's arrays.
 

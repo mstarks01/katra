@@ -785,6 +785,7 @@ def test_the_verdict_and_the_seam_hold_one_row_rule(step, names_a_row):
         [Ruling(id=DRAFT.id, verdict=ProposedVerdict(**fields))],
         valid_model(),
         {DRAFT.id: {ControlRowRef(control=DB_CONTROL, unit="V11"): applied}},
+        ruled_in=(),
     )
     [completed] = seam.rulings
     try:

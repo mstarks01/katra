@@ -78,6 +78,7 @@ def _status(
         model or valid_model(),
         SCHEMAS,
         {},
+        ruled_in=(),
     )
     claims = [*assembled.claims, *assembled.rejected_claims]
     assert len(claims) == 1

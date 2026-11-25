@@ -23,6 +23,7 @@ from evals.harness.run_record import loaded
 from katra import graph
 from katra.claims import (
     ARCHIVED_UNRECONCILED_KINDS,
+    SETTLED_UNRECONCILED_KINDS,
     ProposedVerdict,
     RefusedControl,
     Ruling,
@@ -63,7 +64,7 @@ WORDS = {
     "dropped": "critic dropped draft",
     "duplicate-id": "is used by 2 drafts",
     "verdict-shape": "is rejected for reasoning but also names open facts",
-    "confirmed-ruled-out": "excludes its requirement and is ruled confirmed",
+    "confirmed-ruled-out": "excludes its unit and is ruled confirmed",
     "unresolved-unknown": "which element",
 }
 
@@ -138,15 +139,15 @@ def test_each_shape_states_its_problems():
 def test_the_shapes_cover_each_kind_a_live_check_names():
     """A kind the check gains needs a shape, or the replay cannot measure it.
 
-    ``unbriefed-change`` is the merge's mark, and ``invented`` is a mark code
-    settles without a re-ask (``settle_in_code``), so no re-ask is asked to
-    repair either.
+    ``unbriefed-change`` is the merge's mark, and code settles the kinds in
+    ``SETTLED_UNRECONCILED_KINDS`` without a re-ask, so no re-ask is asked to
+    repair any of them.
     """
     named = {
         kind for kinds in recritic_replay.PROBLEMS_BY_SHAPE.values() for kind in kinds
     }
     live = set(get_args(UnreconciledKind)) - ARCHIVED_UNRECONCILED_KINDS
-    assert named == live - {"unbriefed-change", "invented"}
+    assert named == live - {"unbriefed-change"} - SETTLED_UNRECONCILED_KINDS
 
 
 @pytest.mark.parametrize("shape", STRIDE_SHAPES)
@@ -195,7 +196,7 @@ def test_a_confirmed_exclusion_is_the_one_fault_on_an_asvs_draft():
         "confirmed-ruled-out",
     )
 
-    problems = review_issues([draft], faulty, valid_model(), {})
+    problems = review_issues([draft], faulty, valid_model(), {}, ruled_in=())
     assert [(each.kind, each.claim_id) for each in problems.problems] == [
         ("verdict-shape", draft.id)
     ]
