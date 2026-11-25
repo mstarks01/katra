@@ -203,9 +203,7 @@ TOKEN_CAPS: dict[str, int] = {
     "package/lane_exemplars": 2600,
     # One instruction a lane reads last, in its user turn rather than its
     # instruction, so COMPOSED_ANALYZE_CAP does not count it (ADR 0030).
-    # STRIDE's also asks the lane to account for each mechanism its leads
-    # list at a led place (#2204).
-    "package/lane_closing": 200,
+    "package/lane_closing": 120,
     # Assembled rather than loaded: the critic's lane-boundary digest.
     "package/lane_digest": 2200,
     # The shared technology packs, under ``domains/``.

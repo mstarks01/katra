@@ -56,6 +56,7 @@ from katra.analysis import (
     inbound_flows,
     internet_exposed_elements,
     is_unverified,
+    outbound_flows,
     reachable_from,
     sensitive_assets,
     zone_kinds,
@@ -82,6 +83,8 @@ from katra.system_model import (
     BoundaryKind,
     DataFlow,
     DataStore,
+    ExternalEntity,
+    Operations,
     Process,
     SystemModel,
     control_text,
@@ -515,7 +518,7 @@ def _store_at_rest_unverified(
 
 
 #: The operations that prove a caller reads a store.
-_READS = frozenset({"read", "read-write"})
+_READS: frozenset[Operations] = frozenset({"read", "read-write"})
 
 
 def _store_readers(model: SystemModel, catalog: AssertionCatalog) -> Iterator[Match]:
@@ -1175,56 +1178,66 @@ PREDICATE_READERS: Mapping[str, PredicateReader] = MappingProxyType(
 )
 
 
-# The attacker mechanisms a lane accounts for at each led place (#2204).
+# The mechanisms a lane accounts for at each led place (#2204).
 #
 # A lane led to a place tends to write the attacker it writes most often there,
 # an on-path or storage-copy one, and to leave out a party that already holds a
 # legitimate path to the place: the writer of a store, the client that sends a
 # flow, the holder of a grant (QA-2026-11-24-01). `mechanisms_at` lists, for each
-# led place, every position the model supports there and the element the attack
-# acts through, so the lane accounts for each one.
+# led place, every **Attacker Position** the model supports there and the
+# element the attack acts through, so the lane accounts for each one.
 #
 # **Code decides the list, from the System Model alone.** A position belongs on
 # the list where the model shows the path it needs: a flow to sit on, a store to
-# copy, a process to run code in, an element that sends a flow to the place, or a
-# decided boundary crossing an outside party comes through. No reference claim,
-# case ID or ruling reaches it. Whether the sources support an attack through a
-# listed mechanism stays the lane's judgement.
+# copy, a process to run code in, a process or entity whose flow reaches the
+# place with an operation the lane can use, or a decided boundary crossing an
+# outside party comes through. No reference claim, case ID or ruling reaches
+# it. Whether the sources support an attack through a listed mechanism stays
+# the lane's judgement.
 
-#: Whether each lane's leads carry a mechanism list. True for the two lanes
-#: whose missed must-finds the lane wrote with another attacker at the same
-#: place (QA-2026-11-24-01); the other lanes name no target of the design.
-MECHANISM_LANES: Mapping[StrideCategory, bool] = MappingProxyType(
-    {
-        "spoofing": False,
-        "tampering": True,
-        "repudiation": False,
-        "information-disclosure": True,
-        "denial-of-service": False,
-        "elevation-of-privilege": False,
-    }
+_WRITES: frozenset[Operations] = frozenset({"write", "read-write"})
+
+#: For each lane, the operations a flow to a store must state for its sender to
+#: hold the store, or ``None`` where the lane's leads carry no mechanism list.
+#: A tampering holder must be able to write and a disclosure holder to read; an
+#: unstated operation leaves either open. The other lanes name no target of the
+#: design (QA-2026-11-17-13).
+MECHANISM_LANES: Mapping[StrideCategory, frozenset[Operations] | None] = (
+    MappingProxyType(
+        {
+            "spoofing": None,
+            "tampering": _WRITES | {"unknown"},
+            "repudiation": None,
+            "information-disclosure": _READS | {"unknown"},
+            "denial-of-service": None,
+            "elevation-of-privilege": None,
+        }
+    )
 )
 
-Entry: TypeAlias = tuple[AttackerPosition, str]
+_PositionVia: TypeAlias = tuple[AttackerPosition, str]
 
 
 def mechanisms_at(
     model: SystemModel, lane: str, places: Sequence[str]
 ) -> Mapping[str, tuple[Mechanism, ...]]:
     """Each led place of ``lane`` with the mechanisms the model supports there."""
-    if not table_entry(MECHANISM_LANES, lane):
+    holding = table_entry(MECHANISM_LANES, lane)
+    if holding is None:
         return MappingProxyType({})
     elements = {element.id: element for element in model.elements()}
-    crossing = {found.flow_id for found in model.boundary_crossings() if found.decided}
+    crossing_flows = {
+        found.flow_id for found in model.boundary_crossings() if found.decided
+    }
     listed: dict[str, tuple[Mechanism, ...]] = {}
     for place in places:
         element = elements.get(place)
         if isinstance(element, DataFlow):
-            entries = _at_flow(element, elements, crossing)
+            entries = _at_flow(element, elements, crossing_flows)
         elif isinstance(element, DataStore):
-            entries = _at_store(element, model, elements)
+            entries = _at_store(element, model, elements, holding)
         elif isinstance(element, Process):
-            entries = _at_process(element, model, crossing)
+            entries = _at_process(element, model, elements, crossing_flows)
         else:
             continue
         listed[place] = tuple(
@@ -1234,46 +1247,60 @@ def mechanisms_at(
     return MappingProxyType(listed)
 
 
-def _holder(element_id: str, elements: Mapping[str, object]) -> list[Entry]:
-    """The positions of an element that holds a legitimate path to a place."""
-    entries: list[Entry] = []
-    if isinstance(elements.get(element_id), Process):
+def _holder(element_id: str, elements: Mapping[str, object]) -> list[_PositionVia]:
+    """The positions of an element that holds a legitimate path to a place.
+
+    Code runs in a process, and an account is a process's or an entity's; a
+    store holds neither, so it holds no path here.
+    """
+    element = elements.get(element_id)
+    entries: list[_PositionVia] = []
+    if isinstance(element, Process):
         entries.append(("in-component", element_id))
-    entries.append(("authorized-principal", element_id))
+    if isinstance(element, Process | ExternalEntity):
+        entries.append(("authorized-principal", element_id))
     return entries
 
 
 def _at_flow(
-    flow: DataFlow, elements: Mapping[str, object], crossing: set[str]
-) -> list[Entry]:
-    entries: list[Entry] = [("on-path", flow.id), *_holder(flow.source, elements)]
+    flow: DataFlow, elements: Mapping[str, object], crossing_flows: set[str]
+) -> list[_PositionVia]:
+    entries: list[_PositionVia] = [
+        ("on-path", flow.id),
+        *_holder(flow.source, elements),
+    ]
     if isinstance(elements.get(flow.destination), Process):
         entries.append(("in-component", flow.destination))
-    if flow.id in crossing:
+    if flow.id in crossing_flows:
         entries.append(("outside", flow.id))
     return entries
 
 
 def _at_store(
-    store: DataStore, model: SystemModel, elements: Mapping[str, object]
-) -> list[Entry]:
-    entries: list[Entry] = [("storage-copy", store.id)]
-    for flow in model.data_flows:
-        if store.id not in (flow.source, flow.destination):
-            continue
-        other = flow.destination if flow.source == store.id else flow.source
-        entries += [*_holder(other, elements), ("on-path", flow.id)]
+    store: DataStore,
+    model: SystemModel,
+    elements: Mapping[str, object],
+    holding: frozenset[Operations],
+) -> list[_PositionVia]:
+    entries: list[_PositionVia] = [("storage-copy", store.id)]
+    for flow in inbound_flows(model, store.id):
+        entries.append(("on-path", flow.id))
+        if flow.operations in holding:
+            entries += _holder(flow.source, elements)
+    for flow in outbound_flows(model, store.id):
+        entries += [("on-path", flow.id), *_holder(flow.destination, elements)]
     return entries
 
 
 def _at_process(
-    process: Process, model: SystemModel, crossing: set[str]
-) -> list[Entry]:
-    entries: list[Entry] = [("in-component", process.id)]
-    for flow in model.data_flows:
-        if flow.destination != process.id:
-            continue
-        entries += [("authorized-principal", flow.source), ("on-path", flow.id)]
-        if flow.id in crossing:
+    process: Process,
+    model: SystemModel,
+    elements: Mapping[str, object],
+    crossing_flows: set[str],
+) -> list[_PositionVia]:
+    entries: list[_PositionVia] = [("in-component", process.id)]
+    for flow in inbound_flows(model, process.id):
+        entries += [("on-path", flow.id), *_holder(flow.source, elements)]
+        if flow.id in crossing_flows:
             entries.append(("outside", flow.id))
     return entries

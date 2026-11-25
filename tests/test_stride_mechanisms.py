@@ -19,6 +19,7 @@ from katra.frameworks import PACKAGES
 from katra.frameworks.stride.record import STRIDE_CATEGORIES
 from katra.frameworks.stride.rules import MECHANISM_LANES, mechanisms_at
 from katra.graph import unfence
+from katra.system_model import make_flow_id
 
 
 def model_of(case_id):
@@ -37,7 +38,7 @@ READER_FLOW = "flow:entity:reader>process:web-server>page-requests"
 
 def test_each_lane_states_whether_its_leads_carry_the_list():
     assert set(MECHANISM_LANES) == set(STRIDE_CATEGORIES)
-    assert {lane for lane, carried in MECHANISM_LANES.items() if carried} == {
+    assert {lane for lane, held in MECHANISM_LANES.items() if held is not None} == {
         "tampering",
         "information-disclosure",
     }
@@ -87,6 +88,48 @@ def test_a_process_lists_its_own_code_and_each_caller():
     }
 
 
+PUBLISH_FLOW = "flow:process:web-server>store:cdn-bucket>asset-publish"
+
+
+def test_a_store_holder_needs_an_operation_the_lane_can_use():
+    """The web server only writes to the CDN bucket: it can tamper with the
+    bucket's content and cannot read it through that flow."""
+    model = model_of(CMS)
+    assert listed(model, "tampering", "store:cdn-bucket") == {
+        ("storage-copy", "store:cdn-bucket"),
+        ("on-path", PUBLISH_FLOW),
+        ("in-component", "process:web-server"),
+        ("authorized-principal", "process:web-server"),
+    }
+    assert listed(model, "information-disclosure", "store:cdn-bucket") == {
+        ("storage-copy", "store:cdn-bucket"),
+        ("on-path", PUBLISH_FLOW),
+    }
+
+
+def test_a_store_holds_no_path_to_another_store():
+    """A store holds no account and runs no code."""
+    model = model_of(CMS)
+    copy = make_flow_id("store:cdn-bucket", "store:mysql-database", "copy")
+    model = model.model_copy(
+        update={
+            "data_flows": [
+                *model.data_flows,
+                model.data_flows[2].model_copy(
+                    update={
+                        "id": copy,
+                        "source": "store:cdn-bucket",
+                        "destination": "store:mysql-database",
+                    }
+                ),
+            ]
+        }
+    )
+    entries = listed(model, "tampering", "store:mysql-database")
+    assert ("on-path", copy) in entries
+    assert not {via for _, via in entries} & {"store:cdn-bucket"}
+
+
 def test_an_entity_is_no_led_place():
     assert mechanisms_at(model_of(CMS), "tampering", ["entity:reader"]) == {}
 
@@ -109,15 +152,10 @@ def test_every_listed_mechanism_names_a_path_the_model_shows(case_id):
                     assert one.via in crossing
 
 
-#: The six target rows of QA-2026-11-17-13: the place the lane was led to,
-#: and the mechanism a correct draft takes there.
+#: Five of the six target rows of QA-2026-11-17-13: the place the lane was
+#: led to, and the mechanism a correct draft takes there. The sixth, 02/3, is
+#: in the test below.
 TARGETS = [
-    (
-        "02-iot-fleet-telemetry",
-        "store:firmware-bucket",
-        "tampering",
-        Mechanism(position="authorized-principal", via="entity:sensor-node"),
-    ),
     (
         "03-batch-data-pipeline",
         "store:claims-warehouse",
@@ -163,6 +201,16 @@ def test_the_lane_block_lists_the_target_mechanism(case_id, place, lane, expecte
     key = f"candidates_stride_{lane.replace('-', '_')}"
     block = json.loads(unfence(prepared.state[key]))
     assert expected.model_dump() in block["mechanisms"][place]
+
+
+def test_the_firmware_target_is_no_holder_mechanism():
+    """Target 02/3 plants firmware in the bucket, but the model's only flow to
+    it is the sensor's read-only poll, so no holder can write there."""
+    model = model_of("02-iot-fleet-telemetry")
+    assert listed(model, "tampering", "store:firmware-bucket") == {
+        ("storage-copy", "store:firmware-bucket"),
+        ("on-path", "flow:entity:sensor-node>store:firmware-bucket>poll-firmware"),
+    }
 
 
 def test_a_lane_with_no_list_gets_no_mechanisms_key():
