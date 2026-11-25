@@ -28,7 +28,7 @@ No element of this model names a self-contained token. That absence is the fact 
 
 ## V9.2.1 — No token validity window applies, and the one open credential does not change that
 
-The webhook is the one place a token might have hidden, and its `authentication` reads `unknown`. That is not enough to bring the chapter in — but the draft says why the exclusion is safe rather than assuming it.
+The webhook is the one place a token might have hidden, and its `authentication` state is `unknown`. That is not enough to bring the chapter in — but the draft says why the exclusion is safe rather than assuming it.
 
 ```json
 {

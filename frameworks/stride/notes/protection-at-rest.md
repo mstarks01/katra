@@ -2,7 +2,7 @@
 
 ## When this applies
 
-A data store states no verified protection at rest, or its `encryption_at_rest` is `unknown`, and the store holds a graded asset.
+A data store states no verified protection at rest, or its `encryption_at_rest` state is `unknown`, and the store holds a graded asset.
 
 ## What to look for
 

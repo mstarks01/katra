@@ -2,7 +2,7 @@
 
 ## When this applies
 
-A flow crosses from one trust zone into another and its `authentication` is `unknown`, absent, or names something that identifies a channel rather than a caller.
+A flow crosses from one trust zone into another and its `authentication` state is `unknown` or `absent`, or its detail names something that identifies a channel rather than a caller.
 
 ## What to look for
 

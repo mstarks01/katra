@@ -124,7 +124,7 @@ Written against exemplar system B, and worth comparing with the canonical draft 
 
 ## Contrast, in system A: a compromised reader is not a storage copy
 
-`process:ledger-service` reads `store:accounts-db` through its own grant, and the store's `encryption_at_rest` is `unknown`. Two attackers reach the same rows. One obtains a copy of the storage: encryption at rest stops that attacker, and the draft is conditional on the unknown, as in the system B draft. The other runs code inside the ledger service and reads through the grant the service already holds: encryption at rest does nothing against that attacker, because the database decrypts each row for an authorized session. The two have different preconditions and different remedies, so they are two drafts. Where the sources say a component reads a store, write the compromised-reader draft. One draft does not stand in for the other.
+`process:ledger-service` reads `store:accounts-db` through its own grant, and the store's `encryption_at_rest` state is `unknown`. Two attackers reach the same rows. One obtains a copy of the storage: encryption at rest stops that attacker, and the draft is conditional on the unknown, as in the system B draft. The other runs code inside the ledger service and reads through the grant the service already holds: encryption at rest does nothing against that attacker, because the database decrypts each row for an authorized session. The two have different preconditions and different remedies, so they are two drafts. Where the sources say a component reads a store, write the compromised-reader draft. One draft does not stand in for the other.
 
 ```json
 {

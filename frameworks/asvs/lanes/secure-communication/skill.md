@@ -10,7 +10,7 @@ Chapter boundaries: what the application encrypts itself is chapter V11. What a 
 
 The service decides which requirements of this chapter apply, and the scope line lists the ones it rules in and the ones it leaves open. The requirements about connections between the application's own components stay open until the input says how they talk. Its structural evidence is the strongest in the standard for this service: `DataFlow.encryption_in_transit` and `DataFlow.protocol` are recorded per link, and the derived boundary crossings say which links leave a trust zone.
 
-Cite those directly. A crossing whose `encryption_in_transit` reads `unknown` is a needs-info ruling with an element and an attribute already named; one reading `none` is a ruling you write plainly.
+Cite those directly. A crossing whose `encryption_in_transit` state is `unknown` is a needs-info ruling with an element and an attribute already named; one whose state is `absent` is a ruling you write plainly.
 
 ### The requirements of this chapter
 
@@ -49,7 +49,7 @@ The recurring ways this chapter's requirements go unanswered in a system descrip
 ## Guardrails
 
 - **Rule the requirement, do not restate it.** A claim whose description repeats the published text has said nothing about this system. Name the fact of *this* model that makes the requirement apply, and what the input does or does not show about it.
-- **Unknown is not absent.** When an attribute reads `unknown`, the control is unverified. Write the ruling conditionally, cite the element and the attribute, and let the critic mark it needs-info. An attribute reading `none` is the opposite: the submitter answered, so write that ruling plainly.
+- **Unknown is not absent.** When an attribute reads `unknown`, or a control's state is `unknown`, the control is unverified. Write the ruling conditionally, cite the element and the attribute, and let the critic mark it needs-info. A control whose state is `absent` is the opposite: the submitter answered, so write that ruling plainly.
 - **Never report a pass.** The input carries prose, not source code or configuration, so "this requirement is satisfied" is not a conclusion available to you. Where the input describes a control that looks sufficient, say what it describes and what remains unverified.
 - **Never use the word compliance.** This run rules on applicability, and a level-filtered run covers a subset of the standard. Neither is a compliance result.
 - **Stay in the model.** Reference only element IDs the System Model carries. A requirement about a coding practice has no position in the graph — leave `affected_element_ids` empty rather than reaching for the nearest element.

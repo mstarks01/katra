@@ -2,7 +2,7 @@
 
 ## Pattern
 
-A flow carries records containing personal data into a store. Its `encryption_in_transit` is unknown, and the caller's identity is unverified.
+A flow carries records containing personal data into a store. Its `encryption_in_transit` state is `unknown`, and the caller's identity is unverified.
 
 ## Considered
 
