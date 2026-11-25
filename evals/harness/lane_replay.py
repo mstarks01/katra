@@ -347,8 +347,11 @@ def with_system_model(case: GoldenCase, path: Path) -> GoldenCase:
     """``case`` with the System Model at ``path`` in place of its blessed one.
 
     The case's references and signed facts name the blessed model's elements,
-    so the file holds the same element IDs; one that renames or drops an
-    element is refused, because its references would read as missed.
+    so the file holds the same element IDs. One that renames or drops an
+    element is refused, because its references would read as missed. One that
+    adds an element is refused too: no reference names it, so a draft on it
+    reads as unlisted, and the replay measures a new system rather than the
+    case with other attribute values.
     """
     try:
         model = load_model_file(path, archived=False)

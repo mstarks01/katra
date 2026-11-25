@@ -434,6 +434,30 @@ def test_a_system_model_file_without_an_element_is_refused_before_the_call(
     assert "must hold the blessed model's element IDs" in capsys.readouterr().err
 
 
+def test_a_system_model_file_with_an_added_element_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """An added element is one no reference names."""
+    built = case.model.model_dump(mode="json")
+    extra = {**built["external_entities"][0], "name": "auditor"}
+    extra["id"] = "entity:auditor"
+    built["external_entities"].append(extra)
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(built), encoding="utf-8")
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+
+    assert (
+        lane_replay.command_lane_replay(
+            replay_args(case=case.id, prepare_today="none", system_model=path)
+        )
+        == 1
+    )
+    assert "adds ['entity:auditor']" in capsys.readouterr().err
+
+
 def test_a_system_model_without_prepare_today_is_refused_before_the_call(
     recorded,
     case,  # noqa: F811

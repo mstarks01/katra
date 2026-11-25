@@ -25,7 +25,7 @@ from katra.open_facts import prepared_model
 from katra.system_model import ElementControl
 
 CASE = "01-payments-checkout"
-BUILT = (
+SET_ABSENT = (
     ("store:receipt-archive", "encryption_at_rest"),
     (
         "flow:process:order-service>store:receipt-archive>append-receipt",
@@ -39,7 +39,7 @@ def main() -> None:
     case = load_case(REPO_ROOT / DEFAULT_CORPUS / CASE)
     model = case.model.model_copy(deep=True)
     elements = {element.id: element for element in model.elements()}
-    for element_id, attribute in BUILT:
+    for element_id, attribute in SET_ABSENT:
         setattr(elements[element_id], attribute, ElementControl(state="absent"))
     OUT.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
     case = with_system_model(case, OUT)
