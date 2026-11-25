@@ -370,6 +370,7 @@ DATA_WALKS: dict[str, str] = {
             "tests/test_sitting.py:TestASittingReadsEverySource.test_the_reading_document_pins_the_files_the_app_pins",
             "tests/test_sitting_app.py:build_tree",
             "tests/test_stride_lanes_of_verb.py:test_no_blessed_reference_is_misfiled_by_the_table",
+            "tests/test_stride_lanes_of_verb.py:test_no_ruled_position_disagrees_with_the_position_a_verb_fixes",
             "tests/test_webapp_questions.py:test_the_page_opens_the_list_with_the_questions_the_service_counts",
         ),
         "reads the eval corpus, which holds case data and no source file",

@@ -257,6 +257,13 @@ requirement and for a question that cites an open fact, whatever you write."""
 modules = ["src/katra/frameworks/asvs/record.py"]
 check = "a_documentation_or_open_fact_question_is_settled_by_prose"
 
+[[outcome]]
+prompt = "frameworks/stride/output.md"
+sentence = """The service writes `on-path` for `intercept` and `alter-in-transit`,
+whatever you write."""
+modules = ["src/katra/frameworks/stride/record.py"]
+check = "a_verb_that_fixes_a_position_takes_it"
+
 # --- Modules with no pinned sentence yet ---------------------------------------
 
 [[reader]]

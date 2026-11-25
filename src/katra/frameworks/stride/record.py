@@ -15,7 +15,8 @@ nothing.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from types import MappingProxyType
 from typing import Literal, Self, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -173,6 +174,22 @@ LANES_OF_VERB: dict[ActionVerb, tuple[StrideCategory, ...]] = {
     # past their privilege. A credentialed cross-origin read is the shape.
     "ride-session": ("spoofing", "elevation-of-privilege", "information-disclosure"),
 }
+
+
+#: The attacker position a verb fixes by its own definition (#2369): an
+#: interception or an alteration in transit is done on the path between two
+#: ends. Code writes these; the lane agent decides the position of every other
+#: verb. ``abuse-grant`` is not here: its grant may be used by its holder or by
+#: whoever has taken the holder's place, so the verb does not fix where the
+#: attacker stands. **A table, checked against the corpus**:
+#: ``tests/test_stride_lanes_of_verb.py`` fails if a ruled position disagrees
+#: with it.
+POSITION_OF_VERB: Mapping[ActionVerb, AttackerPosition] = MappingProxyType(
+    {
+        "intercept": "on-path",
+        "alter-in-transit": "on-path",
+    }
+)
 
 
 #: The confidence of a threat that rests on an open fact: the critic's text
@@ -422,6 +439,15 @@ class ThreatProposal(Proposal):
     severity: Severity
     mitigations: list[Mitigation] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _position_the_verb_fixes(self) -> Self:
+        """The position :data:`POSITION_OF_VERB` gives the verb, whatever the
+        agent wrote (#2369)."""
+        fixed = POSITION_OF_VERB.get(self.verb)
+        if fixed is not None:
+            self.attacker_position = fixed
+        return self
+
 
 class ThreatProposals(ProposalBatch):
     """What a category agent node emits, narrowed to STRIDE's own proposal.
@@ -497,6 +523,12 @@ class ArchivedThreatProposal(ThreatProposal):
     """
 
     attacker_position: AttackerPosition | None = None  # type: ignore[assignment]
+
+    @model_validator(mode="after")
+    def _position_the_verb_fixes(self) -> Self:
+        """The stored position as the run wrote it: a record of what was stored
+        writes nothing the run did not."""
+        return self
 
 
 class ArchivedThreatProposals(ThreatProposals):

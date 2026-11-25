@@ -47,7 +47,7 @@ from katra.graph import parse_extraction
 from katra.system_model import ModelIndex, normalize_name
 from katra.validation import IssueCode, parse_and_validate, validate
 from tests import test_critic_controls as controls
-from tests.factories import sample_draft, sample_ruling, valid_model
+from tests.factories import sample_draft, sample_proposal, sample_ruling, valid_model
 from tests.source_tree import REPO_ROOT
 from tests.test_capabilities import _facts
 from tests.test_compact import compact_fixture
@@ -375,6 +375,16 @@ def a_documentation_or_open_fact_question_is_settled_by_prose():
     )
 
     assert len(documentation) == len(on_open_fact) == 1
+
+
+@decides
+def a_verb_that_fixes_a_position_takes_it():
+    from katra.frameworks.stride.record import POSITION_OF_VERB, ThreatProposal
+
+    for verb, position in POSITION_OF_VERB.items():
+        written = sample_proposal("S-01", verb=verb).model_dump()
+        written["attacker_position"] = "outside"
+        assert ThreatProposal.model_validate(written).attacker_position == position
 
 
 @decides
