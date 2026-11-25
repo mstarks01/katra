@@ -93,7 +93,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, NamedTuple, get_args
+from typing import Any, NamedTuple
 
 from katra.analysis import (
     CONTROL_ATTRIBUTES,
@@ -135,7 +135,7 @@ from katra.claims import (
     UnresolvedEvidence,
 )
 from katra.field_capabilities import with_field_capabilities
-from katra.frameworks import FrameworkPackage, schemas_for
+from katra.frameworks import FrameworkPackage, agent_writes_key, schemas_for
 from katra.system_model import (
     UNKNOWN,
     DataFlow,
@@ -1214,16 +1214,13 @@ def invalid_proposal_marks(
     names the claim the agent meant; where it is not, the mark is keyed by the
     lane and the position, which is the only identity left.
     """
-    schemas = schemas_for(package.name)
-    # A key the lane schema does not offer is code's to write, so a value an
-    # agent put there anyway names a draft code numbered otherwise: STRIDE's
-    # ``sequence`` is a draft's place in its lane, and a kept draft may hold
-    # the number the dropped one wrote.
-    (proposal,) = get_args(schemas.proposals.model_fields["claims"].annotation)
-    written = schemas.key_field in proposal.model_json_schema()["properties"]
+    key_field = schemas_for(package.name).key_field
+    # A key code writes, such as STRIDE's ``sequence``, may hold the number a
+    # kept draft now carries, so only a key the agent writes names the claim.
+    written = agent_writes_key(package.name)
     dropped: list[DroppedClaim] = []
     for entry in invalid:
-        key = entry.scalars.get(schemas.key_field) if written else None
+        key = entry.scalars.get(key_field) if written else None
         try:
             claim_id = package.compose_id(lane, key) if key is not None else ""
         except (TypeError, ValueError, KeyError):

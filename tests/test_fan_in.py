@@ -22,7 +22,7 @@ from katra.claims import (
     QuoteCandidate,
 )
 from katra.fan_in import DraftJoinError, join_drafts, snap_drafts
-from katra.frameworks import PACKAGES, schemas_for
+from katra.frameworks import PACKAGES, agent_writes_key, schemas_for
 from katra.frameworks.asvs.record import RequirementProposal, requirement_of
 from katra.frameworks.stride import STRIDE
 from katra.frameworks.stride.record import MAX_SEQUENCE, DraftThreat
@@ -623,6 +623,12 @@ class TestNumberingByPosition:
         )
 
         assert [proposal.sequence for proposal in batch.claims] == [1]
+
+    def test_only_a_key_in_the_lane_schema_is_the_agents(self):
+        assert {name: agent_writes_key(name) for name in sorted(PACKAGES)} == {
+            "asvs": True,
+            "stride": False,
+        }
 
     def test_a_draft_that_fails_its_schema_is_named_by_its_place(self):
         """The mark never takes the number the agent wrote, which code now gives

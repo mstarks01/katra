@@ -31,6 +31,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, cast, get_args
@@ -931,6 +932,23 @@ def _batch_element(batch: type[BaseModel]) -> type[BaseModel] | None:
     return args[0] if issubclass(args[0], BaseModel) else None
 
 
+@cache
+def agent_writes_key(framework: FrameworkName) -> bool:
+    """Whether a lane agent is asked for its framework's ID key.
+
+    Read from the JSON schema the provider compiles: a key the schema does not
+    offer is code's to write, as STRIDE's ``sequence`` is. A value an agent
+    put there anyway names nothing, so a reader of an agent's raw entry reads
+    the key only where this is true.
+    """
+    schemas = SCHEMAS[framework]
+    proposal = _batch_element(schemas.proposals)
+    return (
+        proposal is not None
+        and schemas.key_field in proposal.model_json_schema()["properties"]
+    )
+
+
 def _schema_issues(package: FrameworkPackage) -> list[str]:
     """The registration's two halves agree with each other.
 
@@ -940,8 +958,9 @@ def _schema_issues(package: FrameworkPackage) -> list[str]:
     ``KeyError`` naming nothing a maintainer could act on.
 
     The ``key_field`` rules are the interesting pair, and they are the resolver's
-    own contract read back. It must be a field the *agent* fills, so it is on the
-    proposal; it must not be a field the *claim* carries, because the service
+    own contract read back. It must be a field of the proposal, which the agent
+    writes or, for a key code numbers, the batch writes; it must not be a field
+    the *claim* carries, because the service
     composes the ID from it and a record spelling the key too would give an agent
     a second place to put a value the service already holds.
     """
@@ -964,7 +983,7 @@ def _schema_issues(package: FrameworkPackage) -> list[str]:
     elif schemas.key_field not in proposal.model_fields:
         issues.append(
             f"key_field {schemas.key_field!r} is not a field of"
-            f" {proposal.__name__}, so no agent supplies it"
+            f" {proposal.__name__}, so no proposal carries it"
         )
     if schemas.key_field in package.record.model_fields:
         issues.append(
