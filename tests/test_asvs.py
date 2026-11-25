@@ -965,19 +965,88 @@ class TestAJobDefersWhatItsInputCannotSettle:
 
     @staticmethod
     def _proposal(key: str, needs: Any) -> RequirementProposal:
-        return RequirementProposal(
-            title="t",
-            description="d",
-            requirement=key,
-            needs_evidence=needs,
-            direction="question" if needs else "gap",
-            quotes=[QuoteCandidate(text="Shoppers sign in", source_label="note")],
+        return RequirementProposal.model_validate(
+            {
+                "title": "t",
+                "description": "d",
+                "requirement": key,
+                "direction_and_kind": f"question-{needs}" if needs else "gap",
+                "quotes": [{"text": "Shoppers sign in", "source_label": "note"}],
+            }
         )
+
+    def test_each_documentation_requirement_sits_in_a_documentation_section(self):
+        from katra.frameworks.asvs.catalog import (
+            DOCUMENTATION_REQUIREMENTS,
+            REQUIREMENTS,
+        )
+
+        sections = {req.id: req.section_name for req in REQUIREMENTS}
+        in_sections = {req for req, name in sections.items() if "Documentation" in name}
+
+        assert DOCUMENTATION_REQUIREMENTS <= in_sections
+        assert in_sections - DOCUMENTATION_REQUIREMENTS == {"V11.1.3", "V15.1.2"}
+
+    def test_a_documentation_requirement_is_settled_by_prose(self):
+        """A documentation requirement asks for a document, so code reads its
+        kind as ``prose`` whatever the lane wrote (#2364)."""
+        kept, deferred = PACKAGES["asvs"].record.partition_proposals(
+            [self._proposal("1.1", "code")],
+            "validation-and-business-logic",
+            ["prose"],
+            (),
+            {},
+        )
+
+        assert len(kept) == 1
+        assert deferred == {}
+
+    def test_a_question_on_an_open_fact_is_settled_by_prose(self):
+        """A value the description could state settles an open fact (#2364)."""
+        from katra.evidence import evidence_catalog
+        from tests.factories import valid_model
+
+        catalog = evidence_catalog(valid_model())
+        open_fact = next(
+            ref for ref, ground in catalog.items() if ground.kind == "unknown-attribute"
+        )
+        proposal = self._proposal("2.4", "config").model_copy(
+            update={"evidence_refs": [open_fact]}
+        )
+
+        kept, deferred = PACKAGES["asvs"].record.partition_proposals(
+            [proposal], "encoding-and-sanitization", ["prose"], (), catalog
+        )
+
+        assert len(kept) == 1
+        assert deferred == {}
+
+    def test_a_question_on_a_stated_fact_keeps_the_lane_s_kind(self):
+        from katra.evidence import evidence_catalog
+        from tests.factories import valid_model
+
+        catalog = evidence_catalog(valid_model())
+        stated = next(
+            ref for ref, ground in catalog.items() if ground.kind == "derived-fact"
+        )
+        proposal = self._proposal("2.4", "config").model_copy(
+            update={"evidence_refs": [stated]}
+        )
+
+        _, deferred = PACKAGES["asvs"].record.partition_proposals(
+            [proposal], "encoding-and-sanitization", ["prose"], (), catalog
+        )
+
+        assert deferred == {"V1.2.4": "config"}
 
     def test_a_kind_the_job_carries_is_kept(self):
         """`prose` survives: the description was thin, which is answerable."""
         kept, deferred = PACKAGES["asvs"].record.partition_proposals(
-            [self._proposal("2.5", "prose")], "encoding-and-sanitization", ["prose"], ()
+            [self._proposal("2.5", "prose")],
+            "encoding-and-sanitization",
+            ["prose"],
+            (),
+            {},
         )
 
         assert len(kept) == 1
@@ -985,7 +1054,11 @@ class TestAJobDefersWhatItsInputCannotSettle:
 
     def test_a_kind_the_job_does_not_carry_is_deferred(self):
         kept, deferred = PACKAGES["asvs"].record.partition_proposals(
-            [self._proposal("2.4", "code")], "encoding-and-sanitization", ["prose"], ()
+            [self._proposal("2.4", "code")],
+            "encoding-and-sanitization",
+            ["prose"],
+            (),
+            {},
         )
 
         assert kept == []
@@ -996,7 +1069,7 @@ class TestAJobDefersWhatItsInputCannotSettle:
     def test_a_ruled_proposal_is_kept(self):
         """Empty means the agent ruled, and the critic judges it."""
         kept, deferred = PACKAGES["asvs"].record.partition_proposals(
-            [self._proposal("2.6", "")], "encoding-and-sanitization", ["prose"], ()
+            [self._proposal("2.6", "")], "encoding-and-sanitization", ["prose"], (), {}
         )
 
         assert len(kept) == 1
@@ -1008,10 +1081,10 @@ class TestAJobDefersWhatItsInputCannotSettle:
         proposals = [self._proposal("2.4", "code")]
 
         _, prose_only = PACKAGES["asvs"].record.partition_proposals(
-            proposals, "encoding-and-sanitization", ["prose"], ()
+            proposals, "encoding-and-sanitization", ["prose"], (), {}
         )
         kept, with_code = PACKAGES["asvs"].record.partition_proposals(
-            proposals, "encoding-and-sanitization", ["prose", "code"], ()
+            proposals, "encoding-and-sanitization", ["prose", "code"], (), {}
         )
 
         assert prose_only
@@ -1026,6 +1099,7 @@ class TestAJobDefersWhatItsInputCannotSettle:
             "encoding-and-sanitization",
             ["prose"],
             {"V1.2.4"},
+            {},
         )
 
         assert len(kept) == 1
@@ -1063,7 +1137,9 @@ def test_a_package_that_defers_nothing_inherits_the_neutral_default():
     """STRIDE's claims rest on the system's own shape, so it defers none."""
     from katra.frameworks.stride.record import DraftThreat
 
-    assert DraftThreat.partition_proposals(["a", "b"], "spoofing", ["prose"], ()) == (
+    assert DraftThreat.partition_proposals(
+        ["a", "b"], "spoofing", ["prose"], (), {}
+    ) == (
         ["a", "b"],
         {},
     )
@@ -1598,7 +1674,7 @@ def test_an_invented_key_is_marked_even_when_its_evidence_kind_would_defer_it():
 
     known, marks = known_proposals(proposals, ASVS, "authentication")
     kept, deferred = ASVS.record.partition_proposals(
-        known, "authentication", ["prose"], ()
+        known, "authentication", ["prose"], (), {}
     )
 
     assert known == [] and kept == [] and deferred == {}
@@ -1694,8 +1770,44 @@ class TestADraftStatesItsDirection:
     def test_the_agent_is_handed_the_field_and_must_answer_it(self):
         schema = RequirementProposal.model_json_schema()
 
-        assert "direction" in schema["properties"]
-        assert "direction" in schema["required"]
+        assert "direction_and_kind" in schema["properties"]
+        assert "direction_and_kind" in schema["required"]
+
+    def test_the_agent_cannot_write_a_direction_and_a_kind_that_disagree(self):
+        """One field holds both, so no pairing can disagree (#2356)."""
+        properties = RequirementProposal.model_json_schema()["properties"]
+
+        assert "direction" not in properties
+        assert "needs_evidence" not in properties
+
+    def test_the_one_field_names_each_direction_and_each_kind(self):
+        from typing import get_args
+
+        from katra.frameworks.asvs.record import (
+            Direction,
+            DirectionAndKind,
+            NeededEvidence,
+        )
+
+        joined = {
+            f"{direction}-{kind}" if kind else direction
+            for direction in get_args(Direction)
+            for kind in get_args(NeededEvidence)
+            if (direction == "question") == bool(kind)
+        }
+        assert set(get_args(DirectionAndKind)) == joined
+
+    def test_code_splits_the_field_for_every_reader(self):
+        proposal = self._proposal("question", "code", absent_elements=["ldap"])
+
+        assert (proposal.direction, proposal.needs_evidence) == ("question", "code")
+
+    def test_a_proposal_read_back_from_state_reads_as_it_was_written(self):
+        proposal = self._proposal("question", "code", absent_elements=["ldap"])
+
+        again = RequirementProposal.model_validate(proposal.model_dump())
+
+        assert again == proposal
 
     def test_the_draft_carries_the_direction_to_the_critic(self):
         from katra.critic import critic_view

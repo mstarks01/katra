@@ -787,12 +787,13 @@ def test_each_declared_site_still_reads_the_rule_itself():
 
 
 def _states_a_direction(node: ast.AST) -> bool:
-    """A required ``direction`` field whose ``Literal`` holds ``gap``."""
+    """A field a lane writes a direction in: ``direction_and_kind``, whose type
+    holds ``gap``, required in the schema (its only value is ``Field``)."""
     return (
         isinstance(node, ast.AnnAssign)
-        and _is_name(node.target, "direction")
-        and node.value is None
-        and any(_is_constant(part, "gap") for part in ast.walk(node.annotation))
+        and _is_name(node.target, "direction_and_kind")
+        and isinstance(node.value, ast.Call)
+        and _is_name(node.value.func, "Field")
     )
 
 
@@ -808,10 +809,10 @@ def _classes_holding(match: Callable[[ast.AST], bool]) -> list[Site]:
 
 
 def test_a_drafts_direction_has_one_field():
-    """Only ``RequirementProposal`` requires a draft's direction. The claim
-    that the service resolves from it carries a copy with a default, for a
-    report with no such field, so each direction that code reads comes
-    from this one field."""
+    """Only ``RequirementProposal`` asks a lane for a draft's direction, in
+    ``direction_and_kind``, which code splits. The claim that the service
+    resolves from it carries a copy with a default, for a report with no such
+    field, so each direction that code reads comes from this one field."""
     assert _classes_holding(_states_a_direction) == [
         ("src/katra/frameworks/asvs/record.py", "RequirementProposal")
     ]

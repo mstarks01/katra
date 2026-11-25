@@ -341,6 +341,43 @@ def a_needs_info_threat_reads_low():
 
 
 @decides
+def a_documentation_or_open_fact_question_is_settled_by_prose():
+    from katra.evidence import evidence_catalog
+    from katra.frameworks.asvs.record import RequirementProposal
+
+    catalog = evidence_catalog(valid_model())
+    open_fact = next(
+        ref for ref, ground in catalog.items() if ground.kind == "unknown-attribute"
+    )
+
+    def question(key: str, **fields: object) -> RequirementProposal:
+        return RequirementProposal.model_validate(
+            {
+                "title": "t",
+                "description": "d",
+                "requirement": key,
+                "direction_and_kind": "question-code",
+                "absent_elements": ["ldap"],
+                **fields,
+            }
+        )
+
+    record = PACKAGES["asvs"].record
+    documentation, _ = record.partition_proposals(
+        [question("1.1")], "validation-and-business-logic", ["prose"], (), {}
+    )
+    on_open_fact, _ = record.partition_proposals(
+        [question("2.4", evidence_refs=[open_fact])],
+        "encoding-and-sanitization",
+        ["prose"],
+        (),
+        catalog,
+    )
+
+    assert len(documentation) == len(on_open_fact) == 1
+
+
+@decides
 def a_threat_that_names_only_zones_is_dropped():
     record = PACKAGES["stride"].record
     data = {

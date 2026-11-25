@@ -14,7 +14,7 @@ denominator nobody reads.
 
 **The vocabulary is checked against production's own.** A disposition naming a
 kind of evidence exists to be compared against what a lane agent can ask for, so
-the table is held to ``RequirementProposal.needs_evidence``'s closed set rather
+the table is held to the closed set ``NeededEvidence`` names rather
 than to a second list somebody remembers to update.
 
 Deterministic over the corpus and free of provider calls, so it gates on every PR.
@@ -22,7 +22,7 @@ Deterministic over the corpus and free of provider calls, so it gates on every P
 
 from __future__ import annotations
 
-from typing import get_args, get_type_hints
+from typing import get_args
 
 from evals import verify_corpus
 from evals.harness.reference import (
@@ -31,7 +31,7 @@ from evals.harness.reference import (
     ReferenceRequirement,
     load_corpus,
 )
-from katra.frameworks.asvs.record import RequirementProposal
+from katra.frameworks.asvs.record import NeededEvidence
 
 #: How many ASVS reference records each case carries, all of which must carry a
 #: disposition. Spelled per case for the reason ``CLAIMS_PER_CASE`` is.
@@ -118,8 +118,7 @@ def test_the_disposition_table_matches_the_evidence_kinds_production_can_ask_for
     it belongs to. The empty string is production's *I ruled* answer rather than
     a request for evidence, so it is excluded rather than mapped.
     """
-    hints = get_type_hints(RequirementProposal)
-    kinds = {kind for kind in get_args(hints["needs_evidence"]) if kind}
+    kinds = {kind for kind in get_args(NeededEvidence) if kind}
 
     assert set(DISPOSITION_FOR_EVIDENCE) == kinds
     assert set(DISPOSITION_FOR_EVIDENCE.values()) <= set(get_args(AsvsDisposition))

@@ -9,8 +9,7 @@ Two drafts against exemplar system A. This is the chapter the System Model answe
 ```json
 {
   "requirement": "3.3",
-  "direction": "gap",
-  "needs_evidence": "",
+  "direction_and_kind": "gap",
   "title": "The transfer path to the ledger service runs unencrypted",
   "description": "V12.3.3 asks that every link between the application's own HTTP-based services is encrypted in transit and never falls back to plaintext. It applies to `flow:process:web-api>process:ledger-service>post-transfer`, a gRPC call — HTTP/2 underneath — that carries transfer instructions with customer identifiers and is a derived boundary crossing from `boundary:dmz` into `boundary:core`. Its `encryption_in_transit` is stated absent rather than left open, so the input settles this: the link runs without transport protection. The requirement's internal scope is the point rather than an exemption — this requirement exists for exactly this kind of link.",
   "affected_element_ids": [
@@ -32,8 +31,7 @@ A database connection is not an HTTP service, so the requirement for it is the o
 ```json
 {
   "requirement": "3.1",
-  "direction": "question",
-  "needs_evidence": "prose",
+  "direction_and_kind": "question-prose",
   "title": "Transport protection on the database link is never stated",
   "description": "V12.3.1 asks that every connection into and out of the application — databases, middleware, management tools and partner systems among them — runs over an encrypted protocol such as TLS with no fallback to plaintext. It applies to `flow:process:ledger-service>store:accounts-db>read-write-balances`, which carries balances and account-holder PII over the PostgreSQL wire protocol. Its `encryption_in_transit` is never stated, which is a different fact from the stated absence on `flow:process:web-api>process:ledger-service>post-transfer`: here the input left the question open rather than answering it. The requirement applies and the input does not settle it. A fuller description settles it: the submitter said what protects `flow:process:web-api>process:ledger-service>post-transfer` and can say the same here, so this is a question to put back to them rather than one this job cannot reach. What such a sentence cannot do is report a pass, and no ruling here does.",
   "affected_element_ids": [

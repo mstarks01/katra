@@ -282,6 +282,27 @@ _NAME_BY_ID: Mapping[str, str] = MappingProxyType(
 )
 
 
+#: The requirements that ask for a document, so the description of the system
+#: can settle them, and their evidence kind is ``prose``
+#: (``frameworks/asvs/cases/the-requirement-that-asks-for-a-document.md``).
+#: Each sits in a section the standard names as documentation, which
+#: ``tests/test_asvs.py`` checks. Two requirements of those sections are left
+#: out, because they ask for something no document is: V11.1.3 asks for
+#: discovery tooling, and V15.1.2 for a software bill of materials.
+DOCUMENTATION_REQUIREMENTS: frozenset[str] = frozenset(
+    {
+        *("V2.1.1", "V2.1.2", "V2.1.3", "V3.1.1", "V5.1.1"),
+        *("V6.1.1", "V6.1.2", "V6.1.3", "V7.1.1", "V7.1.2", "V7.1.3"),
+        *("V8.1.1", "V8.1.2", "V8.1.3", "V8.1.4"),
+        *("V11.1.1", "V11.1.2", "V11.1.4"),
+        *("V13.1.1", "V13.1.2", "V13.1.3", "V13.1.4"),
+        *("V14.1.1", "V14.1.2"),
+        *("V15.1.1", "V15.1.3", "V15.1.4", "V15.1.5"),
+        "V16.1.1",
+    }
+)
+
+
 def published_text(unit_id: str) -> str:
     """The standard's own words for one unit: a chapter's or a section's name,
     a requirement's text, or ``""`` for an ID it lacks."""
