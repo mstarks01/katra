@@ -304,9 +304,9 @@ def _tags(value: list[str]) -> str:
 #: precondition reads: a process extracted as ``web`` where the blessed model
 #: says ``non-web`` moves whether the framework runs at all. ``protocol`` is
 #: free text, so only its *state* is compared — stated or silent, through
-#: :func:`~katra.analysis.states_a_protocol`, the same reader the
-#: precondition uses — because a silent protocol is what holds that gate open,
-#: and an extraction that invents one closes it (#659).
+#: :func:`~katra.analysis.states_a_protocol` — because a stated web protocol
+#: satisfies that gate where the processes leave it open, and an extraction
+#: that invents one can run ASVS on a system whose source never said (#659).
 #:
 #: What is deliberately absent is the wording of every free-text attribute —
 #: ``technology``, ``data_description``, the protocol's own text. Two correct

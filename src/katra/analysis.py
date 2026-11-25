@@ -204,9 +204,8 @@ def states_a_protocol(protocol: str) -> bool:
     ``unverified`` there, so this needs no separate empty-string test of its
     own.
 
-    One reader for two callers: the ASVS precondition, which holds its answer
-    open on a silent protocol, and the extraction scorer, which checks that a
-    silent protocol stays silent.
+    The extraction scorer reads it to check that a silent protocol stays
+    silent.
     """
     return control_state(protocol) == "stated"
 

@@ -171,8 +171,10 @@ def test_precondition_facts_that_are_not_callable_fail_the_gate():
 
 
 def _undecidable_models():
-    """Every corpus model, and the shared model with nothing said about its
-    interfaces or its transport (#1542 F1)."""
+    """Every corpus model, the shared model with nothing said about its
+    interfaces or its transport (#1542 F1), the shared model with no
+    process and each pair of flow protocols below, and the shared model whose
+    interfaces are unsaid and whose flows state non-web protocols."""
     from katra.system_model import SystemModel
 
     models = [
@@ -184,7 +186,51 @@ def _undecidable_models():
         process.interface_kind = "unknown"
     for flow in silent.data_flows:
         flow.protocol = "unknown"
-    return [*models, ("silent", silent)]
+    pairs = (
+        ("MQTT", "SFTP"),
+        ("h2", "connect-rpc"),
+        ("AMQP, not HTTP", "MQTT"),
+        ("none", "MQTT"),
+        ("unknown", "MQTT"),
+        ("AMQP, not HTTP", "unknown"),
+    )
+    flows_only = [
+        (
+            f"no process, flows {first!r} and {second!r}",
+            _without_processes(first, second),
+        )
+        for first, second in pairs
+    ]
+    bare = valid_model().model_copy(update={"processes": [], "data_flows": []})
+    unsaid = valid_model()
+    for process in unsaid.processes:
+        process.interface_kind = "unknown"
+    for flow, protocol in zip(unsaid.data_flows, ("MQTT", "SFTP"), strict=True):
+        flow.protocol = protocol
+    return [
+        *models,
+        ("silent", silent),
+        *flows_only,
+        ("no process, no flow", bare),
+        ("unsaid interfaces, non-web flows", unsaid),
+    ]
+
+
+def _without_processes(*protocols):
+    model = valid_model()
+    flows = [
+        flow.model_copy(update={"protocol": protocol})
+        for flow, protocol in zip(model.data_flows, protocols, strict=True)
+    ]
+    return model.model_copy(update={"processes": [], "data_flows": flows})
+
+
+def _only_a_submission_decides(model, asked):
+    """The exceptions to ADR 0067 (ADR 0135): a model with no process, where
+    no fact the package offers is open. That holds where every flow states its
+    protocol, and where the model has no flow. The fact that decides the gate
+    is a process, and only a new submission adds one."""
+    return not model.processes and not asked
 
 
 @pytest.mark.parametrize("name", sorted(PACKAGES))
@@ -198,12 +244,19 @@ def test_every_undecidable_precondition_offers_an_answer_that_decides_it(name):
     from katra.answer_forms import answer_choices
     from katra.fact_answers import FactAnswer
     from katra.fact_writes import answered_model, check_fact_answers
+    from katra.open_facts import open_attribute
 
     package = PACKAGES[name]
     for label, model in _undecidable_models():
         if run_precondition(package, model) != "undecidable":
             continue
-        offered = package.precondition_facts(model)
+        offered = tuple(
+            ref
+            for ref in package.precondition_facts(model)
+            if open_attribute(model, ref.element_id, ref.attribute, None)
+        )
+        if _only_a_submission_decides(model, offered):
+            continue
         assert offered, f"{name} offers nothing to decide {label}"
         decided = set()
         for choice_at in range(2):

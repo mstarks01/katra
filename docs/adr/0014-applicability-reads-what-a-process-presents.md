@@ -7,6 +7,8 @@
 - **Relates to**: [ADR 0013](0013-asvs-rules-applicability-and-never-a-pass.md),
   which settled what an ASVS claim may assert. This one settles what decides
   whether the package runs at all, and amends neither of 0013's rulings.
+- **Amended by**: [ADR 0135](0135-a-flow-protocol-can-satisfy-asvs-and-never-refute-it.md),
+  which follows ADR 0027: a flow's protocol never refutes ASVS
 
 ## Context
 
@@ -70,6 +72,10 @@ A stated web protocol still **satisfies** the ASVS precondition, because a flow
 that says HTTPS says the same thing by another route. It can no longer **refuse**
 on its own, and it can no longer hold the answer open: a model whose every
 process states `non-web` has answered, whatever its flows leave unsaid.
+
+> **Amended by [ADR 0135](0135-a-flow-protocol-can-satisfy-asvs-and-never-refute-it.md).**
+> A flow's protocol never refutes ASVS, also in a model with no processes.
+> Only processes that all state `non-web` give `refuted`.
 
 ## Consequences
 

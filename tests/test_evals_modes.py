@@ -899,7 +899,8 @@ def test_the_sweep_aggregate_splits_by_element_type_and_attribute(case):
 def test_the_two_attributes_the_asvs_precondition_reads_are_scored(case):
     """A non-web process must stay non-web, and a silent protocol silent.
 
-    Both decide whether ASVS runs at all, so both are compared (#659). The
+    Both can decide whether ASVS runs at all: an interface can refute it, and
+    an invented web protocol can satisfy it. So both are compared (#659). The
     protocol is compared by state rather than wording: two correct
     readings of "over gRPC" spell it differently, and neither is an invention.
     """
