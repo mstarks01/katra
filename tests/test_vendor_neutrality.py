@@ -827,7 +827,9 @@ NODE_OUTPUT_SCHEMAS: dict[str, str] = {
     ),
     "CatalogProposal": "named directly: CatalogProposal",
     "CapabilityReading": "named directly: CapabilityReading",
-    "schemas.proposals": "every package's `proposals`, read from SCHEMAS",
+    "schemas.lane_proposals(lane.lane)": (
+        "every package's `lane_proposals` for each of its lanes, read from SCHEMAS"
+    ),
     "schemas.rulings": "every package's `rulings`, read from SCHEMAS",
 }
 
@@ -875,6 +877,9 @@ def _model_facing_schemas() -> dict[str, type[BaseModel]]:
         schemas = schemas_for(name)
         for role in ("proposals", "rulings"):
             cls = getattr(schemas, role)
+            found[cls.__name__] = cls
+        for lane in PACKAGES[name].lanes:
+            cls = schemas.lane_proposals(lane)
             found[cls.__name__] = cls
     return found
 

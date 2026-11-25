@@ -1943,10 +1943,13 @@ class TestEachLaneAsksForItsOwnUnits:
     def test_the_enums_together_hold_every_published_requirement(self):
         from katra.frameworks.asvs.catalog import requirements_for
 
-        lanes = PACKAGES["asvs"].lanes
-        offered = sum(len(self._requirement_enum(lane)) for lane in lanes)
+        offered = {
+            (lane, key)
+            for lane in PACKAGES["asvs"].lanes
+            for key in self._requirement_enum(lane)
+        }
 
-        assert offered == len(requirements_for(3)) == 345
+        assert len(offered) == len(requirements_for(3)) == 345
 
     def test_a_stride_lane_asks_for_the_shared_shape(self):
         stride = schemas_for("stride")

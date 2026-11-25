@@ -32,7 +32,7 @@ already holds does not ask the model for anything.
 ## Decision
 
 **Code states a capability present where a closed field of the model proves
-it.** `katra.field_capabilities.FIELD_CAPABILITIES` holds 17 rows.
+it.** `katra.field_capabilities.FIELD_CAPABILITIES` holds 18 rows.
 Each row reads only fields with a closed set of values: an element's kind, a
 process's exposure and interface, the asset tags, a stated protocol of a
 family the protocol table names, and a control state. No row reads free text
@@ -52,6 +52,7 @@ what extraction emitted.
 | `sensitive-data`, `secret-assets` | a process or a data store with one of those tags |
 | `external-facing-http-services` | an internet-facing process with a web interface |
 | `encryption` | a data store whose encryption at rest is stated and not assumed |
+| `browser-frontend` | a flow from an external entity of kind `human` to a process with a `web` interface |
 
 The application's parts are the model's processes and data stores. A
 protocol counts only where the flow states it, the model did not assume
