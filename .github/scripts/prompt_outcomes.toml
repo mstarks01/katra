@@ -251,6 +251,7 @@ because the service sets that rating."""
 modules = ["src/katra/critic.py", "src/katra/frameworks/stride/record.py"]
 check = "a_needs_info_threat_reads_low"
 
+[[outcome]]
 prompt = "frameworks/asvs/output.md"
 sentence = """The service reads the kind as `prose` for a documentation
 requirement and for a question that cites an open fact, whatever you write."""

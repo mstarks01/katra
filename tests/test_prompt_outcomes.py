@@ -340,6 +340,7 @@ def a_needs_info_threat_reads_low():
     assert ruling.confidence == "low"
 
 
+@decides
 def a_documentation_or_open_fact_question_is_settled_by_prose():
     from katra.evidence import evidence_catalog
     from katra.frameworks.asvs.record import RequirementProposal
