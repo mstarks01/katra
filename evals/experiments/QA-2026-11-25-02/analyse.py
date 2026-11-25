@@ -1,7 +1,8 @@
 """Read the extraction sweeps of two arms: one row per sweep, then the arm deltas.
 
 usage: analyse.py RUNS_DIR BEFORE AFTER, where each arm wrote <arm>-r<n>.json.
-A delta is in units of the BEFORE arm's sample standard deviation.
+A delta is in units of the BEFORE arm's sample standard deviation, or a raw
+change where that spread is zero.
 """
 
 import glob
@@ -67,11 +68,14 @@ def main(runs: Path, before: str, after: str) -> None:
         b = [row[key] for row in rows[before] if row.get(key) is not None]
         a = [row[key] for row in rows[after] if row.get(key) is not None]
         sd = spread(b)
-        delta = (statistics.mean(a) - statistics.mean(b)) / sd if sd else float("nan")
+        change = statistics.mean(a) - statistics.mean(b)
+        delta = (
+            f"{change / sd:+.2f} sd" if sd else f"{change:+.4f} raw, before spread 0"
+        )
         print(
             f"{key}: {before} {statistics.mean(b):.4f} sd {sd:.4f}"
             f"  {after} {statistics.mean(a):.4f} sd {spread(a):.4f}"
-            f"  delta {delta:+.2f} sd"
+            f"  delta {delta}"
         )
     charged = {arm: round(sum(r["charged"] for r in rows[arm]), 4) for arm in rows}
     print("charged:", charged)

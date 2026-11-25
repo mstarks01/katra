@@ -13,7 +13,7 @@ agreement: A 0.7808 sd 0.0120  B 0.7810 sd 0.0113  delta +0.02 sd
 endpoint_recall: A 0.7807 sd 0.0251  B 0.7963 sd 0.0249  delta +0.62 sd
 flow.authentication: A 0.8982 sd 0.0197  B 0.9162 sd 0.0138  delta +0.92 sd
 flow.encryption_in_transit: A 0.9860 sd 0.0034  B 0.9878 sd 0.0043  delta +0.53 sd
-store.encryption_at_rest: A 1.0000 sd 0.0000  B 1.0000 sd 0.0000  delta +nan sd
+store.encryption_at_rest: A 1.0000 sd 0.0000  B 1.0000 sd 0.0000  delta +0.0000 raw, before spread 0
 interaction_recall: A 0.7109 sd 0.0337  B 0.7379 sd 0.0311  delta +0.80 sd
 zone_recall: A 0.5067 sd 0.0140  B 0.4636 sd 0.0278  delta -3.08 sd
 crossings_recall: A 0.2667 sd 0.0398  B 0.2604 sd 0.0277  delta -0.16 sd
@@ -34,7 +34,7 @@ agreement: B 0.7810 sd 0.0113  C 0.7816 sd 0.0088  delta +0.05 sd
 endpoint_recall: B 0.7963 sd 0.0249  C 0.7784 sd 0.0214  delta -0.72 sd
 flow.authentication: B 0.9162 sd 0.0138  C 0.9042 sd 0.0130  delta -0.87 sd
 flow.encryption_in_transit: B 0.9878 sd 0.0043  C 0.9866 sd 0.0061  delta -0.28 sd
-store.encryption_at_rest: B 1.0000 sd 0.0000  C 0.9958 sd 0.0094  delta +nan sd
+store.encryption_at_rest: B 1.0000 sd 0.0000  C 0.9958 sd 0.0094  delta -0.0042 raw, before spread 0
 interaction_recall: B 0.7379 sd 0.0311  C 0.7207 sd 0.0274  delta -0.55 sd
 zone_recall: B 0.4636 sd 0.0278  C 0.5017 sd 0.0155  delta +1.37 sd
 crossings_recall: B 0.2604 sd 0.0277  C 0.2654 sd 0.0369  delta +0.18 sd
