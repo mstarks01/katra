@@ -614,8 +614,8 @@ def arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--judge",
         required=True,
-        help="the judge's model as <vendor>/<model>, for example"
-        " openrouter/anthropic/claude-opus-5. Its sampling is the vendor's default",
+        help="the judge's model as <vendor>/<model>, where <vendor> is a vendor"
+        " name of the tier config. Its sampling is the vendor's default",
     )
     parser.add_argument(
         "--samples",
