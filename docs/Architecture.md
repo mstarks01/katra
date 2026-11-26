@@ -249,8 +249,9 @@ not for any vendor's product line:
 Each LLM node belongs to a tier that the code fixes, and
 [`config/model_tiers.toml`](Configuration.md) maps each tier to a
 `(vendor, model)` pair. A node can also have an override: a pair of its own.
-Deterministic `FunctionNode`s carry no model. The `strong` tier does most of a job's model work — the lane fan-out of every
-carried framework, plus the critic and its re-ask.
+Deterministic `FunctionNode`s carry no model. The `strong` tier does most of a
+job's model work — the lane fan-out of every carried framework, plus the critic
+and its re-ask.
 
 The tiers and the overrides choose their vendor **independently**, so they can
 run different vendors at the same time. An independent critic is an override on

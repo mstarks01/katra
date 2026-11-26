@@ -7,6 +7,7 @@ tested against is in ``tests/test_certification.py``.
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -271,20 +272,19 @@ def test_a_binding_that_holds_a_quote_or_a_line_break_writes_nothing(tmp_path, b
     assert sampling_copy.read_text(encoding="utf-8") == before
 
 
-def test_each_manifest_key_is_an_escaped_toml_string():
-    """The writer escapes each key on its own, beside the binding check."""
+def test_each_manifest_key_is_an_escaped_toml_string(monkeypatch):
+    """The writer escapes each key on its own, beside the binding check: with
+    the check out of the way, a key that holds a quote, a backslash and a line
+    break reads back as one key and adds none."""
+    monkeypatch.setattr(certify_module, "is_binding_name", lambda name: True)
+    hostile = 'x"\\\nbase = ["' + "a" * 64 + '"]'
     manifest = BlessedManifest.model_construct(
-        version=MANIFEST_VERSION, tiers={'x"\ny = 1': frozenset()}
+        version=MANIFEST_VERSION, tiers={hostile: frozenset()}
     )
-    with pytest.raises(CertificationError, match="unknown binding"):
-        certify_module._dump_manifest(manifest)
-    good = BlessedManifest(
-        version=MANIFEST_VERSION,
-        tiers={"base": frozenset(), "critic/stride": frozenset()},
-    )
-    text = certify_module._dump_manifest(good)
-    assert '"base" = []' in text
-    assert '"critic/stride" = []' in text
+
+    read = tomllib.loads(certify_module._dump_manifest(manifest))
+
+    assert read["tiers"] == {hostile: []}
 
 
 def test_promote_blesses_an_override_under_its_node_key(tmp_path):
