@@ -13,6 +13,7 @@ import sys
 from evals.harness.lane_replay import compose, prepare_today
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import DEFAULT_CORPUS, development_cases, load_corpus
+from evals.reference_facts import facts_path
 from katra.frameworks import PACKAGES
 from katra.markdown_loader import MarkdownLoader
 
@@ -29,7 +30,7 @@ async def main(arms):
                 continue
             package = MarkdownLoader(REPO_ROOT / "frameworks" / framework)
             for arm in arms:
-                signed = REPO_ROOT / DEFAULT_CORPUS / case.id / "facts.json"
+                signed = facts_path(REPO_ROOT / DEFAULT_CORPUS / case.id)
                 if arm == "signed" and not signed.exists():
                     continue
                 material = prepare_today(case, framework, arm).material
