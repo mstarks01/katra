@@ -29,6 +29,9 @@ async def main(arms):
                 continue
             package = MarkdownLoader(REPO_ROOT / "frameworks" / framework)
             for arm in arms:
+                signed = REPO_ROOT / DEFAULT_CORPUS / case.id / "facts.json"
+                if arm == "signed" and not signed.exists():
+                    continue
                 material = prepare_today(case, framework, arm).material
                 for lane in PACKAGES[framework].lanes:
                     instruction, turn = await compose(
