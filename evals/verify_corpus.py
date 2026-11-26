@@ -54,6 +54,7 @@ from evals.harness.reference import (
     ExemplarProximity,
     Tier,
     missing_case_files,
+    route_issues,
 )
 from evals.harness.verbs import unknown_verbs
 from evals.reference_facts import (
@@ -276,7 +277,8 @@ def _asvs_record_issues(
 
     The optional ``disposition`` is checked against the closed vocabulary rather
     than against a pattern, for the reason the requirement is checked against the
-    catalog: a value nothing recognises scores as nothing at all.
+    catalog: a value nothing recognises scores as nothing at all. The optional
+    ``also_acceptable`` is checked by the loader's own route rule.
     """
     chapter = record["chapter"]
     if chapter not in PACKAGES["asvs"].lanes:
@@ -302,6 +304,10 @@ def _asvs_record_issues(
             f"{where} disposition {disposition!r} is not one of"
             f" {sorted(ASVS_DISPOSITIONS)}"
         )
+    for issue in route_issues(
+        record["requirement"], disposition, record.get("also_acceptable", [])
+    ):
+        yield f"{where} {issue}"
 
 
 #: Whether every lane a package declares must appear in *every* case's reference
@@ -862,6 +868,8 @@ def _wrong_shapes(record: dict) -> list[str]:
     ]
     if not strings(record.get("affected_element_ids", [])):
         wrong.append("affected_element_ids")
+    if not strings(record.get("also_acceptable", [])):
+        wrong.append("also_acceptable")
     return wrong
 
 

@@ -12,8 +12,10 @@ import re
 import shutil
 
 import pytest
+from pydantic import ValidationError
 
 from evals import build_review_docs, verify_corpus
+from evals.harness.reference import ReferenceRequirement
 from katra.grounding import verify_quote
 from katra.report import (
     InputRef,
@@ -207,6 +209,7 @@ def test_an_unmeasured_lane_fails_the_merge_bar():
         ("stride", "affected_element_ids", "process:storefront-api"),
         ("asvs", "chapter", ["V6"]),
         ("asvs", "requirement", 621),
+        ("asvs", "also_acceptable", "needs-code"),
     ],
 )
 def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, value):
@@ -221,6 +224,40 @@ def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, valu
     problems = list(verify_corpus._check_claims(framework, spoiled, set(), options))
 
     assert f"{framework}[0] fields of the wrong shape: ['{field}']" in problems
+
+
+@pytest.mark.parametrize(
+    ("disposition", "also_acceptable", "message"),
+    [
+        (
+            "gap-from-prose",
+            ["needs-code"],
+            "expects 'gap-from-prose' and names alternate routes",
+        ),
+        ("needs-config", ["not-applicable"], "as an alternate route, and a route"),
+        ("needs-config", ["needs-config"], "repeats its own disposition"),
+        ("needs-config", ["needs-code", "needs-code"], "repeats an alternate route"),
+    ],
+)
+def test_an_alternate_route_the_loader_refuses_is_a_problem(
+    disposition, also_acceptable, message
+):
+    """The corpus check and the loader read one route rule (#2393)."""
+    case_dir = verify_corpus.case_dirs()[0]
+    record = {
+        **verify_corpus._load_json(verify_corpus.claims_file(case_dir, "asvs"))[0],
+        "disposition": disposition,
+        "also_acceptable": also_acceptable,
+    }
+    options = verify_corpus.declared_options(
+        verify_corpus._load_json_object(case_dir / "case.json")
+    )["asvs"]
+
+    problems = list(verify_corpus._asvs_record_issues("a", record, options))
+
+    assert [problem for problem in problems if message in problem]
+    with pytest.raises(ValidationError, match=message):
+        ReferenceRequirement.model_validate(record)
 
 
 def test_a_severity_or_a_framework_block_of_the_wrong_shape_is_a_problem():

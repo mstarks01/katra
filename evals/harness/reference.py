@@ -363,6 +363,41 @@ DISPOSITION_FOR_EVIDENCE: Mapping[str, AsvsDisposition] = MappingProxyType(
 )
 
 
+def route_issues(
+    requirement: str, disposition: object, also_acceptable: Sequence[str]
+) -> list[str]:
+    """What is wrong with the alternate routes one ASVS record names.
+
+    The one reader of the route rule: :class:`ReferenceRequirement` raises the
+    first message, and the corpus check reports each one on its record.
+    """
+    if not also_acceptable:
+        return []
+    routes = set(DISPOSITION_FOR_EVIDENCE.values())
+    if disposition not in routes:
+        return [
+            (
+                f"{requirement} expects {disposition!r} and names alternate"
+                " routes; only a record expecting evidence has a route to be an"
+                f" alternative to (one of {sorted(routes)})"
+            )
+        ]
+    issues = []
+    if stray := sorted(set(also_acceptable) - routes):
+        issues.append(
+            f"{requirement} names {stray} as an alternate route, and a route is"
+            " a kind of evidence rather than a different answer"
+        )
+    if disposition in also_acceptable:
+        issues.append(
+            f"{requirement} repeats its own disposition {disposition!r} as an"
+            " alternate route"
+        )
+    if len(set(also_acceptable)) != len(also_acceptable):
+        issues.append(f"{requirement} repeats an alternate route")
+    return issues
+
+
 class ReferenceRequirement(ReferenceClaim):
     """ASVS's reference record: the chapter, the requirement, and what it expects.
 
@@ -413,28 +448,10 @@ class ReferenceRequirement(ReferenceClaim):
 
     @model_validator(mode="after")
     def _check_routes(self) -> Self:
-        if not self.also_acceptable:
-            return self
-        routes = set(DISPOSITION_FOR_EVIDENCE.values())
-        if self.disposition not in routes:
-            raise ValueError(
-                f"{self.requirement} expects {self.disposition!r} and names"
-                " alternate routes; only a record expecting evidence has a"
-                f" route to be an alternative to (one of {sorted(routes)})"
-            )
-        stray = sorted(set(self.also_acceptable) - routes)
-        if stray:
-            raise ValueError(
-                f"{self.requirement} names {stray} as an alternate route, and a"
-                " route is a kind of evidence rather than a different answer"
-            )
-        if self.disposition in self.also_acceptable:
-            raise ValueError(
-                f"{self.requirement} repeats its own disposition"
-                f" {self.disposition!r} as an alternate route"
-            )
-        if len(set(self.also_acceptable)) != len(self.also_acceptable):
-            raise ValueError(f"{self.requirement} repeats an alternate route")
+        if issues := route_issues(
+            self.requirement, self.disposition, self.also_acceptable
+        ):
+            raise ValueError(issues[0])
         return self
 
     @property
