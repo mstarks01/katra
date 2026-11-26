@@ -463,7 +463,9 @@ def _override_vendors(files: _Files) -> list[str]:
 
     The page cannot change an override, so a save keeps the key of each of
     these vendors, and the page's ``deletedKeys`` reads this list to say so.
-    A file the loader refuses gives none: the save then stops on that refusal.
+    It reads the raw ``[nodes]`` table, so a file that sets no tier still
+    gives its override vendors. A file that is missing or is not valid TOML
+    gives none.
     """
     try:
         _, nodes = files.lookup("model_tiers", ("nodes",))

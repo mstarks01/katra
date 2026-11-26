@@ -674,8 +674,8 @@ settings that were in force stay in force. After the save:
   shows, as a restart does.
 - A job storage change does not apply until a restart. The page names each
   changed job storage setting and tells you to restart the app.
-- A save that leaves no tier and no override on a vendor removes the key line of that vendor
-  and deletes its key file. The panel says so before the save.
+- A save that leaves no tier and no override on a vendor removes the key line
+  of that vendor and deletes its key file. The panel says so before the save.
 
 The app makes the settings directory at the first save, with mode `0700`, and
 writes `settings.env` and each key file with mode `0600`. Each key save writes
