@@ -210,7 +210,11 @@ def test_an_unmeasured_lane_fails_the_merge_bar():
         ("asvs", "chapter", ["V6"]),
         ("asvs", "requirement", 621),
         ("asvs", "also_acceptable", "needs-code"),
+        ("asvs", "also_acceptable", None),
+        ("asvs", "also_acceptable", ["needs-code", 2]),
+        ("asvs", "also_acceptable", {"needs-code": True}),
         ("asvs", "disposition", ["needs-code"]),
+        ("asvs", "disposition", 3),
     ],
 )
 def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, value):
@@ -259,6 +263,20 @@ def test_an_alternate_route_the_loader_refuses_is_a_problem(
     assert [problem for problem in problems if message in problem]
     with pytest.raises(ValidationError, match=message):
         ReferenceRequirement.model_validate(record)
+
+
+def test_a_route_defect_is_reported_beside_a_chapter_defect():
+    case_dir = verify_corpus.case_dirs()[0]
+    record = {
+        **verify_corpus._load_json(verify_corpus.claims_file(case_dir, "asvs"))[0],
+        "chapter": "no-such-chapter",
+        "disposition": "gap-from-prose",
+        "also_acceptable": ["needs-code"],
+    }
+
+    problems = list(verify_corpus._asvs_record_issues("a", record, {"level": 2}))
+
+    assert len(problems) == 2
 
 
 def test_a_null_disposition_is_unjudged_for_both_readers():

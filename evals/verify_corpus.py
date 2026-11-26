@@ -280,6 +280,7 @@ def _asvs_record_issues(
     catalog: a value nothing recognises scores as nothing at all. The optional
     ``also_acceptable`` is checked by the loader's own route rule.
     """
+    yield from _asvs_route_issues(where, record)
     chapter = record["chapter"]
     if chapter not in PACKAGES["asvs"].lanes:
         yield f"{where} chapter {chapter!r} is not an ASVS chapter"
@@ -295,9 +296,14 @@ def _asvs_record_issues(
             f" {chapter} chapter of ASVS {PACKAGES['asvs'].version} at level"
             f" {level}"
         )
-    # A disposition outside the vocabulary would load as a validation error
-    # rather than as a lint finding, which reports the whole corpus unreadable
-    # instead of naming the one record. Caught here, where the record is.
+
+
+def _asvs_route_issues(where: str, record: dict) -> Iterator[str]:
+    """What is wrong with one ASVS record's ``disposition`` and alternate routes.
+
+    A null ``disposition`` is unjudged, as the loader reads it. The route rule
+    is the loader's own, :func:`~evals.harness.reference.route_issues`.
+    """
     disposition = record.get("disposition")
     also_acceptable = record.get("also_acceptable", [])
     wrong = [
@@ -311,6 +317,9 @@ def _asvs_record_issues(
     if wrong:
         yield f"{where} fields of the wrong shape: {wrong}"
         return
+    # A disposition outside the vocabulary would load as a validation error
+    # rather than as a lint finding, which reports the whole corpus unreadable
+    # instead of naming the one record. Caught here, where the record is.
     if disposition is not None and disposition not in ASVS_DISPOSITIONS:
         yield (
             f"{where} disposition {disposition!r} is not one of"
