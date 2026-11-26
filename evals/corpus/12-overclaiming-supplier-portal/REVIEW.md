@@ -114,6 +114,8 @@ Not part of the question, but the records cite these names, so you need them.
 - `process:supplier-portal — supplier document portal` — Supported by the portal’s stated purpose and users. Source: > Supplier document portal.
 - `process:supplier-portal — portal` — The source calls it 'the portal' throughout; one portal. Ruled by the maintainer on 2026-09-16 (#961 step 6). Source: > The portal is a SaaS product.
 - `store:document-store — vendor platform` — Accepted as the storage role the source states for the documents. The alias keeps the store type, so a vendor platform modelled as anything but a store is not this element, and the whole SaaS platform is not equated with the store unconditionally. Ruled by the maintainer on 2026-09-16 (#961 step 6). Source: > documents themselves stay in the vendor's platform
+- `boundary:vendor-platform — vendor hosting` — The source says the vendor hosts the portal and that we run no part of it; that is the zone the reference names the vendor platform. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > The vendor hosts it and we do not run any part of it.
+- `boundary:cloud-account — our cloud account` — The source's own words for the one cloud account the case holds. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > The bucket, the service and the database are all in our cloud account.
 
 ### Your list
 

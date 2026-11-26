@@ -105,6 +105,7 @@ Not part of the question, but the records cite these names, so you need them.
 
 - `entity:browser — user's browser` — The source's own words for the browser. Ruled by the maintainer on 2026-09-16 (#961 step 6). Source: > A user's browser talks to the web application
 - `process:background-worker-process — background worker` — The source drops the word 'process' on second mention; one worker. Ruled by the maintainer on 2026-09-16 (#961 step 6). Source: > The background worker reads and writes the database.
+- `boundary:public-internet — outside network` — The source places the browser "outside our network" and names the zone no other way in that sentence; the reference's own excerpt for this zone is the same sentence. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > The browser sits outside our network
 
 ### Your list
 

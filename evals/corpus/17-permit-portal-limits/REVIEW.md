@@ -101,6 +101,10 @@ Not part of the question, but the records cite these names, so you need them.
 - `process:permit-gateway` — The permit gateway is placed on the internet because the schema requires a zone. (basis: The source says the gateway faces the internet and does not name it among what runs in the city's cloud account.)
 - `process:permit-gateway` — The permit gateway presents a web interface. (basis: Applicants apply on the portal, and every application request goes through the gateway. A portal is web, as prompts/extract.md rules.)
 
+**Reviewed aliases** — other names a reader ruled identify the same element, each with the words in the source that support it. An extraction using one is named differently, not wrong.
+
+- `boundary:city-cloud-account — city's cloud account` — The source's own words for the zone: the services and stores "run in the city's cloud account". Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > run in the city's cloud account
+
 ### Your list
 
 Write what could go wrong. Anything: an attack, a missing control, a question
