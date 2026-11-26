@@ -176,6 +176,7 @@ class TestOneNodeIsRecordedOnce:
             node_instructions=altered,
             frameworks=first.frameworks,
             tier_nodes=first.tier_nodes,
+            node_bindings=first.node_bindings,
         )
 
         with pytest.raises(ValueError, match="two different instructions"):

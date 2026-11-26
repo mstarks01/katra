@@ -31,7 +31,7 @@ framework's own findings sit in its own block under `analyses`.
 
 ```python
 class Report:
-    schema_version: str  # "4.0"
+    schema_version: str  # "4.1"
     disclaimer: str  # the SERVICE's: AI-generated, not human-reviewed
     job: Job  # id, status="completed", timestamps, revise_rounds, frameworks
     input: InputRef  # system_name + one ref per submitted source
@@ -1018,6 +1018,7 @@ class NodeRun:
     )
     model: str | None  # the SERVED build, vendor-prefixed; None for code-only nodes
     requested_model: str | None  # the CONFIGURED route this node asked for
+    binding: str | None  # the model setting the node ran on; None for code-only nodes
     instruction_sha256: (
         str | None
     )  # 64-hex digest of the instructions the graph this node ran in carried
@@ -1058,6 +1059,10 @@ class TokenUsage:
   `vertex_ai/gemini-2.5-pro`. Gemini is the example because one had to be, and
   because it is the one profiled family whose two values differ. On Claude,
   both fields hold the same string.
+- **`binding`** names the model setting that gave the node its model and its
+  sampling. It is the name of the node's tier: `base`, `strong` or `review`.
+  The same value keys the node's block in `sampling`. It is `null` on a
+  code-only node.
 - **`instruction_sha256`** is the digest of every instruction the graph this
   node ran in carried, with the job-varying placeholders unexpanded. It contains
   no submitter bytes. On a report it repeats `analysis_context.instruction_sha256`,
@@ -1341,4 +1346,8 @@ version before it. Read it when you load an archived report.
   optional reason. Not additive: a consumer that read the string reads the
   object now ([ADR 0134](adr/0134-a-control-carries-its-state.md)). A route
   that parses a stored 3.5 job record answers `409` (see
+  [HTTP-API](HTTP-API.md#a-job-from-an-older-schema-version)).
+- **Version 4.1:** each `NodeRun` carries `binding`, the model setting that
+  the node ran on. Additive for a consumer that reads only the 4.0 fields. A
+  route that parses a stored 4.0 job record answers `409` (see
   [HTTP-API](HTTP-API.md#a-job-from-an-older-schema-version)).

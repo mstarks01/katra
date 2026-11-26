@@ -64,7 +64,7 @@ from katra.graph import (
 )
 from katra.identity import execution_fingerprint
 from katra.jobs import PipelineCompleted, PipelineRejected
-from katra.model_tiers import TierName
+from katra.model_tiers import Binding
 from katra.report import (
     NodeRun,
     Report,
@@ -185,7 +185,7 @@ class SmokeResult:
     report, only questions it could not reach.
     """
 
-    tiers: dict[TierName, dict[str, str]]
+    tiers: dict[Binding, dict[str, str]]
     checks: tuple[Check, ...]
     failure: str | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
@@ -343,15 +343,17 @@ def _check_binding(report: Report, deployment: Deployment) -> Check:
     ]
     if wrong:
         return Check(BINDING, CheckResult.FAILED, "; ".join(wrong))
-    # Folded to one row per tier rather than one per node: eight rows of the
-    # same two routes is the same fact eight times, and the tiers are what a
+    # Folded to one row per binding rather than one per node: eight rows of the
+    # same two routes is the same fact eight times, and the bindings are what a
     # reader is checking against their own config.
-    by_tier = {
-        deployment.tier_of(run.node): run.requested_model
+    by_binding = {
+        deployment.binding_of(run.node): run.requested_model
         for run in runs
         if run.requested_model
     }
-    routes = ", ".join(f"{tier}={route}" for tier, route in sorted(by_tier.items()))
+    routes = ", ".join(
+        f"{binding}={route}" for binding, route in sorted(by_binding.items())
+    )
     return Check(
         BINDING, CheckResult.PASSED, f"{len(runs)} node executions on {routes}"
     )
@@ -442,16 +444,21 @@ def _check_sampling(report: Report, deployment: Deployment) -> Check:
     assert is that the values are in the report in the clear, because a
     fingerprint nobody can recompute is an assertion rather than evidence.
     """
-    tiers_run = {deployment.tier_of(run.node) for run in _llm_runs(report, deployment)}
-    missing = sorted(tier for tier in tiers_run if tier not in report.sampling)
+    bindings_run = {
+        deployment.binding_of(run.node) for run in _llm_runs(report, deployment)
+    }
+    missing = sorted(
+        binding for binding in bindings_run if binding not in report.sampling
+    )
     if missing:
         return Check(
             SAMPLING,
             CheckResult.FAILED,
-            f"tiers that ran with no recorded sampling block: {missing}",
+            f"bindings that ran with no recorded sampling block: {missing}",
         )
     rendered = "; ".join(
-        f"{tier}: {_render_params(report.sampling[tier])}" for tier in sorted(tiers_run)
+        f"{binding}: {_render_params(report.sampling[binding])}"
+        for binding in sorted(bindings_run)
     )
     return Check(SAMPLING, CheckResult.PASSED, rendered)
 
@@ -582,10 +589,12 @@ def _fingerprint_mismatches(report: Report, deployment: Deployment) -> list[str]
             or run.execution_fingerprint is None
         ):
             continue
-        tier = deployment.tier_of(run.node)
-        recorded = report.sampling.get(tier)
+        binding = deployment.binding_of(run.node)
+        recorded = report.sampling.get(binding)
         if recorded is None:
-            mismatches.append(f"{run.node}: tier {tier!r} has no recorded sampling")
+            mismatches.append(
+                f"{run.node}: binding {binding!r} has no recorded sampling"
+            )
             continue
         recomputed = execution_fingerprint(
             requested_route=run.requested_model,
@@ -597,7 +606,7 @@ def _fingerprint_mismatches(report: Report, deployment: Deployment) -> list[str]
         if recomputed != run.execution_fingerprint:
             mismatches.append(
                 f"{run.node}: recorded {run.execution_fingerprint} but"
-                f" {run.model} on tier {tier!r} recomputes to {recomputed}"
+                f" {run.model} on binding {binding!r} recomputes to {recomputed}"
             )
     return mismatches
 
@@ -636,8 +645,8 @@ def _unreached(reason: str) -> tuple[Check, ...]:
     return tuple(Check(name, CheckResult.UNKNOWN, reason) for name in CHECKS)
 
 
-def _tier_summary(deployment: Deployment) -> dict[TierName, dict[str, str]]:
-    """What each **bound** tier selected, for the result header.
+def _tier_summary(deployment: Deployment) -> dict[Binding, dict[str, str]]:
+    """What each **bound** binding selected, for the result header.
 
     Bound, because the header is a claim about what this run reached. A
     deployment selects a pair for every tier including one its node map points
@@ -645,14 +654,17 @@ def _tier_summary(deployment: Deployment) -> dict[TierName, dict[str, str]]:
     would report a provider the smoke never called, which is exactly the
     "unexercised reads like exercised" failure this whole file exists to avoid.
     """
+    selections = {
+        binding: deployment.tiers.selection_for(binding)
+        for binding in deployment.tiers.bindings
+    }
     return {
-        tier: {
+        binding: {
             "vendor": selection.vendor,
             "model": selection.model,
             "route": selection.route,
         }
-        for tier, selection in deployment.tiers.tiers.items()
-        if tier in deployment.tiers.bound_tiers
+        for binding, selection in selections.items()
     }
 
 

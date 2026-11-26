@@ -2,11 +2,12 @@
 
 A replay runs one node over archived input and pays for one call. The call has
 to reach the provider in the shape the graph gives it, or the replay measures
-a different request: the node's own tier adapter, the tier's sampling, the
-node's output schema as ``response_schema``, and the instruction as the system
-instruction. ADK builds all four from the ``LlmAgent``; this builds the same
-four from the deployment, through :meth:`~katra.deployment.Deployment.tier_of`,
-which is the one reader of the walk from a graph node to its tier.
+a different request: the adapter of the node's binding, the binding's
+sampling, the node's output schema as ``response_schema``, and the instruction
+as the system instruction. ADK builds all four from the ``LlmAgent``; this
+builds the same four from the deployment, through
+:meth:`~katra.deployment.Deployment.binding_of`, which is the one reader of the
+walk from a graph node to its binding.
 
 The user turn is the caller's, because it differs by node: a lane receives
 ``prepare``'s output and a critic receives its fan-in's, each through ADK's
@@ -22,7 +23,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from katra.binding import build_tier_adapters
+from katra.binding import build_adapter, build_tier_adapters
 from katra.deployment import Deployment
 from katra.execution import (
     event_attempts,
@@ -30,7 +31,9 @@ from katra.execution import (
     event_reported_charge,
     event_usage,
 )
-from katra.model_tiers import TierName
+from katra.model_tiers import Binding, TierSelection
+from katra.provider import ExecutedLlm
+from katra.sampling import TierSampling
 
 #: One call: the instruction and the user turn in, the model's raw text out.
 NodeCall = Callable[[str, types.Content], Awaitable[str]]
@@ -61,41 +64,57 @@ def node_call(
     ``reported_charge_usd`` is the charge in ``spent``, as
     :func:`~katra.execution.event_reported_charge` reads it for a graph run.
     """
-    return tier_call(deployment, deployment.tier_of(graph_node), schema, spent, seen)
+    binding = deployment.binding_of(graph_node)
+    adapter = build_tier_adapters(
+        deployment.tiers,
+        deployment.sampling,
+        deployment.resilience,
+        env=deployment.env,
+    )[binding]
+    return adapter_call(
+        adapter, deployment.sampling.for_binding(binding), schema, spent, seen
+    )
 
 
-def tier_call(
+def selection_call(
     deployment: Deployment,
-    tier: TierName,
+    binding: Binding,
+    selection: TierSelection,
+    sampling: TierSampling,
+    sampling_source: str,
     schema: Any,
     spent: list[float | None] | None,
     seen: list[dict[str, Any]] | None,
 ) -> NodeCall:
-    """One call on ``tier``, on this deployment's route for that tier.
+    """One call on a model that no graph node runs on.
 
-    :func:`node_call` resolves a graph node to its tier and calls this. An
-    eval call that no graph node makes, such as the judge of
-    ``evals/harness/judge_replay.py``, names its tier directly. ``spent`` and
+    An eval call that no graph node makes, such as the judge of
+    ``evals/harness/judge_replay.py``, names its own model and sampling.
+    :func:`~katra.binding.build_adapter` checks them as it checks a bound
+    tier. ``binding`` names the call in its error messages, and
+    ``sampling_source`` names where its sampling is set. ``spent`` and
     ``seen`` are as :func:`node_call` states them.
-
-    The adapter builder builds only the tiers that the node map binds. Where
-    no graph node runs on ``tier``, this call binds it under the node key
-    ``eval/<tier>``, in a copy of the tier config that only this call reads.
-    The builder then checks the tier's selection and credential as it checks
-    any bound tier.
     """
-    tiers = deployment.tiers
-    if tier not in tiers.bound_tiers:
-        tiers = tiers.model_copy(
-            update={"nodes": {**tiers.nodes, f"eval/{tier}": tier}}
-        )
-    adapter = build_tier_adapters(
-        tiers,
-        deployment.sampling,
+    adapter = build_adapter(
+        binding,
+        selection,
+        sampling,
+        sampling_source,
+        deployment.tiers,
         deployment.resilience,
-        env=deployment.env,
-    )[tier]
-    sampling = deployment.sampling.for_tier(tier)
+        deployment.env,
+    )
+    return adapter_call(adapter, sampling, schema, spent, seen)
+
+
+def adapter_call(
+    adapter: ExecutedLlm,
+    sampling: TierSampling,
+    schema: Any,
+    spent: list[float | None] | None,
+    seen: list[dict[str, Any]] | None,
+) -> NodeCall:
+    """One call through ``adapter``, with ``sampling`` and ``schema`` on the request."""
 
     async def call(instruction: str, turn: types.Content) -> str:
         config = sampling.to_generate_content_config()

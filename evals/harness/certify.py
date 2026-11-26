@@ -46,7 +46,7 @@ from katra.certification import (
     load_manifest,
 )
 from katra.identity import execution_fingerprint
-from katra.model_tiers import TIER_NAMES, TierName
+from katra.model_tiers import TIER_NAMES, Binding, TierName
 from katra.sampling import SamplingConfig, SamplingParam, TierSampling
 
 
@@ -259,7 +259,7 @@ def plan_promotion(
 
 
 def _tier_promotion(
-    tier: TierName,
+    tier: Binding,
     identity: TierIdentity,
     chosen: str | None,
     sampling: SamplingConfig,
@@ -269,7 +269,7 @@ def _tier_promotion(
     """One tier's promotion, refusing rather than choosing among its identities."""
     served = _select_served(tier, identity, chosen)
     requested = _select_requested(tier, identity)
-    tier_sampling = sampling.for_tier(tier)
+    tier_sampling = sampling.for_binding(tier)
     keys = tuple(
         TierIdentityKey(requested=requested, served=served, instruction_sha256=digest)
         for digest in identity.instruction_digests

@@ -45,7 +45,7 @@ record that promotion would bless.
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, Self
 
@@ -57,10 +57,10 @@ from pydantic import (
     model_validator,
 )
 
-from katra.certification import CertificationError, TierResolver
+from katra.certification import CertificationError
 from katra.charges import UPSTREAM_MAX_CHARS
 from katra.identity import IDENTITY_VERSION, execution_fingerprint
-from katra.model_tiers import TIER_NAMES, TierName
+from katra.model_tiers import TIER_NAMES, Binding, tier_named
 from katra.parsing import Sha256Hex
 from katra.report import NodeRun
 from katra.sampling import SamplingConfig, TierSampling
@@ -120,7 +120,9 @@ class NodeExecution(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     node: str = Field(min_length=1, max_length=100)
-    tier: TierName
+    #: The binding the node ran on. Named ``tier`` because each archived record
+    #: holds one; an archived ``review`` stays readable.
+    tier: Binding = Field(min_length=1, max_length=100)
     requested_model: str = Field(min_length=1, max_length=200)
     served_model: str = Field(min_length=1, max_length=200)
     instruction_sha256: Sha256Hex
@@ -241,7 +243,7 @@ class RunProvenance(BaseModel):
     tree: str = ""
     sampling_config_version: int
     tiers_config_version: int
-    sampling: dict[TierName, TierSampling]
+    sampling: dict[Binding, TierSampling]
     node_runs: dict[str, tuple[NodeExecution, ...]]
 
     @model_validator(mode="after")
@@ -282,11 +284,19 @@ class RunProvenance(BaseModel):
                 observed.setdefault(node, set()).add(execution.generation_fingerprint)
         return {node: frozenset(prints) for node, prints in observed.items()}
 
-    def tier_identities(self) -> dict[TierName, TierIdentity]:
-        """The per-tier summary, in the fixed tier order rather than a run's."""
-        by_tier: dict[TierName, list[NodeExecution]] = {}
+    def tier_identities(self) -> dict[Binding, TierIdentity]:
+        """The per-binding summary, in a fixed order rather than a run's.
+
+        The tiers come first in tier order, and then every other binding in
+        sorted order.
+        """
+        by_tier: dict[Binding, list[NodeExecution]] = {}
         for execution in self.executions:
             by_tier.setdefault(execution.tier, []).append(execution)
+        order = (
+            *(tier for tier in TIER_NAMES if tier in by_tier),
+            *sorted(binding for binding in by_tier if tier_named(binding) is None),
+        )
         return {
             tier: TierIdentity(
                 requested_models=_unique(e.requested_model for e in executions),
@@ -298,8 +308,8 @@ class RunProvenance(BaseModel):
                 fingerprints=_unique(e.generation_fingerprint for e in executions),
                 nodes=_unique(e.node for e in executions),
             )
-            for tier in TIER_NAMES
-            if (executions := by_tier.get(tier))
+            for tier in order
+            for executions in (by_tier[tier],)
         }
 
     def sampling_config(self) -> SamplingConfig:
@@ -311,8 +321,8 @@ class RunProvenance(BaseModel):
         something no run measured.
         """
         try:
-            return SamplingConfig(
-                version=self.sampling_config_version, tiers=dict(self.sampling)
+            return SamplingConfig.model_validate(
+                {"version": self.sampling_config_version, "tiers": dict(self.sampling)}
             )
         except ValidationError as exc:
             raise ProvenanceError(f"the recorded sampling is unusable: {exc}") from exc
@@ -454,7 +464,7 @@ def tree_identity(root: Path | None = None) -> str:
 def provenance_of(
     executions: Iterable[NodeRun],
     *,
-    tier_of: TierResolver,
+    binding_of: Callable[[str], Binding],
     sampling: SamplingConfig,
     tiers_config_version: int,
     build: Mapping[str, str],
@@ -468,12 +478,12 @@ def provenance_of(
     skipped: a deterministic FunctionNode has no execution identity, and an LLM
     node whose response named no build has nothing honest to record.
 
-    ``tier_of`` is the deployment's node -> tier walk, passed in rather than
-    re-derived, so this module never becomes a second opinion on which tier a
-    node runs on.
+    ``binding_of`` is the deployment's node -> binding walk, passed in rather
+    than re-derived, so this module never becomes a second opinion on which
+    binding a node runs on.
 
     ``build`` is the install the sweep ran on, handed in for the same reason
-    ``tier_of`` is: it is the sweep's own observation, and re-reading it here
+    ``binding_of`` is: it is the sweep's own observation, and re-reading it here
     would let the record describe something other than what produced the
     fingerprints beside it. The instruction digest is not passed at all — it
     rides on each :class:`~katra.report.NodeRun`, because this flat
@@ -512,7 +522,7 @@ def provenance_of(
         node_runs.setdefault(run.node, []).append(
             NodeExecution(
                 node=run.node,
-                tier=tier_of(run.node),
+                tier=binding_of(run.node),
                 requested_model=requested,
                 served_model=served,
                 instruction_sha256=instructions,
@@ -528,6 +538,6 @@ def provenance_of(
         tree=tree,
         sampling_config_version=sampling.version,
         tiers_config_version=tiers_config_version,
-        sampling=dict(sampling.tiers),
+        sampling={tier: block for tier, block in sampling.tiers.items()},
         node_runs={node: tuple(runs) for node, runs in node_runs.items()},
     )

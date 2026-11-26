@@ -84,6 +84,18 @@ SUPPORTED_VERSION = 9
 TierName = Literal["base", "strong", "review"]
 TIER_NAMES: tuple[TierName, ...] = ("base", "strong", "review")
 
+#: The key of one model setting that nodes run on: the name of a tier.
+#: Adapters, sampling blocks, execution records and report rows are keyed by
+#: it. :meth:`ModelTierConfig.binding_of` is the one reader of which binding a
+#: node runs on.
+Binding = str
+
+
+def tier_named(binding: Binding) -> TierName | None:
+    """The tier that ``binding`` names, or ``None`` if it names a node."""
+    return next((tier for tier in TIER_NAMES if tier == binding), None)
+
+
 # How far a framework's criticism has to sit from its own analysis. A table
 # rather than a chain of ``if``s, and the values are ordered weakest first so a
 # reader sees that each admits strictly less than the one below it.
@@ -691,9 +703,30 @@ class ModelTierConfig(BaseModel):
             raise ModelConfigError(f"unknown LLM node: {node!r}")
         return self.nodes[tier_key("analyze", framework)]
 
+    def binding_of(self, node: str) -> Binding:
+        """The binding the named LLM node runs on.
+
+        **The one reader of "which model setting does this node use".** The
+        adapters, the sampling resolver, the execution record and the report
+        row each key a node by this value. Every binding is a tier here.
+        """
+        return self.resolve_tier(node)
+
+    @property
+    def bindings(self) -> tuple[Binding, ...]:
+        """Every binding a node runs on, in tier order, without repeats."""
+        return tuple(tier for tier in TIER_NAMES if tier in self.bound_tiers)
+
+    def selection_for(self, binding: Binding) -> TierSelection:
+        """The ``(vendor, model)`` pair of one binding."""
+        tier = tier_named(binding)
+        if tier is None or tier not in self.tiers:
+            raise ModelConfigError(f"no model selection for binding {binding!r}")
+        return self.tiers[tier]
+
     def resolve_model(self, node: str) -> TierSelection:
         """The ``(vendor, model)`` pair the named LLM node runs on."""
-        return self.tiers[self.resolve_tier(node)]
+        return self.selection_for(self.binding_of(node))
 
 
 def source_vendor_breach(first: str, second: str) -> str | None:

@@ -271,10 +271,12 @@ def test_every_adapter_kwarg_comes_from_a_closed_set():
     assert (
         "charged = vendor.reports_charge or not vendor.routes_to_one_provider" in source
     )
-    assert "clients = charge_clients if charged else plain_clients" in source
+    assert (
+        "clients = layers.charge_clients if charged else layers.plain_clients" in source
+    )
     assert "client_cls = clients[vendor.refusal_shape]" in source
     assert "if vendor.caches_prompt_prefix(selection.model):" in source
-    assert "client_cls = marking[client_cls]" in source
+    assert "client_cls = layers.marking[client_cls]" in source
     assert body.count("**") == 6, (
         "a new spread reaches the translator constructor. Every value crossing"
         " this seam has to come from the vendor registry or from deploy-time"

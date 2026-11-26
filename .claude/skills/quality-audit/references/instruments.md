@@ -78,9 +78,9 @@ gives the shape, or the command refuses the view before the call. With `--out
 <file>` it writes the problems the re-ask was sent, its answer, the problems
 that remain and each ruling it changed that no problem named.
 
-`python -m evals.harness.run judge-replay <artifact> --out <file> --accept-cost <amount>`
-costs one judge call for each case and sample (two samples by default). A
-judge on the `review` tier reads each case's STRIDE findings, mixed with
+`python -m evals.harness.run judge-replay <artifact> --out <file> --judge <vendor>/<model> --accept-cost <amount>`
+costs one judge call for each case and sample (two samples by default). The
+judge, on the model that `--judge` names, reads each case's STRIDE findings, mixed with
 **Plant**s as known negatives, and answers whether the source supports each
 one. The command refuses a judge whose model comes from the source vendor of a
 model that wrote the sweep. The source vendor is the company that made the

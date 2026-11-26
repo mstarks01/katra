@@ -535,6 +535,13 @@ class GraphExecutor:
                     node=finish.node,
                     model=served,
                     requested_model=requested,
+                    # Indexed, not looked up: an LLM node with no binding is a
+                    # graph built wrong, and its row must not read as code-only.
+                    binding=(
+                        None
+                        if requested is None
+                        else self._pipeline.node_bindings[finish.node]
+                    ),
                     # Stamped with the fingerprint or not at all: the digest is
                     # an input to that hash, and a row carrying one without the
                     # other states an identity it cannot account for.

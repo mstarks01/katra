@@ -1,6 +1,8 @@
 # 101. A lane may run on its own tier
 
-- **Status**: accepted
+- **Status**: superseded by
+  [ADR 0136](0136-a-node-may-name-its-own-model.md), whose lane override
+  names a model and not a tier
 - **Date**: 2026-10-25
 - **Amends**: the rule in `config/model_tiers.toml` that tier keys are per
   framework and never per lane.

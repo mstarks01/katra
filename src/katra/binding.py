@@ -74,7 +74,7 @@ misconfiguration.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
@@ -98,11 +98,12 @@ from katra.model_gate import (
     takes_thinking,
 )
 from katra.model_tiers import (
-    TIER_NAMES,
+    Binding,
     ModelTierConfig,
     ReviewIndependence,
     TierName,
     TierSelection,
+    tier_named,
 )
 from katra.prompt_cache import (
     cache_marking_client_class,
@@ -257,7 +258,7 @@ def _check_reasoning_temperature(
 
 
 def check_temperature(
-    model: str, temperature: float | None, tier: TierName, config_file: str
+    model: str, temperature: float | None, binding: Binding, sampling_source: str
 ) -> None:
     """Every temperature rule keyed on the model rather than on the vendor.
 
@@ -271,24 +272,46 @@ def check_temperature(
     the provider rejects on its first request: the config loads, and the
     provider refuses pair one.
 
-    Takes the ``tier`` rather than a pre-composed source string because the
-    message has to name **both** places the value can come from: ``config_file``
-    is where the caller read it, and the tier gives the env var that overrides
-    it. Naming only the file sent a reader to a line that is not there, since
-    the shipped file sets no temperature and an override is the ordinary way one
-    arrives.
+    Takes the ``binding`` rather than a pre-composed source string because the
+    message has to name **both** places the value can come from:
+    ``sampling_source`` is where the caller read it, and :func:`_sampling_knob`
+    gives the env var that overrides a tier's value. Naming only the file sent a reader to a line that is not
+    there, since the shipped file sets no temperature and an override is the
+    ordinary way one arrives.
     """
-    knobs = (
-        f"this tier's temperature is set in {config_file},"
-        f" or by {env_var_for(tier, 'temperature')}"
-    )
-    source = f"tiers.{tier}"
+    knobs = _sampling_knob(binding, "temperature", sampling_source)
+    source = _binding_source(binding)
     _check_temperature_unset(model, temperature, source, knobs)
     _check_reasoning_temperature(model, temperature, source, knobs)
 
 
+#: Where a tier's sampling is set, for an error message.
+_SAMPLING_FILE = "config/sampling.toml"
+
+
+def _binding_source(binding: Binding) -> str:
+    """Where a binding's selection sits in the config, for an error message."""
+    return f"tiers.{binding}"
+
+
+def _sampling_knob(binding: Binding, param: str, sampling_source: str) -> str:
+    """Every place that sets one sampling param of a binding, for an error message.
+
+    ``sampling_source`` is where the binding's sampling is set: the sampling
+    file for a tier, or the code that pins it for a call no node makes. Only a
+    tier also has an env var.
+    """
+    tier = tier_named(binding)
+    where = f"this binding's {param} is set in {sampling_source}"
+    return where if tier is None else f"{where}, or by {env_var_for(tier, param)}"
+
+
 def _check_output_ceiling(
-    vendor: Vendor, model: str, sampling: TierSampling, source: str
+    vendor: Vendor,
+    model: str,
+    sampling: TierSampling,
+    source: str,
+    sampling_source: str,
 ) -> None:
     """Fail closed when a tier asks for more output than its model will serve.
 
@@ -311,7 +334,7 @@ def _check_output_ceiling(
     raise ModelGateError(
         f"{source}: {vendor.name} serves at most {ceiling} output tokens for"
         f" {model!r}, and this tier asks for {sampling.max_output_tokens}."
-        " Lower max_output_tokens for this tier in config/sampling.toml, or"
+        f" Lower max_output_tokens for this tier in {sampling_source}, or"
         " select a model whose ceiling covers it — a tier that asks for more"
         " than the model will produce is rejected on its first request."
     )
@@ -398,8 +421,8 @@ def build_tier_adapters(
     sampling: SamplingConfig,
     resilience: ResilienceConfig,
     env: Mapping[str, str] | None,
-) -> dict[TierName, ExecutedLlm]:
-    """One configured ``LiteLlm`` per **bound** tier, or fail closed before any call.
+) -> dict[Binding, ExecutedLlm]:
+    """One configured ``LiteLlm`` per binding, or fail closed before any call.
 
     Bound, not every tier in the vocabulary. ``review`` exists so criticism can
     be moved off the model it checks, and the shipped node map leaves it empty —
@@ -410,7 +433,8 @@ def build_tier_adapters(
 
     A tier nothing runs on needs no selection either. The config requires a
     ``(vendor, model)`` pair only for the tiers the node map names -- the same
-    rule this loop applies -- so moving a node onto an empty tier is refused at
+    rule :attr:`~katra.model_tiers.ModelTierConfig.bindings` applies -- so
+    moving a node onto an empty tier is refused at
     the edit that moves it, by the loader, rather than at a first run that never
     reaches the tier. What it does not require is a credential for a provider
     this deployment does not call.
@@ -424,130 +448,196 @@ def build_tier_adapters(
     """
     if env is None:
         env = os.environ
-
-    # Deferred so that importing this module never runs the ADK LiteLLM import
-    # for callers that only want the helpers; by this point ``model_gate`` has
-    # already pinned the cost map, so the ordering guarantee holds either way.
-    from google.adk.models.lite_llm import LiteLlm, LiteLLMClient
-
-    assert_kwarg_supported(_NUM_RETRIES_KWARG)
-
+    layers = _Layers.build()
     # One policy, so one budget, shared by every tier and every node on them.
     # A per-tier budget would let the lane agents storm the strong tier while
     # the base tier's untouched allowance sat beside it; a storm is a property
     # of the process, not of a tier. Capacity is one retry per LLM call of the
     # widest job — what a single job may spend from a cold bucket.
     policy = resilience.retry_policy(budget_capacity=widest_llm_calls())
-    # The charge layer sits on the translator, below the seam, because reading
-    # what a provider said about money needs the provider's own response. The
-    # retry loop sits above it in ``ExecutedLlm``, so every attempt it makes
-    # passes through the charge layer and the attempt that answered is the one
-    # whose figure is carried back.
-    translating = cache_write_reporting_llm_class(
-        charge_reporting_llm_class(refusal_reporting_llm_class(LiteLlm))
+    # Walked in the config's fixed order rather than the node map's, so the
+    # build order does not vary with how a config file happens to list its
+    # nodes. Which bindings a node runs on comes from the config.
+    return {
+        binding: _adapter(
+            binding,
+            tiers.selection_for(binding),
+            sampling.for_binding(binding),
+            _SAMPLING_FILE,
+            tiers=tiers,
+            resilience=resilience,
+            env=env,
+            layers=layers,
+            policy=policy,
+        )
+        for binding in tiers.bindings
+    }
+
+
+def build_adapter(
+    binding: Binding,
+    selection: TierSelection,
+    tier_sampling: TierSampling,
+    sampling_source: str,
+    tiers: ModelTierConfig,
+    resilience: ResilienceConfig,
+    env: Mapping[str, str],
+) -> ExecutedLlm:
+    """One adapter for a selection that no node runs on, or fail closed.
+
+    An eval call that no graph node makes, such as the judge of
+    ``evals/harness/judge_replay.py``, names its own model. The adapter goes
+    through the checks of :func:`build_tier_adapters`, and ``tiers`` gives the
+    credential mode, the charge arrangement and the upstream pin of the
+    selection's vendor. ``sampling_source`` names where the caller sets
+    ``tier_sampling``, for an error message. Its retry budget is its own.
+    """
+    return _adapter(
+        binding,
+        selection,
+        tier_sampling,
+        sampling_source,
+        tiers=tiers,
+        resilience=resilience,
+        env=env,
+        layers=_Layers.build(),
+        policy=resilience.retry_policy(budget_capacity=widest_llm_calls()),
     )
-    # The refusal layer is under a tier's client only where its vendor row
-    # states a body shape that the layer reads. A refusal on any other tier
-    # gives "refusal category not read" on the error.
-    refusal_client = refusal_capturing_client_class(LiteLLMClient)
-    plain_clients: dict[RefusalShape, type] = {
-        shape: refusal_client if layered else LiteLLMClient
-        for shape, layered in _CARRIES_REFUSAL_LAYER.items()
-    }
-    charge_clients = {
-        shape: charge_capturing_client_class(client)
-        for shape, client in plain_clients.items()
-    }
-    # The cache layer goes on top of whichever client a tier gets, and only
-    # where the vendor row says the tier's model takes the breakpoint.
-    marking = {
-        client: cache_marking_client_class(client)
-        for clients in (plain_clients, charge_clients)
-        for client in clients.values()
-    }
 
-    adapters: dict[TierName, ExecutedLlm] = {}
-    # Walked in the vocabulary's order rather than the map's, so the build order
-    # does not vary with how a config file happens to list its nodes. Which
-    # tiers are bound comes from the config.
-    for tier in TIER_NAMES:
-        if tier not in tiers.bound_tiers:
-            continue
-        selection = tiers.tiers[tier]
-        vendor = selection.vendor_entry
-        tier_sampling = sampling.for_tier(tier)
-        source = f"tiers.{tier}"
 
-        # The model-keyed rules first: where litellm also refuses the value,
-        # their message names the knob and the file, and litellm's does not.
-        check_temperature(
-            selection.model,
-            tier_sampling.temperature,
-            tier,
-            "config/sampling.toml",
+@dataclass(frozen=True)
+class _Layers:
+    """The translator and the client classes that every adapter picks from."""
+
+    translating: Any
+    plain_clients: dict[RefusalShape, type]
+    charge_clients: dict[RefusalShape, type]
+    marking: dict[type, type]
+
+    @classmethod
+    def build(cls) -> Self:
+        """Compose the layers once for one build."""
+        # Deferred so that importing this module never runs the ADK LiteLLM import
+        # for callers that only want the helpers; by this point ``model_gate`` has
+        # already pinned the cost map, so the ordering guarantee holds either way.
+        from google.adk.models.lite_llm import LiteLlm, LiteLLMClient
+
+        assert_kwarg_supported(_NUM_RETRIES_KWARG)
+
+        # The charge layer sits on the translator, below the seam, because reading
+        # what a provider said about money needs the provider's own response. The
+        # retry loop sits above it in ``ExecutedLlm``, so every attempt it makes
+        # passes through the charge layer and the attempt that answered is the one
+        # whose figure is carried back.
+        translating = cache_write_reporting_llm_class(
+            charge_reporting_llm_class(refusal_reporting_llm_class(LiteLlm))
         )
-        if tier_sampling.thinking is not None and not takes_thinking(
-            vendor, selection.model
-        ):
-            raise NoThinkingLevel(
-                tier,
-                f"{source}: the model takes no thinking level; leave"
-                f" {env_var_for(tier, 'thinking')} unset",
-            )
-        check_supported(
-            vendor, selection.model, tier_sampling.gate_params(), source=source
-        )
-        _check_output_ceiling(vendor, selection.model, tier_sampling, source)
-        rungs = rungs_for(vendor, selection.model, tier_sampling, source)
-        require_sdk(selection.vendor)
-        charged = vendor.reports_charge or not vendor.routes_to_one_provider
-        clients = charge_clients if charged else plain_clients
-        client_cls = clients[vendor.refusal_shape]
-        if vendor.caches_prompt_prefix(selection.model):
-            client_cls = marking[client_cls]
-
-        translators = {
-            rung: _translator(
-                translating,
-                rung,
-                selection=selection,
-                vendor=vendor,
-                tier_sampling=tier_sampling,
-                tiers=tiers,
-                resilience=resilience,
-                env=env,
-                client_cls=client_cls,
-                charged=charged,
-            )
-            for rung in rungs
+        # The refusal layer is under a tier's client only where its vendor row
+        # states a body shape that the layer reads. A refusal on any other tier
+        # gives "refusal category not read" on the error.
+        refusal_client = refusal_capturing_client_class(LiteLLMClient)
+        plain_clients: dict[RefusalShape, type] = {
+            shape: refusal_client if layered else LiteLLMClient
+            for shape, layered in _CARRIES_REFUSAL_LAYER.items()
         }
-        # The tier's configuration — the credential, the seed, the reasoning
-        # effort, the request timeout — stays on the translator, which is the
-        # provider side of the seam. What crosses is one call's own request.
-        adapters[tier] = ExecutedLlm(
-            model=selection.route,
-            executor=InProcessExecutor(
-                Ladder(rungs),
-                translators,
-                SCHEMA_RULES[vendor.schema_rule(selection.model)],
-            ),
-            retry_policy=policy,
+        charge_clients = {
+            shape: charge_capturing_client_class(client)
+            for shape, client in plain_clients.items()
+        }
+        # The cache layer goes on top of whichever client a tier gets, and only
+        # where the vendor row says the tier's model takes the breakpoint.
+        marking = {
+            client: cache_marking_client_class(client)
+            for clients in (plain_clients, charge_clients)
+            for client in clients.values()
+        }
+        return cls(translating, plain_clients, charge_clients, marking)
+
+
+def _adapter(
+    binding: Binding,
+    selection: TierSelection,
+    tier_sampling: TierSampling,
+    sampling_source: str,
+    *,
+    tiers: ModelTierConfig,
+    resilience: ResilienceConfig,
+    env: Mapping[str, str],
+    layers: _Layers,
+    policy: Any,
+) -> ExecutedLlm:
+    """One binding's adapter: every build-time check, then the rungs."""
+    vendor = selection.vendor_entry
+    source = _binding_source(binding)
+
+    # The model-keyed rules first: where litellm also refuses the value,
+    # their message names the knob and the file, and litellm's does not.
+    check_temperature(
+        selection.model,
+        tier_sampling.temperature,
+        binding,
+        sampling_source,
+    )
+    if tier_sampling.thinking is not None and not takes_thinking(
+        vendor, selection.model
+    ):
+        raise NoThinkingLevel(
+            binding,
+            f"{source}: the model takes no thinking level; leave it unset"
+            f" ({_sampling_knob(binding, 'thinking', sampling_source)})",
         )
-    return adapters
+    check_supported(vendor, selection.model, tier_sampling.gate_params(), source=source)
+    _check_output_ceiling(
+        vendor, selection.model, tier_sampling, source, sampling_source
+    )
+    rungs = rungs_for(vendor, selection.model, tier_sampling, source)
+    require_sdk(selection.vendor)
+    charged = vendor.reports_charge or not vendor.routes_to_one_provider
+    clients = layers.charge_clients if charged else layers.plain_clients
+    client_cls = clients[vendor.refusal_shape]
+    if vendor.caches_prompt_prefix(selection.model):
+        client_cls = layers.marking[client_cls]
+
+    translators = {
+        rung: _translator(
+            layers.translating,
+            rung,
+            selection=selection,
+            vendor=vendor,
+            tier_sampling=tier_sampling,
+            tiers=tiers,
+            resilience=resilience,
+            env=env,
+            client_cls=client_cls,
+            charged=charged,
+        )
+        for rung in rungs
+    }
+    # The tier's configuration — the credential, the seed, the reasoning
+    # effort, the request timeout — stays on the translator, which is the
+    # provider side of the seam. What crosses is one call's own request.
+    return ExecutedLlm(
+        model=selection.route,
+        executor=InProcessExecutor(
+            Ladder(rungs),
+            translators,
+            SCHEMA_RULES[vendor.schema_rule(selection.model)],
+        ),
+        retry_policy=policy,
+    )
 
 
-def make_resolve_model(
-    adapters: Mapping[TierName, ExecutedLlm], tiers: ModelTierConfig
-):
-    """Node -> the adapter for its tier, the ``ModelResolver`` the graph wants.
+def make_resolve_model(adapters: Mapping[Binding, ExecutedLlm], tiers: ModelTierConfig):
+    """Node -> the adapter for its binding, the ``ModelResolver`` the graph wants.
 
-    The node -> tier walk stays in the tier config, so this never re-derives it.
-    Nodes on one tier share an adapter instance by design: the credential and
-    supported-param checks then fire once per tier rather than once per node.
+    The node -> binding walk stays in the tier config, so this never re-derives
+    it. Nodes on one binding share an adapter instance by design: the credential
+    and supported-param checks then fire once per binding rather than once per
+    node.
     """
 
     def resolve_model(node: str) -> ExecutedLlm:
-        return adapters[tiers.resolve_tier(node)]
+        return adapters[tiers.binding_of(node)]
 
     return resolve_model
 
@@ -575,6 +665,9 @@ class NodeBinding:
     resolve_model: ModelResolver
     resolve_sampling: SamplingResolver
     tier_sampling: dict[TierName, TierSampling]
+    #: Node -> the binding it runs on, from the same tier config as the two
+    #: resolvers above. The report row of each node records it.
+    binding_of: Callable[[str], Binding]
     #: How far this deployment required criticism to sit from the analysis it
     #: checks. Carried through the binding because that is the value the tier
     #: config already travels in, and the report has to state it: a reader of a
@@ -597,7 +690,8 @@ class NodeBinding:
         """
         return cls(
             resolve_model=resolve_model,
-            resolve_sampling=make_resolve_sampling(sampling, tiers.resolve_tier),
+            resolve_sampling=make_resolve_sampling(sampling, tiers.binding_of),
             tier_sampling=dict(sampling.tiers),
+            binding_of=tiers.binding_of,
             review_independence=tiers.review_independence,
         )
