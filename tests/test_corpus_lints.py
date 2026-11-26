@@ -12,8 +12,10 @@ import re
 import shutil
 
 import pytest
+from pydantic import ValidationError
 
 from evals import build_review_docs, verify_corpus
+from evals.harness.reference import ReferenceRequirement
 from katra.grounding import verify_quote
 from katra.report import (
     InputRef,
@@ -207,6 +209,12 @@ def test_an_unmeasured_lane_fails_the_merge_bar():
         ("stride", "affected_element_ids", "process:storefront-api"),
         ("asvs", "chapter", ["V6"]),
         ("asvs", "requirement", 621),
+        ("asvs", "also_acceptable", "needs-code"),
+        ("asvs", "also_acceptable", None),
+        ("asvs", "also_acceptable", ["needs-code", 2]),
+        ("asvs", "also_acceptable", {"needs-code": True}),
+        ("asvs", "disposition", ["needs-code"]),
+        ("asvs", "disposition", 3),
     ],
 )
 def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, value):
@@ -218,9 +226,90 @@ def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, valu
         verify_corpus._load_json_object(case_dir / "case.json")
     )[framework]
 
-    problems = list(verify_corpus._check_claims(framework, spoiled, set(), options))
+    cited = {
+        element for record in records for element in record["affected_element_ids"]
+    }
 
-    assert f"{framework}[0] fields of the wrong shape: ['{field}']" in problems
+    problems = list(verify_corpus._check_claims(framework, spoiled, cited, options))
+
+    assert problems == [f"{framework}[0] fields of the wrong shape: ['{field}']"]
+
+
+@pytest.mark.parametrize(
+    ("disposition", "also_acceptable", "message"),
+    [
+        (
+            "gap-from-prose",
+            ["needs-code"],
+            "expects 'gap-from-prose' and names alternate routes",
+        ),
+        ("needs-config", ["not-applicable"], "as an alternate route; a route is"),
+        ("needs-config", ["needs-config"], "repeats its own disposition"),
+        ("needs-config", ["needs-code", "needs-code"], "repeats an alternate route"),
+    ],
+)
+def test_an_alternate_route_the_loader_refuses_is_a_problem(
+    disposition, also_acceptable, message
+):
+    """The corpus check and the loader read one route rule (#2393)."""
+    case_dir = verify_corpus.case_dirs()[0]
+    record = {
+        **verify_corpus._load_json(verify_corpus.claims_file(case_dir, "asvs"))[0],
+        "disposition": disposition,
+        "also_acceptable": also_acceptable,
+    }
+    options = verify_corpus.declared_options(
+        verify_corpus._load_json_object(case_dir / "case.json")
+    )["asvs"]
+
+    problems = list(verify_corpus._asvs_record_issues("a", record, options))
+
+    assert [problem for problem in problems if message in problem]
+    with pytest.raises(ValidationError, match=message):
+        ReferenceRequirement.model_validate(record)
+
+
+def test_a_route_defect_is_reported_beside_a_chapter_defect():
+    case_dir = verify_corpus.case_dirs()[0]
+    record = {
+        **verify_corpus._load_json(verify_corpus.claims_file(case_dir, "asvs"))[0],
+        "chapter": "no-such-chapter",
+        "disposition": "gap-from-prose",
+        "also_acceptable": ["needs-code"],
+    }
+
+    problems = list(verify_corpus._asvs_record_issues("a", record, {"level": 2}))
+
+    assert len(problems) == 2
+    assert [problem for problem in problems if "is not an ASVS chapter" in problem]
+    assert [problem for problem in problems if "names alternate routes" in problem]
+
+
+def test_a_null_disposition_is_unjudged_for_both_readers():
+    case_dir = verify_corpus.case_dirs()[0]
+    record = {
+        **verify_corpus._load_json(verify_corpus.claims_file(case_dir, "asvs"))[0],
+        "disposition": None,
+    }
+    options = verify_corpus.declared_options(
+        verify_corpus._load_json_object(case_dir / "case.json")
+    )["asvs"]
+
+    problems = list(verify_corpus._asvs_record_issues("a", record, options))
+
+    assert problems == []
+    assert ReferenceRequirement.model_validate(record).disposition is None
+
+
+def test_a_route_field_on_a_stride_record_is_only_unexpected():
+    case_dir = verify_corpus.case_dirs()[0]
+    records = verify_corpus._load_json(verify_corpus.claims_file(case_dir, "stride"))
+    spoiled = [{**records[0], "also_acceptable": "x"}, *records[1:]]
+
+    problems = list(verify_corpus._check_claims("stride", spoiled, set(), {}))
+
+    assert "stride[0] has unexpected fields: ['also_acceptable']" in problems
+    assert not [problem for problem in problems if "wrong shape" in problem]
 
 
 def test_a_severity_or_a_framework_block_of_the_wrong_shape_is_a_problem():

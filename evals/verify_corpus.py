@@ -54,6 +54,7 @@ from evals.harness.reference import (
     ExemplarProximity,
     Tier,
     missing_case_files,
+    route_issues,
 )
 from evals.harness.verbs import unknown_verbs
 from evals.reference_facts import (
@@ -276,8 +277,10 @@ def _asvs_record_issues(
 
     The optional ``disposition`` is checked against the closed vocabulary rather
     than against a pattern, for the reason the requirement is checked against the
-    catalog: a value nothing recognises scores as nothing at all.
+    catalog: a value nothing recognises scores as nothing at all. The optional
+    ``also_acceptable`` is checked by the loader's own route rule.
     """
+    yield from _asvs_route_issues(where, record)
     chapter = record["chapter"]
     if chapter not in PACKAGES["asvs"].lanes:
         yield f"{where} chapter {chapter!r} is not an ASVS chapter"
@@ -293,15 +296,37 @@ def _asvs_record_issues(
             f" {chapter} chapter of ASVS {PACKAGES['asvs'].version} at level"
             f" {level}"
         )
+
+
+def _asvs_route_issues(where: str, record: dict) -> Iterator[str]:
+    """What is wrong with one ASVS record's ``disposition`` and alternate routes.
+
+    A null ``disposition`` is unjudged, as the loader reads it. The route rule
+    is the loader's own, :func:`~evals.harness.reference.route_issues`.
+    """
+    disposition = record.get("disposition")
+    also_acceptable = record.get("also_acceptable", [])
+    wrong = [
+        field
+        for field, shaped in (
+            ("disposition", disposition is None or isinstance(disposition, str)),
+            ("also_acceptable", strings(also_acceptable)),
+        )
+        if not shaped
+    ]
+    if wrong:
+        yield f"{where} fields of the wrong shape: {wrong}"
+        return
     # A disposition outside the vocabulary would load as a validation error
     # rather than as a lint finding, which reports the whole corpus unreadable
     # instead of naming the one record. Caught here, where the record is.
-    disposition = record.get("disposition")
     if disposition is not None and disposition not in ASVS_DISPOSITIONS:
         yield (
             f"{where} disposition {disposition!r} is not one of"
             f" {sorted(ASVS_DISPOSITIONS)}"
         )
+    for issue in route_issues(record["requirement"], disposition, also_acceptable):
+        yield f"{where} {issue}"
 
 
 #: Whether every lane a package declares must appear in *every* case's reference
@@ -844,7 +869,6 @@ _TEXT_FIELDS = (
     "category",
     "chapter",
     "requirement",
-    "disposition",
 )
 
 

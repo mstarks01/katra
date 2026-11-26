@@ -2470,8 +2470,26 @@ def _reads_the_lanes_of_a_capture(node: ast.AST) -> bool:
     )
 
 
+def _reads_the_evidence_routes(node: ast.AST) -> bool:
+    """``DISPOSITION_FOR_EVIDENCE.values()``: the dispositions that are routes."""
+    match node:
+        case ast.Call(
+            func=ast.Attribute(
+                value=ast.Name(id="DISPOSITION_FOR_EVIDENCE"), attr="values"
+            )
+        ):
+            return True
+    return False
+
+
 #: Each rule a docstring calls "the one reader" of, by the rule's name.
 ONE_READERS: dict[str, _OneReader] = {
+    "which alternate routes an ASVS reference record may name": _OneReader(
+        _reads_the_evidence_routes,
+        ("evals/harness/reference.py", "route_issues"),
+        {},
+        "",
+    ),
     "how the parked quotes_checked key reads, absence included": _OneReader(
         _gets_parked_quotes_checked,
         ("src/katra/graph.py", "parked_quotes_checked"),
