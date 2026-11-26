@@ -258,7 +258,7 @@ def _check_reasoning_temperature(
 
 
 def check_temperature(
-    model: str, temperature: float | None, binding: Binding, config_file: str
+    model: str, temperature: float | None, binding: Binding, sampling_source: str
 ) -> None:
     """Every temperature rule keyed on the model rather than on the vendor.
 
@@ -273,16 +273,20 @@ def check_temperature(
     provider refuses pair one.
 
     Takes the ``binding`` rather than a pre-composed source string because the
-    message has to name **both** places the value can come from: ``config_file``
-    is where the caller read it, and :func:`_sampling_knob` gives the env var
-    that overrides it. Naming only the file sent a reader to a line that is not
+    message has to name **both** places the value can come from:
+    ``sampling_source`` is where the caller read it, and :func:`_sampling_knob`
+    gives the env var that overrides a tier's value. Naming only the file sent a reader to a line that is not
     there, since the shipped file sets no temperature and an override is the
     ordinary way one arrives.
     """
-    knobs = _sampling_knob(binding, "temperature", config_file)
+    knobs = _sampling_knob(binding, "temperature", sampling_source)
     source = _binding_source(binding)
     _check_temperature_unset(model, temperature, source, knobs)
     _check_reasoning_temperature(model, temperature, source, knobs)
+
+
+#: Where a tier's sampling is set, for an error message.
+_SAMPLING_FILE = "config/sampling.toml"
 
 
 def _binding_source(binding: Binding) -> str:
@@ -290,15 +294,24 @@ def _binding_source(binding: Binding) -> str:
     return f"tiers.{binding}"
 
 
-def _sampling_knob(binding: Binding, param: str, config_file: str) -> str:
-    """Every place that sets one sampling param of a binding, for an error message."""
+def _sampling_knob(binding: Binding, param: str, sampling_source: str) -> str:
+    """Every place that sets one sampling param of a binding, for an error message.
+
+    ``sampling_source`` is where the binding's sampling is set: the sampling
+    file for a tier, or the code that pins it for a call no node makes. Only a
+    tier also has an env var.
+    """
     tier = tier_named(binding)
-    where = f"this binding's {param} is set in {config_file}"
+    where = f"this binding's {param} is set in {sampling_source}"
     return where if tier is None else f"{where}, or by {env_var_for(tier, param)}"
 
 
 def _check_output_ceiling(
-    vendor: Vendor, model: str, sampling: TierSampling, source: str
+    vendor: Vendor,
+    model: str,
+    sampling: TierSampling,
+    source: str,
+    sampling_source: str,
 ) -> None:
     """Fail closed when a tier asks for more output than its model will serve.
 
@@ -321,7 +334,7 @@ def _check_output_ceiling(
     raise ModelGateError(
         f"{source}: {vendor.name} serves at most {ceiling} output tokens for"
         f" {model!r}, and this tier asks for {sampling.max_output_tokens}."
-        " Lower max_output_tokens for this tier in config/sampling.toml, or"
+        f" Lower max_output_tokens for this tier in {sampling_source}, or"
         " select a model whose ceiling covers it — a tier that asks for more"
         " than the model will produce is rejected on its first request."
     )
@@ -420,7 +433,8 @@ def build_tier_adapters(
 
     A tier nothing runs on needs no selection either. The config requires a
     ``(vendor, model)`` pair only for the tiers the node map names -- the same
-    rule this loop applies -- so moving a node onto an empty tier is refused at
+    rule :attr:`~katra.model_tiers.ModelTierConfig.bindings` applies -- so
+    moving a node onto an empty tier is refused at
     the edit that moves it, by the loader, rather than at a first run that never
     reaches the tier. What it does not require is a credential for a provider
     this deployment does not call.
@@ -449,6 +463,7 @@ def build_tier_adapters(
             binding,
             tiers.selection_for(binding),
             sampling.for_binding(binding),
+            _SAMPLING_FILE,
             tiers=tiers,
             resilience=resilience,
             env=env,
@@ -463,6 +478,7 @@ def build_adapter(
     binding: Binding,
     selection: TierSelection,
     tier_sampling: TierSampling,
+    sampling_source: str,
     tiers: ModelTierConfig,
     resilience: ResilienceConfig,
     env: Mapping[str, str],
@@ -473,12 +489,14 @@ def build_adapter(
     ``evals/harness/judge_replay.py``, names its own model. The adapter goes
     through the checks of :func:`build_tier_adapters`, and ``tiers`` gives the
     credential mode, the charge arrangement and the upstream pin of the
-    selection's vendor. Its retry budget is its own.
+    selection's vendor. ``sampling_source`` names where the caller sets
+    ``tier_sampling``, for an error message. Its retry budget is its own.
     """
     return _adapter(
         binding,
         selection,
         tier_sampling,
+        sampling_source,
         tiers=tiers,
         resilience=resilience,
         env=env,
@@ -540,6 +558,7 @@ def _adapter(
     binding: Binding,
     selection: TierSelection,
     tier_sampling: TierSampling,
+    sampling_source: str,
     *,
     tiers: ModelTierConfig,
     resilience: ResilienceConfig,
@@ -557,7 +576,7 @@ def _adapter(
         selection.model,
         tier_sampling.temperature,
         binding,
-        "config/sampling.toml",
+        sampling_source,
     )
     if tier_sampling.thinking is not None and not takes_thinking(
         vendor, selection.model
@@ -565,10 +584,12 @@ def _adapter(
         raise NoThinkingLevel(
             binding,
             f"{source}: the model takes no thinking level; leave it unset"
-            f" ({_sampling_knob(binding, 'thinking', 'config/sampling.toml')})",
+            f" ({_sampling_knob(binding, 'thinking', sampling_source)})",
         )
     check_supported(vendor, selection.model, tier_sampling.gate_params(), source=source)
-    _check_output_ceiling(vendor, selection.model, tier_sampling, source)
+    _check_output_ceiling(
+        vendor, selection.model, tier_sampling, source, sampling_source
+    )
     rungs = rungs_for(vendor, selection.model, tier_sampling, source)
     require_sdk(selection.vendor)
     charged = vendor.reports_charge or not vendor.routes_to_one_provider

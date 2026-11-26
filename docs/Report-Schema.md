@@ -1060,8 +1060,9 @@ class TokenUsage:
   because it is the one profiled family whose two values differ. On Claude,
   both fields hold the same string.
 - **`binding`** names the model setting that gave the node its model and its
-  sampling: a tier, `base` or `strong`. The same value keys the node's block in
-  `sampling`. It is `null` on a code-only node.
+  sampling. It is the name of the node's tier: `base`, `strong` or `review`.
+  The same value keys the node's block in `sampling`. It is `null` on a
+  code-only node.
 - **`instruction_sha256`** is the digest of every instruction the graph this
   node ran in carried, with the job-varying placeholders unexpanded. It contains
   no submitter bytes. On a report it repeats `analysis_context.instruction_sha256`,

@@ -11,6 +11,7 @@ exercised without a live call.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import threading
 from datetime import UTC, datetime
@@ -25,6 +26,7 @@ from evals.harness.instruments import (
 )
 from katra import execution, graph
 from katra.compact import COMPACT_FORMAT, FULL_FORMAT
+from katra.deployment import Deployment
 from katra.execution import (
     GraphExecutor,
     GraphFailed,
@@ -45,6 +47,7 @@ from tests.factories import (
     DESCRIPTION_TEXT,
     PROJECT_ROOT,
     STRONG_MODEL,
+    TEST_TIER_ENV,
     ChargedLlm,
     RetriedLlm,
     SilentLlm,
@@ -147,6 +150,26 @@ def test_node_runs_record_the_binding_each_node_ran_on(graph_run):
     nodes = by_node(graph_run)
     assert nodes[graph.EXTRACT_NODE].binding == "base"
     assert nodes[CRITIC].binding == "strong"
+
+
+def test_each_llm_row_carries_the_binding_the_deployment_gives_its_node(graph_run):
+    """The report row and ``Deployment.binding_of`` read one rule."""
+    deployment = Deployment.from_env(env=TEST_TIER_ENV)
+    rows = [run for run in graph_run.node_runs if run.requested_model is not None]
+
+    assert rows
+    assert {run.node: run.binding for run in rows} == {
+        run.node: deployment.binding_of(run.node) for run in rows
+    }
+
+
+def test_an_llm_node_with_no_binding_fails_the_run():
+    """A graph built with no binding for an LLM node must not report it as
+    code-only."""
+    pipeline, _ = scripted_pipeline(happy_replies())
+
+    with pytest.raises(KeyError):
+        drive(dataclasses.replace(pipeline, node_bindings={}))
 
 
 def test_a_deterministic_node_carries_no_model_and_no_fingerprint(graph_run):

@@ -3182,8 +3182,8 @@ ONE_READERS: dict[str, _OneReader] = {
                 " binding is no input to it"
             ),
             ("src/katra/deployment.py", "tier_of"): (
-                "the certification gate keys its manifest by tier, and asks"
-                " the tier and not the binding"
+                "only the certification gate calls it, and its manifest is"
+                " keyed by tier and not by binding"
             ),
         },
         "",

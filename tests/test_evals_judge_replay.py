@@ -28,6 +28,7 @@ from katra.claim_identity import report_rows
 from katra.model_tiers import TierSelection, charges_env_var_for
 from katra.offline import OFFLINE_ENV
 from katra.report import TokenUsage
+from katra.sampling import load_sampling
 from tests.eval_factories import sweep_document, write_report_sweep
 
 CASE = "01-payments-checkout"
@@ -426,6 +427,14 @@ def test_a_judge_through_an_aggregator_is_read_by_its_slug(
         assert breach in written["independence_breach"]
 
 
+def test_the_judge_samples_as_the_review_block_did():
+    """The judge's sampling keeps the values the ``review`` block of the
+    shipped sampling file holds."""
+    shipped = load_sampling(REPO_ROOT / "config" / "sampling.toml", env={})
+
+    assert judge_replay.JUDGE_SAMPLING == shipped.for_tier("review")
+
+
 @pytest.mark.parametrize(
     ("named", "vendor", "model"),
     [
@@ -486,7 +495,9 @@ def _scripted(usage=None, fail_on=None, sent=None, attempts=1, charge=None):
     for no charge, as on a direct vendor.
     """
 
-    def build(_deployment, _binding, _selection, _sampling, _schema, spent, seen):
+    def build(
+        _deployment, _binding, _selection, _sampling, _source, _schema, spent, seen
+    ):
         calls = []
 
         async def call(instruction, turn):

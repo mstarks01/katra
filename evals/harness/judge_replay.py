@@ -30,7 +30,8 @@ which are not findings at an element, and #764 names them as a later
 population.
 
 **A different source vendor.** The judge runs on the model that ``--judge``
-names, with the vendor's default sampling, and the output records both. The
+names, at the sampling :data:`JUDGE_SAMPLING` pins, and the output records
+both. The
 command refuses to send when :func:`~katra.model_tiers.source_vendor_breach`
 finds that the judge's model and a model that wrote the sweep come from one
 **Source Vendor**. The writers are the routes that the sweep's provenance
@@ -135,8 +136,14 @@ from katra.vendors import VENDOR_NAMES
 #: The node name a judge call takes in the node runs the spend hold prices.
 JUDGE_NODE = "judge"
 
-#: The judge's sampling: every param at the vendor's default.
-JUDGE_SAMPLING = TierSampling()
+#: The judge's sampling, pinned here because the judge is no node and has no
+#: block in ``config/sampling.toml``. It holds the values of the ``strong``
+#: and ``review`` blocks of that file: a pinned output cap and every other
+#: param at its default.
+JUDGE_SAMPLING = TierSampling(max_output_tokens=64000)
+
+#: Where an error message sends an operator who must change the judge's sampling.
+JUDGE_SAMPLING_SOURCE = "JUDGE_SAMPLING in evals/harness/judge_replay.py"
 
 #: The judge's instruction. It is eval-only text, so it sits under ``evals/``.
 INSTRUCTION = REPO_ROOT / "evals" / "prompts" / "judge.md"
@@ -615,7 +622,7 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         "--judge",
         required=True,
         help="the judge's model as <vendor>/<model>, where <vendor> is a vendor"
-        " name of the tier config. Its sampling is the vendor's default",
+        " name of the tier config. JUDGE_SAMPLING pins its sampling",
     )
     parser.add_argument(
         "--samples",
@@ -936,7 +943,14 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     raws: list[str | None] = [None] * len(requests)
 
     call = selection_call(
-        deployment, JUDGE_NODE, judge, JUDGE_SAMPLING, JudgeAnswer, spent, seen
+        deployment,
+        JUDGE_NODE,
+        judge,
+        JUDGE_SAMPLING,
+        JUDGE_SAMPLING_SOURCE,
+        JudgeAnswer,
+        spent,
+        seen,
     )
     # The sweep's own hold, between calls rather than between cases: it prices
     # the usage each call reported, and it asks again by typing, or stops where

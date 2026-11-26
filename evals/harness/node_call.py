@@ -81,6 +81,7 @@ def selection_call(
     binding: Binding,
     selection: TierSelection,
     sampling: TierSampling,
+    sampling_source: str,
     schema: Any,
     spent: list[float | None] | None,
     seen: list[dict[str, Any]] | None,
@@ -90,13 +91,15 @@ def selection_call(
     An eval call that no graph node makes, such as the judge of
     ``evals/harness/judge_replay.py``, names its own model and sampling.
     :func:`~katra.binding.build_adapter` checks them as it checks a bound
-    tier, and ``binding`` names the call in its error messages. ``spent`` and
+    tier. ``binding`` names the call in its error messages, and
+    ``sampling_source`` names where its sampling is set. ``spent`` and
     ``seen`` are as :func:`node_call` states them.
     """
     adapter = build_adapter(
         binding,
         selection,
         sampling,
+        sampling_source,
         deployment.tiers,
         deployment.resilience,
         deployment.env,

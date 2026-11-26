@@ -973,16 +973,20 @@ def _prompt(question: str) -> str:
     return input(question)
 
 
-def _tier_routes(deployment: Deployment) -> dict[str, str]:
-    """The requested route per tier — what the price map is asked about.
+def _binding_routes(deployment: Deployment) -> dict[str, str]:
+    """The requested route per binding — what the price map is asked about.
 
     Composed through ``Vendor.route``, the one join that also forms the vendor
     half of a fingerprint, rather than re-spelled here: a second spelling of a
     route is a second answer to what this run asked for.
     """
+    selections = {
+        binding: deployment.tiers.selection_for(binding)
+        for binding in deployment.tiers.bindings
+    }
     return {
-        tier: selection.vendor_entry.route(selection.model)
-        for tier, selection in deployment.tiers.tiers.items()
+        binding: selection.vendor_entry.route(selection.model)
+        for binding, selection in selections.items()
     }
 
 
@@ -1014,7 +1018,7 @@ def _would_be_identity(
     return {
         "repo_commit": commit.commit,
         "corpus_digest": corpus,
-        "models": _tier_routes(deployment),
+        "models": _binding_routes(deployment),
         "sampling": {
             tier: block.model_dump()
             for tier, block in deployment.sampling.tiers.items()
@@ -1141,8 +1145,8 @@ def command_run(args: argparse.Namespace) -> int:
     ask = None if args.accept_cost is not None else _prompt
     estimate = consent.estimate(
         _would_be_identity(cases, deployment, commit, corpus, args),
-        _tier_routes(deployment),
-        {node: deployment.tier_of(node) for node in deployment.tier_nodes},
+        _binding_routes(deployment),
+        {node: deployment.binding_of(node) for node in deployment.tier_nodes},
         REPO_ROOT,
         cases=len(cases),
     )

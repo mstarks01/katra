@@ -220,6 +220,10 @@ from katra.vendors import ServedTrust, vendor_for_route
 # ``state`` is ``stated``, ``absent`` or ``unknown`` (ADR 0134). A stored 3.5
 # job record gets 409 ``UnreadableSchema``. The report route serves a stored
 # report of any version, and its page reads both shapes.
+#
+# Version 4.1: each ``NodeRun`` carries ``binding``, the model setting the node
+# ran on, and ``None`` on a code-only node (ADR 0136). A stored 4.0 job record
+# gets 409 ``UnreadableSchema``.
 SCHEMA_VERSION = "4.1"
 
 # The envelope's disclaimer, which is about the *service* rather than about any

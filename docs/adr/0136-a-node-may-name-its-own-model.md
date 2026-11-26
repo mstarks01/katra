@@ -59,8 +59,9 @@ Each `NodeRun` carries `binding`, so a reader of a report sees where each
 node's model came from without the config file. That is report schema 4.1.
 
 **The judge replay names its own model.** It is an eval and not a node.
-`--judge <vendor>/<model>` names the judge, which runs at the vendor's default
-sampling, and the output records both.
+`--judge <vendor>/<model>` names the judge. The judge replay pins the judge's
+sampling in code, at the output cap the `review` block held, and the output
+records the route and the sampling.
 
 **The cutover is hard.** The tier config gets a new version. The loader refuses
 a string under `[nodes]` and a `review` tier, with a message that names the new

@@ -84,10 +84,10 @@ SUPPORTED_VERSION = 9
 TierName = Literal["base", "strong", "review"]
 TIER_NAMES: tuple[TierName, ...] = ("base", "strong", "review")
 
-#: The key of one model setting that nodes run on: a tier name, or the node key
-#: of a node that names its own model. Adapters, sampling blocks, execution
-#: records and report rows are keyed by it. :meth:`ModelTierConfig.binding_of`
-#: is the one reader of which binding a node runs on.
+#: The key of one model setting that nodes run on: the name of a tier.
+#: Adapters, sampling blocks, execution records and report rows are keyed by
+#: it. :meth:`ModelTierConfig.binding_of` is the one reader of which binding a
+#: node runs on.
 Binding = str
 
 
