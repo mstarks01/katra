@@ -399,9 +399,8 @@ def sampling_by_binding(
 ) -> dict[Binding, TierSampling]:
     """The block of each binding, in the order given.
 
-    **The one reader of "which sampling blocks does a run record".** The
-    report's clear block, a sweep's provenance and the identity a sweep would
-    carry each record the blocks of the deployment's bindings, so a stored
+    The report's clear block, a sweep's provenance and the identity a sweep
+    would carry each call it with the deployment's bindings, so a stored
     Baseline and the identity a later sweep computes compare one set.
     """
     return {binding: config.for_binding(binding) for binding in bindings}

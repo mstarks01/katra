@@ -89,8 +89,8 @@ TIER_NAMES: tuple[TierName, ...] = get_args(TierName)
 
 #: The key of one model setting that nodes run on: the name of a tier, or the
 #: key of a node with an override. Adapters, sampling blocks, execution records
-#: and report rows are keyed by it. :meth:`ModelTierConfig.binding_of` is the
-#: one reader of which binding a node runs on.
+#: and report rows are keyed by it. :meth:`ModelTierConfig.binding_of` decides
+#: which binding a node runs on.
 Binding = str
 
 
@@ -240,8 +240,8 @@ def is_override_key(node: str) -> bool:
 def is_binding_name(name: str) -> bool:
     """Whether ``name`` can be a binding: a tier name or an override key.
 
-    **The one reader of the binding vocabulary.** A stored manifest key and an
-    archived record use it to refuse a name no configuration can produce.
+    The blessed manifest and a promotion use it to refuse a key that no
+    configuration can produce.
     """
     return tier_named(name) is not None or is_override_key(name)
 
@@ -1004,7 +1004,7 @@ def _override_key_problem(node: str) -> str:
     return f'nodes."{node}": no LLM node has this key'
 
 
-def _old_shape_problem(raw: Mapping[str, object]) -> str | None:
+def _tier_map_problem(raw: Mapping[str, object]) -> str | None:
     """Why ``raw`` holds a node -> tier map or a ``review`` tier, or ``None``.
 
     The tier of each node is fixed in code, so a string value under
@@ -1019,7 +1019,7 @@ def _old_shape_problem(raw: Mapping[str, object]) -> str | None:
             "[nodes] holds tier names, which this version does not read: the"
             ' tier of each node is fixed. Delete each `node = "<tier>"` line.'
             ' To run one node on its own model, write a [nodes."<node>"] table'
-            ' with vendor and model, for example [nodes."critic/stride"].'
+            ' with vendor and model, for example [nodes."critic/<framework>"].'
         )
     if isinstance(tiers, dict) and "review" in tiers:
         return (
@@ -1085,13 +1085,11 @@ def load_model_tiers(
     """
     raw = read_toml(path, ModelConfigError)
 
-    # Before the overrides and the version check, so a file in the old shape
-    # gets the message that says what to write instead.
-    old_shape = _old_shape_problem(raw)
-    if old_shape is not None:
-        raise ModelConfigError(
-            f"{path}: {old_shape} Set version = {SUPPORTED_VERSION}."
-        )
+    # Before the overrides and the version check, so a node -> tier map or a
+    # review tier gets the message that says what to write instead.
+    shape = _tier_map_problem(raw)
+    if shape is not None:
+        raise ModelConfigError(f"{path}: {shape} Set version = {SUPPORTED_VERSION}.")
 
     _apply_env_overrides(raw, env)
 

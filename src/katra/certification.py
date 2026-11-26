@@ -110,7 +110,7 @@ class BlessedManifest(BaseModel):
             raise ValueError(
                 f"{unknown}: not a binding. A key is a tier name (base or"
                 " strong) or the key of a node with a model override, such as"
-                ' "critic/stride". A review key has no binding: bless the'
+                ' "critic/<framework>". A review key has no binding: bless the'
                 " critic override's fingerprints under its node key"
             )
         return tiers

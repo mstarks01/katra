@@ -68,9 +68,9 @@ from katra.jobs import TERMINAL_STATUSES
 from katra.ladder import Rung
 from katra.links import MAX_LINK_ANSWERS
 from katra.model_tiers import (
-    LLM_NODES,
     SUPPORTED_VERSION,
     TIER_NAMES,
+    is_override_key,
     tiers_in_use,
 )
 from katra.resilience import ResilienceConfig, load_resilience
@@ -179,7 +179,7 @@ def backticked(cell: str) -> list[str]:
 
 def pinned_values(cell: str) -> dict[str, str]:
     """Each tier's value in a pinned cell, such as
-    ``pinned `16384` base / `64000` strong and review``. A segment that names
+    ``pinned `16384` base / `64000` strong``. A segment that names
     no tier states the value for every tier."""
     stated: dict[str, str] = {}
     for segment in cell.removeprefix("pinned ").split(" / "):
@@ -827,15 +827,17 @@ def test_the_evals_guides_are_actually_read():
     assert INSTRUMENTS, "the registry is empty"
 
 
-def test_the_nodes_example_is_every_node_key():
-    """The guide says each framework this build can spell needs its three
-    keys, so the example shows exactly the keys the loader requires."""
-    text = section(
-        CONFIGURATION, "### Node keys, and the frameworks this deployment carries"
-    )
+def test_the_override_example_is_an_override_the_loader_takes():
+    """The guide's override example names a key that can carry one, with a
+    vendor and a model."""
+    text = section(CONFIGURATION, "### Node overrides")
     (block,) = _TOML_FENCE.findall(text)
+    overrides = tomllib.loads(block)["nodes"]
 
-    assert set(tomllib.loads(block)["nodes"]) == set(LLM_NODES)
+    assert overrides
+    for key, table in overrides.items():
+        assert is_override_key(key)
+        assert set(table) == {"vendor", "model"}
 
 
 def test_the_first_run_tiers_are_the_tier_names_and_the_shipped_tiers():
@@ -843,12 +845,13 @@ def test_the_first_run_tiers_are_the_tier_names_and_the_shipped_tiers():
     node map binds."""
     text = section(DOCS / "First-Run.md", "## 2. Select models and provide credentials")
     named = re.search(r"model tiers: (.*?)\. ", flat(text))
-    nodes = tomllib.loads(SHIPPED_PATHS.model_tiers.read_text(encoding="utf-8"))
+    shipped = tomllib.loads(SHIPPED_PATHS.model_tiers.read_text(encoding="utf-8"))
     rows = table(text, "Tier", "Used for")
 
     assert named
     assert backticked(named[1]) == list(TIER_NAMES)
-    assert {backticked(row[0])[0] for row in rows} == tiers_in_use(nodes["nodes"])
+    in_use = tiers_in_use(shipped.get("nodes", {}))
+    assert {backticked(row[0])[0] for row in rows} == in_use
 
 
 def test_the_rung_table_is_every_rung():
@@ -885,11 +888,8 @@ def test_the_diagram_reader_step_is_the_install_the_app_runs():
 @pytest.mark.parametrize(
     ("cell", "expected"),
     [
-        ("pinned `1`", {"base": "1", "strong": "1", "review": "1"}),
-        (
-            "pinned `16384` base / `64000` strong and review",
-            {"base": "16384", "strong": "64000", "review": "64000"},
-        ),
+        ("pinned `1`", {"base": "1", "strong": "1"}),
+        ("pinned `16384` base / `64000` strong", {"base": "16384", "strong": "64000"}),
         ("pinned `16384` base / `32768` strong", {"base": "16384", "strong": "32768"}),
     ],
 )

@@ -3191,6 +3191,17 @@ ONE_READERS: dict[str, _OneReader] = {
         },
         "",
     ),
+    "the binding of each node": _OneReader(
+        lambda node: _calls(node, "tier_of_node"),
+        ("src/katra/model_tiers.py", "binding_of"),
+        {
+            ("src/katra/sampling.py", "for_binding"): (
+                "it picks the tier block for an override that has no block of"
+                " its own, and binding_of has already given it that binding"
+            ),
+        },
+        "",
+    ),
     "the tier a node belongs to": _OneReader(
         lambda node: (
             isinstance(node, ast.Subscript) and _is_name(node.value, "NODE_TIERS")

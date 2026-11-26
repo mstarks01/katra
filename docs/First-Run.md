@@ -20,7 +20,7 @@ logs a warning that names the command to run.
 
 ## 2. Select models and provide credentials
 
-The service has two model tiers, `base` and `strong`:
+The service has two model tiers: `base` and `strong`. A first run selects both:
 
 | Tier | Used for |
 | --- | --- |
