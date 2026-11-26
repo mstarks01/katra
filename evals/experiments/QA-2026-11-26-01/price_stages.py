@@ -1,6 +1,6 @@
 """Price the two stages of the paired lane replay from the sweep's own tokens.
 
-Usage: price_stages.py <requests-ctl.jsonl> <requests-trt.jsonl> <sweep dir>
+Usage: PYTHONPATH=. price_stages.py <requests-ctl.jsonl> <requests-trt.jsonl> <sweep dir>
 
 Each control call is priced at the input and output tokens the 2026-10-24 sweep
 recorded for that lane and case. The treatment's input is the control's, scaled
@@ -13,6 +13,8 @@ $10 output per million tokens, the rates the harness priced the sweep at.
 import json
 import sys
 from pathlib import Path
+
+from evals.harness.descendants import FRAMEWORK
 
 IN, OUT = 2e-6, 1e-5
 STAGES = {
@@ -44,32 +46,41 @@ def load(path):
     return {
         (r["case"], r["lane"]): r
         for r in rows
-        if r["framework"] == "stride" and r["arm"] == "signed"
+        if r["framework"] == FRAMEWORK and r["arm"] == "signed"
     }
 
 
-control, treatment = load(sys.argv[1]), load(sys.argv[2])
-for stage, pairs in STAGES.items():
-    total_control = total_treatment = 0.0
-    print(stage)
-    for case, lane, reason in pairs:
-        artifact = json.loads(
-            Path(sys.argv[3], f"{case}.json").read_text(encoding="utf-8")
-        )
-        usage = artifact["node_usage"]["analyze_stride_" + lane.replace("-", "_")]
-        a, b = control[(case, lane)], treatment[(case, lane)]
-        chars_control = a["instruction_chars"] + a["turn_chars"]
-        chars_treatment = b["instruction_chars"] + b["turn_chars"]
-        ratio = chars_control / usage["prompt_tokens"]
-        tokens_in = round(chars_treatment / ratio)
-        cost_control = usage["prompt_tokens"] * IN + usage["completion_tokens"] * OUT
-        cost_treatment = tokens_in * IN + 1.5 * usage["completion_tokens"] * OUT
-        total_control += cost_control
-        total_treatment += cost_treatment
-        print(
-            f"  {case[:2]} {lane:23} {reason:30} in {usage['prompt_tokens']}"
-            f" -> {tokens_in} (+{tokens_in - usage['prompt_tokens']}),"
-            f" out {usage['completion_tokens']}, ${cost_control:.3f} / ${cost_treatment:.3f}"
-        )
-    one = total_control + total_treatment
-    print(f"  one pass of both arms ${one:.2f}; three passes ${3 * one:.2f}")
+def main():
+    control, treatment = load(sys.argv[1]), load(sys.argv[2])
+    for stage, pairs in STAGES.items():
+        total_control = total_treatment = 0.0
+        print(stage)
+        for case, lane, reason in pairs:
+            artifact = json.loads(
+                Path(sys.argv[3], f"{case}.json").read_text(encoding="utf-8")
+            )
+            usage = artifact["node_usage"][
+                f"analyze_{FRAMEWORK}_" + lane.replace("-", "_")
+            ]
+            a, b = control[(case, lane)], treatment[(case, lane)]
+            chars_control = a["instruction_chars"] + a["turn_chars"]
+            chars_treatment = b["instruction_chars"] + b["turn_chars"]
+            ratio = chars_control / usage["prompt_tokens"]
+            tokens_in = round(chars_treatment / ratio)
+            cost_control = (
+                usage["prompt_tokens"] * IN + usage["completion_tokens"] * OUT
+            )
+            cost_treatment = tokens_in * IN + 1.5 * usage["completion_tokens"] * OUT
+            total_control += cost_control
+            total_treatment += cost_treatment
+            print(
+                f"  {case[:2]} {lane:23} {reason:30} in {usage['prompt_tokens']}"
+                f" -> {tokens_in} (+{tokens_in - usage['prompt_tokens']}),"
+                f" out {usage['completion_tokens']}, ${cost_control:.3f} / ${cost_treatment:.3f}"
+            )
+        one = total_control + total_treatment
+        print(f"  one pass of both arms ${one:.2f}; three passes ${3 * one:.2f}")
+
+
+if __name__ == "__main__":
+    main()

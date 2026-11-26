@@ -12,7 +12,7 @@ import sys
 
 from evals.harness.lane_replay import compose, prepare_today
 from evals.harness.provenance import REPO_ROOT
-from evals.harness.reference import DEFAULT_CORPUS, load_corpus
+from evals.harness.reference import DEFAULT_CORPUS, development_cases, load_corpus
 from katra.frameworks import PACKAGES
 from katra.markdown_loader import MarkdownLoader
 
@@ -23,9 +23,7 @@ def digest(text):
 
 async def main(arms):
     prompts = MarkdownLoader(REPO_ROOT / "prompts")
-    for case in load_corpus(REPO_ROOT / DEFAULT_CORPUS):
-        if case.meta.holdout:
-            continue
+    for case in development_cases(load_corpus(REPO_ROOT / DEFAULT_CORPUS)):
         for framework in sorted(PACKAGES):
             if framework not in case.frameworks:
                 continue
@@ -53,4 +51,5 @@ async def main(arms):
                     )
 
 
-asyncio.run(main(sys.argv[1:]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1:]))

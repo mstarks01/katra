@@ -14,27 +14,32 @@ def load(path):
     return {(r["case"], r["framework"], r["arm"], r["lane"]): r for r in rows}
 
 
-control, treatment = load(sys.argv[1]), load(sys.argv[2])
-assert control.keys() == treatment.keys()
-same: Counter[tuple[str, str]] = Counter()
-changed: defaultdict[tuple[str, str], list] = defaultdict(list)
-for key in sorted(control):
-    a, b = control[key], treatment[key]
-    group = (key[1], key[3])
-    if a["instruction"] == b["instruction"] and a["turn"] == b["turn"]:
-        same[group] += 1
-    else:
-        changed[group].append((a, b))
-print(f"requests: {len(control)}, cases: {len({key[0] for key in control})}")
-print("identical (framework, lane): requests")
-for group, count in sorted(same.items()):
-    print(f"  {group}: {count}")
-print(
-    "changed (framework, lane): requests, instructions changed, turns changed, characters added"
-)
-for group, pairs in sorted(changed.items()):
-    added = [b["instruction_chars"] - a["instruction_chars"] for a, b in pairs]
+def main():
+    control, treatment = load(sys.argv[1]), load(sys.argv[2])
+    assert control.keys() == treatment.keys()
+    same: Counter[tuple[str, str]] = Counter()
+    changed: defaultdict[tuple[str, str], list] = defaultdict(list)
+    for key in sorted(control):
+        a, b = control[key], treatment[key]
+        group = (key[1], key[3])
+        if a["instruction"] == b["instruction"] and a["turn"] == b["turn"]:
+            same[group] += 1
+        else:
+            changed[group].append((a, b))
+    print(f"requests: {len(control)}, cases: {len({key[0] for key in control})}")
+    print("identical (framework, lane): requests")
+    for group, count in sorted(same.items()):
+        print(f"  {group}: {count}")
     print(
-        f"  {group}: {len(pairs)}, {sum(a['instruction'] != b['instruction'] for a, b in pairs)},"
-        f" {sum(a['turn'] != b['turn'] for a, b in pairs)}, {min(added)} to {max(added)}"
+        "changed (framework, lane): requests, instructions changed, turns changed, characters added"
     )
+    for group, pairs in sorted(changed.items()):
+        added = [b["instruction_chars"] - a["instruction_chars"] for a, b in pairs]
+        print(
+            f"  {group}: {len(pairs)}, {sum(a['instruction'] != b['instruction'] for a, b in pairs)},"
+            f" {sum(a['turn'] != b['turn'] for a, b in pairs)}, {min(added)} to {max(added)}"
+        )
+
+
+if __name__ == "__main__":
+    main()
