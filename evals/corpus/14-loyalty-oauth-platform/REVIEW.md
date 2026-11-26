@@ -153,6 +153,14 @@ Not part of the question, but the records cite these names, so you need them.
 - `process:authorization-server` — The authorization server is reachable from the internet. (basis: Members' browsers and partner servers of other companies connect to it over HTTPS; the source states no exposure directly.)
 - `process:rewards-api` — The rewards API is reachable from the internet. (basis: Phones and partner servers call it, and the support console shares its public hostname; the source states no exposure directly.)
 
+**Reviewed aliases** — other names a reader ruled identify the same element, each with the words in the source that support it. An extraction using one is named differently, not wrong.
+
+- `boundary:partner-servers — partner app servers` — The source places each partner app on "their own servers", run by the other companies; the name joins the app to the servers the reference names. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > Partner apps are web applications that other companies run on their own servers
+- `boundary:partner-servers — partner apps' own servers` — The source's own words for where partner apps run. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > Partner apps are web applications that other companies run on their own servers
+- `boundary:rewards-cloud — own cloud account` — The source's own words for the zone; the reference name "rewards cloud" is not in the source. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > Everything below runs in our own cloud account
+- `boundary:rewards-cloud — our cloud account` — Same zone as "own cloud account": the source's words without "own". Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > Everything below runs in our own cloud account
+- `boundary:rewards-cloud — cloud account` — The case holds one cloud account, so the bare name identifies this zone. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4). Source: > Everything below runs in our own cloud account
+
 ### Your list
 
 Write what could go wrong. Anything: an attack, a missing control, a question

@@ -41,6 +41,12 @@
       "name": "background worker",
       "excerpt": "The background worker reads and writes the database.",
       "ruling": "The source drops the word 'process' on second mention; one worker. Ruled by the maintainer on 2026-09-16 (#961 step 6)."
+    },
+    {
+      "element": "boundary:public-internet",
+      "name": "outside network",
+      "excerpt": "The browser sits outside our network",
+      "ruling": "The source places the browser \"outside our network\" and names the zone no other way in that sentence; the reference's own excerpt for this zone is the same sentence. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4)."
     }
   ]
 }

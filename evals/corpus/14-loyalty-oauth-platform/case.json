@@ -28,5 +28,37 @@
       "exemplar_proximity": "far"
     }
   ],
-  "notes": "Holdout case 1 of 2 for #744. It fills three gaps at once: the corpus's first ASVS level 3 case, the first case where we run the OAuth authorization server ourselves, and the first where a session and a token are two different things with two different lifetimes. The support-console finding joins three stated facts no one sentence holds: the rewards API checks no audience, one key signs tokens for the API and for the support console, and the console sits on the same public hostname. It stays conditional, because the source states neither the console's audience check nor its role check. Level 3 is what turns two stated values into gaps: a ten-minute authorization code and plain bearer tokens are both acceptable at level 2. Held out of tuning: no diagnosis reads it, so it confirms a fix measured on the other cases."
+  "notes": "Holdout case 1 of 2 for #744. It fills three gaps at once: the corpus's first ASVS level 3 case, the first case where we run the OAuth authorization server ourselves, and the first where a session and a token are two different things with two different lifetimes. The support-console finding joins three stated facts no one sentence holds: the rewards API checks no audience, one key signs tokens for the API and for the support console, and the console sits on the same public hostname. It stays conditional, because the source states neither the console's audience check nor its role check. Level 3 is what turns two stated values into gaps: a ten-minute authorization code and plain bearer tokens are both acceptable at level 2. Held out of tuning: no diagnosis reads it, so it confirms a fix measured on the other cases.",
+  "aliases": [
+    {
+      "element": "boundary:partner-servers",
+      "name": "partner app servers",
+      "excerpt": "Partner apps are web applications that other companies run on their own servers",
+      "ruling": "The source places each partner app on \"their own servers\", run by the other companies; the name joins the app to the servers the reference names. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4)."
+    },
+    {
+      "element": "boundary:partner-servers",
+      "name": "partner apps' own servers",
+      "excerpt": "Partner apps are web applications that other companies run on their own servers",
+      "ruling": "The source's own words for where partner apps run. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4)."
+    },
+    {
+      "element": "boundary:rewards-cloud",
+      "name": "own cloud account",
+      "excerpt": "Everything below runs in our own cloud account",
+      "ruling": "The source's own words for the zone; the reference name \"rewards cloud\" is not in the source. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4)."
+    },
+    {
+      "element": "boundary:rewards-cloud",
+      "name": "our cloud account",
+      "excerpt": "Everything below runs in our own cloud account",
+      "ruling": "Same zone as \"own cloud account\": the source's words without \"own\". Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4)."
+    },
+    {
+      "element": "boundary:rewards-cloud",
+      "name": "cloud account",
+      "excerpt": "Everything below runs in our own cloud account",
+      "ruling": "The case holds one cloud account, so the bare name identifies this zone. Ruled by the maintainer on 2026-11-26 (QA-2026-11-25-02-E4)."
+    }
+  ]
 }
