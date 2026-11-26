@@ -154,6 +154,28 @@ def test_a_sampling_block_for_a_node_with_no_model_override_stops_the_load(
         Deployment.from_env(env=VERTEX_TIERS | {SAMPLING_VAR: str(custom)})
 
 
+@pytest.mark.parametrize(
+    "key", ["critic/asvs", "analyze/asvs", "analyze/asvs/encoding-and-sanitization"]
+)
+def test_an_override_on_a_framework_the_install_does_not_carry_stops_the_load(
+    tmp_path, key
+):
+    """No adapter and no credential for a node that never runs: the load stops
+    and names the framework (ADR 0136)."""
+    tiers = tmp_path / "model_tiers.toml"
+    tiers.write_text(
+        (PROJECT_ROOT / "config" / "model_tiers.toml").read_text(encoding="utf-8")
+        + f'\n[nodes."{key}"]\nvendor = "vertex"\nmodel = "gemini-2.5-flash"\n',
+        encoding="utf-8",
+    )
+    env = VERTEX_TIERS | {MODEL_TIERS_VAR: str(tiers), CARRIED_VAR: "stride"}
+
+    with pytest.raises(ConfigError, match="does not") as refused:
+        Deployment.from_env(env=env)
+    assert key in str(refused.value)
+    assert "stride" in str(refused.value)
+
+
 def test_an_override_with_its_own_sampling_block_runs_on_it(tmp_path):
     tiers = tmp_path / "model_tiers.toml"
     tiers.write_text(

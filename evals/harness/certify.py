@@ -46,7 +46,7 @@ from katra.certification import (
     load_manifest,
 )
 from katra.identity import execution_fingerprint
-from katra.model_tiers import Binding, is_binding_name, tier_named
+from katra.model_tiers import Binding, is_binding_name
 from katra.sampling import SamplingConfig, SamplingParam, TierSampling
 
 
@@ -439,8 +439,9 @@ def _dump_manifest(manifest: BlessedManifest) -> str:
     is a version plus a table of hex-string arrays, and every value is already
     validated to ``[0-9a-f]{64}``. Binding keys are re-checked against the
     binding vocabulary as defence in depth against a crafted key landing
-    verbatim in a file the *service* parses (OWASP A05). A node key holds a
-    ``/``, so it is written quoted.
+    verbatim in a file the *service* parses (OWASP A05). Every key is also
+    written as an escaped TOML string, so the check and the escape each stop
+    an injected line on their own.
     """
     parts = [
         "# Blessed execution-identity fingerprints — a machine record.",
@@ -459,7 +460,9 @@ def _dump_manifest(manifest: BlessedManifest) -> str:
     for binding in sorted(manifest.tiers):
         if not is_binding_name(binding):
             raise CertificationError(f"refusing to write unknown binding {binding!r}")
-        key = binding if tier_named(binding) is not None else f'"{binding}"'
+        # A TOML basic string: JSON's escapes are a subset of TOML's, so a
+        # quote or a line break in a key cannot end the string.
+        key = json.dumps(binding)
         prints = sorted(manifest.tiers[binding])
         if not prints:
             parts.append(f"{key} = []")

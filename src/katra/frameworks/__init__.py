@@ -53,7 +53,12 @@ from katra.claims import (
 )
 from katra.errors import ConfigError
 from katra.markdown_loader import MarkdownFormatError, MarkdownLoader
-from katra.model_tiers import framework_of_lane_key, lane_key
+from katra.model_tiers import (
+    framework_of_lane_key,
+    framework_of_node,
+    is_lane_slug,
+    lane_key,
+)
 from katra.system_model import SystemModel
 
 __all__ = [
@@ -848,11 +853,7 @@ def _declaration_issues(package: FrameworkPackage) -> list[str]:
     )
     if duplicates:
         issues.append(f"lanes repeats {', '.join(duplicates)}")
-    malformed = sorted(
-        lane
-        for lane in package.lanes
-        if not lane or not lane.replace("-", "").isalnum()
-    )
+    malformed = sorted(lane for lane in package.lanes if not is_lane_slug(lane))
     if malformed:
         issues.append(f"lanes are not slugs: {', '.join(map(repr, malformed))}")
 
@@ -1207,8 +1208,9 @@ def validate_packages(
     """Every carried package: registered, well-formed, and runnable here.
 
     Check 1 of family A and the whole of family C, which need the carried set
-    and the tier config's overrides rather than one package. A lane override
-    must name a lane the package declares. Called by
+    and the tier config's overrides rather than one package. An override must
+    name a framework this install carries, and a lane override a lane the
+    package declares. Called by
     :meth:`~katra.deployment.Deployment.from_env`.
     """
     unknown = [name for name in names if name not in PACKAGES]
@@ -1216,6 +1218,17 @@ def validate_packages(
         raise FrameworkPackageError(
             f"config names frameworks this build does not carry: {unknown};"
             f" it carries {sorted(PACKAGES)}"
+        )
+    uncarried = sorted(
+        key
+        for key in overrides
+        if (framework := framework_of_node(key)) is not None and framework not in names
+    )
+    if uncarried:
+        raise FrameworkPackageError(
+            f"model_tiers.toml overrides {uncarried}, but this install does not"
+            f" carry the framework of each; it carries {list(names)}. Remove"
+            " the override, or add the framework to frameworks.toml"
         )
     for name in names:
         package = PACKAGES[name]

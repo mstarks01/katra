@@ -3199,7 +3199,32 @@ ONE_READERS: dict[str, _OneReader] = {
                 "it picks the tier block for an override that has no block of"
                 " its own, and binding_of has already given it that binding"
             ),
+            ("src/katra/model_tiers.py", "tiers_in_use"): (
+                "it reads the raw override table before validation, and a test"
+                " holds its answer equal to the bindings that binding_of gives"
+            ),
         },
+        "",
+    ),
+    "the shape of a lane name": _OneReader(
+        lambda node: _calls(node, "isalnum"),
+        ("src/katra/model_tiers.py", "is_lane_slug"),
+        {
+            ("src/katra/job_controls.py", "_quoted"): (
+                "it asks whether a text holds any letter or digit at all, which"
+                " is no rule about the shape of a lane name"
+            ),
+        },
+        "",
+    ),
+    "the re-ask follows its critic": _OneReader(
+        lambda node: (
+            _calls(node, "tier_key")
+            and bool(node.args)
+            and _is_constant(node.args[0], "recritic")
+        ),
+        ("src/katra/model_tiers.py", "setting_node"),
+        {},
         "",
     ),
     "the tier a node belongs to": _OneReader(

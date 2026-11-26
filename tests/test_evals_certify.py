@@ -11,9 +11,11 @@ from pathlib import Path
 
 import pytest
 
+from evals.harness import certify as certify_module
 from evals.harness import modes
 from evals.harness.certify import TierIdentityKey, promote
 from katra.certification import (
+    MANIFEST_VERSION,
     BlessedManifest,
     CertificationError,
     certify,
@@ -247,6 +249,42 @@ def test_promote_rejects_an_unknown_binding(tmp_path, binding):
             sampling_path=sampling_copy,
             manifest_path=manifest_copy,
         )
+
+
+@pytest.mark.parametrize(
+    "binding", ['analyze/stride/x"\nbase = ["' + "a" * 64 + '"]', 'analyze/stride/x"']
+)
+def test_a_binding_that_holds_a_quote_or_a_line_break_writes_nothing(tmp_path, binding):
+    """A hand-edited artifact cannot inject a line into the manifest: the key is
+    no binding, so the promotion stops before it writes either file."""
+    sampling_copy, manifest_copy = _promote_setup(tmp_path)
+    before = sampling_copy.read_text(encoding="utf-8")
+    with pytest.raises(CertificationError, match="unknown binding"):
+        promote(
+            load_sampling(SAMPLING_PATH, env={}),
+            {binding: keys(base="vertex_ai/build-001")["base"]},
+            build=build_identity(),
+            sampling_path=sampling_copy,
+            manifest_path=manifest_copy,
+        )
+    assert not manifest_copy.exists()
+    assert sampling_copy.read_text(encoding="utf-8") == before
+
+
+def test_each_manifest_key_is_an_escaped_toml_string():
+    """The writer escapes each key on its own, beside the binding check."""
+    manifest = BlessedManifest.model_construct(
+        version=MANIFEST_VERSION, tiers={'x"\ny = 1': frozenset()}
+    )
+    with pytest.raises(CertificationError, match="unknown binding"):
+        certify_module._dump_manifest(manifest)
+    good = BlessedManifest(
+        version=MANIFEST_VERSION,
+        tiers={"base": frozenset(), "critic/stride": frozenset()},
+    )
+    text = certify_module._dump_manifest(good)
+    assert '"base" = []' in text
+    assert '"critic/stride" = []' in text
 
 
 def test_promote_blesses_an_override_under_its_node_key(tmp_path):

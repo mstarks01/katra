@@ -35,10 +35,9 @@ function pending(row) {
   return value === null ? row.shipped : value;
 }
 
-// Each vendor that a tier names, with the unsaved changes applied. The server
-// lists the keys of the rows that choose a tier's vendor.
-// The vendors that a tier row chooses, with the vendors that the model tier
-// file's overrides select. The page cannot change an override.
+// The vendors that a tier row chooses, with the unsaved changes applied, and
+// the vendors that the model tier file's overrides select. The page cannot
+// change an override.
 const chosenVendors = () =>
   new Set([...SETTINGS.vendor_rows.map(rowOf).filter(Boolean).map(pending).filter(Boolean), ...SETTINGS.override_vendors]);
 

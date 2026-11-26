@@ -168,6 +168,17 @@ def lane_key(framework: str, lane: str) -> str:
     return f"{tier_key('analyze', framework)}/{lane}"
 
 
+def is_lane_slug(lane: str) -> bool:
+    """Whether ``lane`` has the shape of a lane name: ASCII letters and digits,
+    with hyphens between them.
+
+    **The one reader of the lane-name shape.** A package's lanes and the lane
+    part of a lane key both pass it, so a key that names no possible lane,
+    such as one that holds a quote or a line break, is no lane key.
+    """
+    return bool(lane) and lane.isascii() and lane.replace("-", "").isalnum()
+
+
 def framework_of_lane_key(node: str) -> str | None:
     """The framework whose lane ``node`` keys, or ``None`` if it keys no lane.
 
@@ -180,10 +191,38 @@ def framework_of_lane_key(node: str) -> str | None:
         (
             name
             for name in FRAMEWORK_NAMES
-            if node.startswith(lane_key(name, "")) and node != lane_key(name, "")
+            if node.startswith(lane_key(name, ""))
+            and is_lane_slug(node.removeprefix(lane_key(name, "")))
         ),
         None,
     )
+
+
+def framework_of_node(node: str) -> str | None:
+    """The framework a node key belongs to, or ``None`` for a shared node."""
+    lane_framework = framework_of_lane_key(node)
+    if lane_framework is not None:
+        return lane_framework
+    return next(
+        (
+            name
+            for name in FRAMEWORK_NAMES
+            if node in (tier_key(role, name) for role in FRAMEWORK_ROLES)
+        ),
+        None,
+    )
+
+
+def setting_node(node: str) -> str:
+    """The node whose model setting ``node`` runs on.
+
+    **The one reader of "the re-ask follows its critic".** A re-ask runs on
+    the setting of its critic; every other node runs on its own.
+    """
+    framework = framework_of_node(node)
+    if framework is not None and node == tier_key("recritic", framework):
+        return tier_key("critic", framework)
+    return node
 
 
 def _framework_nodes() -> tuple[str, ...]:
@@ -193,14 +232,6 @@ def _framework_nodes() -> tuple[str, ...]:
 
 
 FRAMEWORK_NODES: tuple[str, ...] = _framework_nodes()
-LLM_NODES: tuple[str, ...] = (
-    "extract",
-    "repair",
-    "assert",
-    "capabilities",
-    *FRAMEWORK_NODES,
-)
-
 
 #: The tier each LLM node belongs to. Fixed here and not in the config file:
 #: a deployment that wants a node on another model gives it an override. The
@@ -212,6 +243,8 @@ NODE_TIERS: Mapping[str, TierName] = {
     **dict.fromkeys(("extract", "repair", "assert", "capabilities"), _BASE),
     **dict.fromkeys(FRAMEWORK_NODES, _STRONG),
 }
+#: Every LLM node, in the order of :data:`NODE_TIERS`.
+LLM_NODES: tuple[str, ...] = tuple(NODE_TIERS)
 
 
 def tier_of_node(node: str) -> TierName:
@@ -234,7 +267,7 @@ def is_override_key(node: str) -> bool:
     judgement.
     """
     known = node in NODE_TIERS or framework_of_lane_key(node) is not None
-    return known and not node.startswith(tier_key("recritic", ""))
+    return known and setting_node(node) == node
 
 
 def is_binding_name(name: str) -> bool:
@@ -420,10 +453,15 @@ class ModelTierConfig(BaseModel):
         node runs on it, that is, while one node of the tier has no override.
         A tier that every one of its nodes overrides needs no selection, no
         adapter, no credential and no SDK. The loader asks the same question of
-        the raw tables before validation, through :func:`tiers_in_use`, and a
-        test holds the two answers equal.
+        the raw table before validation, through :func:`tiers_in_use`, and a
+        test holds the two answers equal: this one walks each node's binding,
+        that one the tier of each node with no override.
         """
-        return tiers_in_use(self.nodes)
+        return frozenset(
+            tier
+            for node in LLM_NODES
+            if (tier := tier_named(self.binding_of(node))) is not None
+        )
 
     @property
     def bound_vendors(self) -> tuple[VendorName, ...]:
@@ -743,10 +781,10 @@ class ModelTierConfig(BaseModel):
         override runs on its framework's ``analyze`` binding. Every other node
         runs on its tier.
         """
+        if setting_node(node) != node:
+            return self.binding_of(setting_node(node))
         if node in self.nodes:
             return node
-        if node.startswith(tier_key("recritic", "")) and node in NODE_TIERS:
-            return self.binding_of(tier_key("critic", node.split("/", 1)[1]))
         if node in NODE_TIERS:
             return tier_of_node(node)
         framework = framework_of_lane_key(node)
@@ -980,28 +1018,30 @@ def tiers_in_use(nodes_raw: object) -> frozenset[TierName]:
     node uses needs no selection: :func:`~katra.binding.build_tier_adapters`
     binds no adapter for it, so a pair for it is a pair no request reaches.
 
-    Takes the raw table so the loader can ask before validation, and
-    :attr:`ModelTierConfig.bound_tiers` asks it of the validated one.
+    Takes the raw table so the loader can ask before validation.
+    :attr:`ModelTierConfig.bound_tiers` answers the same question from the
+    bindings, and a test holds the two equal.
     """
     overridden = set(nodes_raw) if isinstance(nodes_raw, dict) else set()
-
-    def on_tier(node: str) -> bool:
-        if node.startswith(tier_key("recritic", "")):
-            node = tier_key("critic", node.split("/", 1)[1])
-        return node not in overridden
-
-    return frozenset(tier for node, tier in NODE_TIERS.items() if on_tier(node))
+    return frozenset(
+        tier_of_node(node) for node in LLM_NODES if setting_node(node) not in overridden
+    )
 
 
 def _override_key_problem(node: str) -> str:
     """Why ``node`` cannot carry an override, for the loader's message."""
-    if node.startswith(tier_key("recritic", "")):
-        critic = tier_key("critic", node.split("/", 1)[1])
+    if setting_node(node) != node:
         return (
             f'nodes."{node}": a re-ask runs on its critic\'s model and takes no'
-            f' override; set one on [nodes."{critic}"] and the re-ask follows it'
+            f' override; set one on [nodes."{setting_node(node)}"] and the'
+            " re-ask follows it"
         )
-    return f'nodes."{node}": no LLM node has this key'
+    return (
+        f'nodes."{node}": no LLM node has this key. An override is a'
+        ' [nodes."<node>"] table with vendor and model, and <node> is extract,'
+        " repair, assert, capabilities, analyze/<framework>, critic/<framework>"
+        " or analyze/<framework>/<lane>"
+    )
 
 
 def _tier_map_problem(raw: Mapping[str, object]) -> str | None:

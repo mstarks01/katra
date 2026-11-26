@@ -24,6 +24,7 @@ from katra.model_tiers import (
     ModelTierConfig,
     TierSelection,
     env_vars_for,
+    is_binding_name,
     lane_key,
     load_model_tiers,
     tiers_in_use,
@@ -115,16 +116,10 @@ class TestNodeInventory:
         )
         assert LLM_NODES[4:] == FRAMEWORK_NODES
 
-    def test_every_carried_framework_needs_its_three_keys_of_every_install(self):
-        """The triple is required in every file, whatever that install carries.
-
-        ``LLM_NODES`` derives from ``FrameworkName``, which names what this build
-        can spell rather than what an install runs. So a deployment carrying
-        STRIDE alone still has to name ASVS's three keys, and a file that omits
-        them fails the completeness check by name. That message is the fix, and
-        it is the stated drawback of adding a framework without moving the schema
-        version.
-        """
+    def test_every_framework_the_build_can_spell_has_its_three_nodes(self):
+        """``LLM_NODES`` derives from ``FrameworkName``, which names what this
+        build can spell rather than what an install runs, so each framework has
+        its three nodes in the code whatever the install carries."""
         assert {name.split("/", 1)[1] for name in FRAMEWORK_NODES} == set(
             FRAMEWORK_NAMES
         )
@@ -1208,11 +1203,29 @@ class TestLaneKeys:
         assert config.binding_of(self.DOS) == "analyze/stride"
         assert config.resolve_model(self.DOS).model == CRITIC
 
-    @pytest.mark.parametrize("key", ["analyze/nope/flood", "analyze/stride/"])
-    def test_a_key_under_no_carried_framework_is_refused(self, config_path, key):
-        text = config_toml(overrides={key: (CRITIC_VENDOR, CRITIC)})
-        with pytest.raises(ModelConfigError, match="no LLM node has this key"):
-            load_model_tiers(config_path(text), env={})
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "analyze/nope/flood",
+            "analyze/stride/",
+            'analyze/stride/x"',
+            "analyze/stride/x\ny",
+            "analyze/stride/a/b",
+            "analyze/stride/ñ",
+        ],
+    )
+    def test_a_key_that_names_no_possible_lane_is_refused(self, config_path, key):
+        assert not is_binding_name(key)
+        with pytest.raises(ValidationError, match="no LLM node has this key"):
+            ModelTierConfig(
+                version=SUPPORTED_VERSION,
+                tiers={
+                    "base": TierSelection(vendor=VENDOR, model=BASE),
+                    "strong": TierSelection(vendor=VENDOR, model=STRONG),
+                },
+                nodes={key: TierSelection(vendor=CRITIC_VENDOR, model=CRITIC)},
+                review_independence="shared",
+            )
 
     def test_the_package_check_refuses_a_lane_the_package_does_not_declare(self):
         keys = (lane_key("stride", "flooding"),)
