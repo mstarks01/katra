@@ -1,0 +1,20 @@
+stage 1
+  02 tampering               target 02/3's present draft    in 33784 -> 35623 (+1839), out 12797, $0.196 / $0.263
+  03 information-disclosure  target 03/8                    in 31750 -> 33444 (+1694), out 11287, $0.176 / $0.236
+  03 tampering               control 03/3                   in 31106 -> 32096 (+990), out 9903, $0.161 / $0.213
+  06 tampering               target 06/3; control 06/4      in 31682 -> 34135 (+2453), out 7569, $0.139 / $0.182
+  09 tampering               target 09/4                    in 33607 -> 35593 (+1986), out 15689, $0.224 / $0.307
+  09 information-disclosure  control 09/13                  in 34178 -> 36609 (+2431), out 15393, $0.222 / $0.304
+  10 tampering               target 10/17; control 10/4     in 30855 -> 32123 (+1268), out 13000, $0.192 / $0.259
+  13 information-disclosure  target 13/19                   in 34032 -> 36093 (+2061), out 15481, $0.223 / $0.304
+  one pass of both arms $3.60; three passes $10.80
+stage 2
+  04 tampering               control 04/3                   in 31502 -> 33070 (+1568), out 11897, $0.182 / $0.245
+  04 information-disclosure  control 04/8                   in 31585 -> 33484 (+1899), out 16546, $0.229 / $0.315
+  07 tampering               control 07/6                   in 31617 -> 34115 (+2498), out 20501, $0.268 / $0.376
+  07 information-disclosure  control 07/12                  in 30973 -> 33417 (+2444), out 12778, $0.190 / $0.259
+  08 tampering               control 08/4                   in 34230 -> 36350 (+2120), out 11092, $0.179 / $0.239
+  08 information-disclosure  control 08/10                  in 34621 -> 37087 (+2466), out 13594, $0.205 / $0.278
+  11 tampering               control 11/4                   in 31383 -> 32976 (+1593), out 8745, $0.150 / $0.197
+  12 tampering               control 12/3                   in 32028 -> 33844 (+1816), out 11588, $0.180 / $0.242
+  one pass of both arms $3.73; three passes $11.20
