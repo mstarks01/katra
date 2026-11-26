@@ -1,0 +1,26 @@
+requests: 636, cases: 20
+identical (framework, lane): requests
+  ('asvs', 'api-and-web-service'): 24
+  ('asvs', 'authentication'): 24
+  ('asvs', 'authorization'): 24
+  ('asvs', 'configuration'): 24
+  ('asvs', 'cryptography'): 24
+  ('asvs', 'data-protection'): 24
+  ('asvs', 'encoding-and-sanitization'): 24
+  ('asvs', 'file-handling'): 24
+  ('asvs', 'oauth-and-oidc'): 24
+  ('asvs', 'secure-coding-and-architecture'): 24
+  ('asvs', 'secure-communication'): 24
+  ('asvs', 'security-logging-and-error-handling'): 24
+  ('asvs', 'self-contained-tokens'): 24
+  ('asvs', 'session-management'): 24
+  ('asvs', 'validation-and-business-logic'): 24
+  ('asvs', 'web-frontend-security'): 24
+  ('asvs', 'webrtc'): 24
+  ('stride', 'denial-of-service'): 38
+  ('stride', 'elevation-of-privilege'): 38
+  ('stride', 'repudiation'): 38
+  ('stride', 'spoofing'): 38
+changed (framework, lane): requests, instructions changed, turns changed, characters added
+  ('stride', 'information-disclosure'): 38, 38, 0, 2976 to 8366
+  ('stride', 'tampering'): 38, 38, 0, 2791 to 8376
