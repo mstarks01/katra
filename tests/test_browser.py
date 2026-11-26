@@ -1319,6 +1319,52 @@ def test_the_settings_page_runs_its_script(browser, tmp_path):
     assert text_bound == "4096"
 
 
+def test_the_settings_page_shows_the_model_of_each_node(browser, tmp_path):
+    """Each LLM node has a read-only row with its model and its source, and
+    the page names the file that sets an override (#2352)."""
+    from katra.model_tiers import LLM_NODES
+    from tests.test_settings_env import env_in, hand_written, write_settings
+    from webapp.main import create_app
+
+    tiers = tmp_path / "model_tiers.toml"
+    tiers.write_text(
+        (Path(__file__).resolve().parents[1] / "config" / "model_tiers.toml").read_text(
+            encoding="utf-8"
+        )
+        + '\n[nodes."critic/stride"]\nvendor = "anthropic"\n'
+        'model = "claude-opus-5"\n',
+        encoding="utf-8",
+    )
+    write_settings(tmp_path, hand_written())
+    app = create_app(env=env_in(tmp_path, KATRA_TIERS_FILE=str(tiers)))
+    for url in serve(app):
+        page, errors = opened(browser, url + "/settings")
+        page.wait_for_selector("#settings-rows tr[data-node]")
+        shown = page.locator("#settings-rows tr[data-node]").evaluate_all(
+            "rows => rows.map(row => row.dataset.node)"
+        )
+        critic = page.locator('tr[data-node="critic/stride"]').inner_text()
+        recritic = page.locator('tr[data-node="recritic/stride"]').inner_text()
+        extract = page.locator('tr[data-node="extract"]').inner_text()
+        inputs = page.locator("#settings-rows tr[data-node] :is(input, select)")
+        controls = inputs.count()
+        intro = page.locator("#settings-rows tr:has(+ tr[data-node]) td").first
+        where = intro.inner_text()
+        page.fill("#settings-search", "critic/stride")
+        found = page.locator("#settings-rows tr[data-node]").evaluate_all(
+            "rows => rows.map(row => row.dataset.node)"
+        )
+        page.close()
+    assert errors == [], f"the settings page raised: {errors}"
+    assert shown == list(LLM_NODES)
+    assert "claude-opus-5" in critic and "override" in critic
+    assert "claude-opus-5" in recritic and "Follows critic/stride." in recritic
+    assert "gpt-4.1-mini" in extract and "base tier" in extract
+    assert controls == 0
+    assert str(tiers) in where and '[nodes."<node>"]' in where
+    assert found == ["critic/stride", "recritic/stride"]
+
+
 def test_the_settings_page_saves_resets_and_refuses_a_stale_tab(browser, tmp_path):
     from tests.test_settings_env import env_in, hand_written, write_settings
     from webapp.main import create_app

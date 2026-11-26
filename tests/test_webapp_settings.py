@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from katra.deployment import (
+    DEFAULT_MODEL_TIERS_PATH,
     DEFAULT_RESILIENCE_PATH,
     RESILIENCE_VAR,
     ConfigPaths,
@@ -20,11 +21,16 @@ from katra.deployment import (
 from katra.errors import ConfigError
 from katra.jobs import InMemoryJobStore
 from katra.model_gate import tool_models
-from katra.model_tiers import TIER_NAMES, env_vars_for
+from katra.model_tiers import LLM_NODES, TIER_NAMES, env_vars_for, lane_key
 from katra.settings_variables import secret_vars
 from katra.store_backends import env_variables as store_variables
 from katra.vendors import VENDOR_NAMES
-from tests.factories import TEST_CREDENTIAL_ENV, TEST_TIER_ENV, secret_env
+from tests.factories import (
+    PROJECT_ROOT,
+    TEST_CREDENTIAL_ENV,
+    TEST_TIER_ENV,
+    secret_env,
+)
 from tests.test_settings_env import (
     env_in,
     hand_written,
@@ -604,6 +610,107 @@ class TestModelSuggestions:
         assert "claude-sonnet-5-5" not in tool_models("anthropic")
         assert client.get("/").status_code == 200
         assert rows_of(client)["tiers.strong.model"]["value"] == "claude-sonnet-5-5"
+
+
+def overrides_file(tmp_path, overrides: str):
+    """A copy of the shipped model tier file with ``overrides`` after it."""
+    tiers = tmp_path / "model_tiers.toml"
+    shipped = PROJECT_ROOT / "config" / "model_tiers.toml"
+    tiers.write_text(shipped.read_text(encoding="utf-8") + overrides, encoding="utf-8")
+    return tiers
+
+
+def nodes_of(client) -> dict:
+    return page_data(client.get("/settings"))["nodes"]
+
+
+class TestTheNodeRows:
+    """One read-only row for each LLM node, with its model and the source of
+    the model (#2352)."""
+
+    def test_each_node_shows_its_tier_model(self, tmp_path):
+        nodes = nodes_of(client_for(tmp_path, hand_written()))
+
+        rows = {row["node"]: row for row in nodes["rows"]}
+        assert list(rows) == list(LLM_NODES)
+        assert nodes["file"] == str(DEFAULT_MODEL_TIERS_PATH)
+        assert nodes["refusal"] is None
+        assert rows["extract"] == {
+            "node": "extract",
+            "vendor": "openai",
+            "model": "gpt-4.1-mini",
+            "source": "base",
+            "follows": None,
+        }
+        assert rows["critic/stride"] == {
+            "node": "critic/stride",
+            "vendor": "vertex",
+            "model": "gemini-2.5-pro",
+            "source": "strong",
+            "follows": None,
+        }
+        assert rows["recritic/stride"]["follows"] == "critic/stride"
+
+    def test_an_override_shows_on_its_node_and_on_the_re_ask(self, tmp_path):
+        tiers = overrides_file(
+            tmp_path,
+            '\n[nodes."critic/stride"]\nvendor = "anthropic"\n'
+            'model = "claude-opus-5"\n',
+        )
+        client = client_for(tmp_path, hand_written(), KATRA_TIERS_FILE=str(tiers))
+
+        nodes = nodes_of(client)
+
+        rows = {row["node"]: row for row in nodes["rows"]}
+        assert nodes["file"] == str(tiers)
+        for node in ("critic/stride", "recritic/stride"):
+            assert (rows[node]["vendor"], rows[node]["model"]) == (
+                "anthropic",
+                "claude-opus-5",
+            )
+            assert rows[node]["source"] == "override"
+        assert rows["recritic/stride"]["follows"] == "critic/stride"
+        assert rows["critic/asvs"]["source"] == "strong"
+        assert rows["analyze/stride"]["model"] == "gemini-2.5-pro"
+
+    def test_a_lane_shows_only_with_an_override_after_its_analysis(self, tmp_path):
+        lane = lane_key("stride", "spoofing")
+        tiers = overrides_file(
+            tmp_path,
+            f'\n[nodes."{lane}"]\nvendor = "openai"\nmodel = "gpt-4.1"\n',
+        )
+        plain = [
+            row["node"]
+            for row in nodes_of(client_for(tmp_path, hand_written()))["rows"]
+        ]
+        client = client_for(tmp_path, hand_written(), KATRA_TIERS_FILE=str(tiers))
+
+        rows = nodes_of(client)["rows"]
+
+        nodes = [row["node"] for row in rows]
+        assert lane not in plain
+        assert nodes.index(lane) == nodes.index("analyze/stride") + 1
+        assert rows[nodes.index(lane)] == {
+            "node": lane,
+            "vendor": "openai",
+            "model": "gpt-4.1",
+            "source": "override",
+            "follows": None,
+        }
+
+    def test_a_file_the_loader_refuses_shows_the_refusal_and_no_rows(self, tmp_path):
+        nodes = nodes_of(client_for(tmp_path))
+
+        assert nodes["rows"] == []
+        assert "no vendor selected" in nodes["refusal"]
+        assert nodes["file"] == str(DEFAULT_MODEL_TIERS_PATH)
+
+    def test_a_path_the_loader_refuses_names_no_file(self, tmp_path):
+        nodes = nodes_of(client_for(tmp_path, hand_written(), KATRA_TIERS_FILE=""))
+
+        assert nodes["rows"] == []
+        assert nodes["refusal"]
+        assert nodes["file"] is None
 
 
 class TestAnEngineThatDoesNotBuild:

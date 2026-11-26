@@ -354,6 +354,42 @@ function iamRows() {
   );
 }
 
+// One read-only row for each LLM node: the vendor and the model it runs on,
+// and their source, its tier or an override. The server reads each one with
+// the loader (`_node_models` in webapp/settings_view.py), from the saved
+// settings. Only the model tier file sets an override.
+function nodeRows(filter) {
+  const nodes = SETTINGS.nodes;
+  const rows = nodes.rows.filter((row) => `${row.node} ${row.vendor} ${row.model}`.toLowerCase().includes(filter));
+  if (filter && !rows.length) return [];
+  const where = nodes.file == null ? [] : [
+    "Set an override in ", h("code", {}, nodes.file), ", under ", h("code", {}, '[nodes."<node>"]'),
+    ". No variable sets an override, and the Settings page does not change one.",
+  ];
+  const refusal = nodes.refusal != null && nodes.refusal !== SETTINGS.error ? h("code", {}, nodes.refusal) : null;
+  const intro = nodes.refusal == null
+    ? "Each node runs on its tier's model unless it has an override. These rows show the saved settings. "
+    : ["The node rows show when the loader takes the model tier file. ", refusal, " "];
+  return [
+    h("tr", { class: "groupline" }, h("th", { colspan: "3", scope: "colgroup" }, "Node models")),
+    h("tr", {}, h("td", { colspan: "3" }, hint(intro, where))),
+    ...rows.map((row) =>
+      h(
+        "tr",
+        { "data-node": row.node },
+        h("th", { scope: "row" }, h("code", {}, row.node)),
+        h("td", {}, h("code", {}, row.model), hint("Vendor: ", h("code", {}, row.vendor))),
+        h(
+          "td",
+          {},
+          h("span", { class: row.source === "override" ? "tag outside" : "tag" }, row.source === "override" ? "override" : `${row.source} tier`),
+          row.follows ? hint("Follows ", h("code", {}, row.follows), ".") : null,
+        ),
+      ),
+    ),
+  ];
+}
+
 function modelLists() {
   const lists = document.getElementById("model-lists");
   lists.replaceChildren(
@@ -374,20 +410,22 @@ function fill(filter) {
       (row) => row.group === group && visible(row) && `${row.label} ${row.key}`.toLowerCase().includes(filter),
     );
     const extra = group === "Credentials" && !filter ? iamRows() : [];
-    if (!rows.length && !extra.length) continue;
-    body.append(h("tr", { class: "groupline" }, h("th", { colspan: "3", scope: "colgroup" }, group)));
-    for (const row of rows) {
-      body.append(
-        h(
-          "tr",
-          { "data-key": row.key },
-          h("th", { scope: "row" }, row.label),
-          h("td", {}, shownValue(row), notes(row)),
-          h("td", {}, source(row)),
-        ),
-      );
+    if (rows.length || extra.length) {
+      body.append(h("tr", { class: "groupline" }, h("th", { colspan: "3", scope: "colgroup" }, group)));
+      for (const row of rows) {
+        body.append(
+          h(
+            "tr",
+            { "data-key": row.key },
+            h("th", { scope: "row" }, row.label),
+            h("td", {}, shownValue(row), notes(row)),
+            h("td", {}, source(row)),
+          ),
+        );
+      }
+      body.append(...extra);
     }
-    body.append(...extra);
+    if (group === "Models") body.append(...nodeRows(filter));
   }
 }
 

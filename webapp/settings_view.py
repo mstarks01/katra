@@ -24,6 +24,11 @@ the page offers a choice, and the example of a free-text setting from
 :data:`~webapp.settings_page.EXAMPLES`. The data carries the revision of
 ``settings.env``, which a save sends back (:mod:`webapp.settings_save`).
 
+The data also holds one row for each LLM node, which the page only shows: the
+vendor and the model that the node runs on, and whether they come from its
+tier or from an override. :meth:`~katra.model_tiers.ModelTierConfig.binding_of`
+decides each one. Only the model tier file sets an override.
+
 No row carries a secret. A secret row carries only whether a key file exists,
 and this module never opens one. A value that holds a URL password is
 withheld.
@@ -58,9 +63,17 @@ from katra.deployment import (
 from katra.errors import ConfigError
 from katra.model_gate import no_thinking_models, tool_models
 from katra.model_tiers import (
+    LLM_NODES,
     TIER_NAMES,
+    ModelTierConfig,
+    TierName,
     charges_env_var_for,
     credentials_env_var_for,
+    framework_of_lane_key,
+    load_model_tiers,
+    setting_node,
+    tier_key,
+    tier_named,
     upstreams_env_var_for,
 )
 from katra.objects import OBJECT_ROOT_VAR, OBJECT_STORE_VAR, object_reads
@@ -112,6 +125,9 @@ ORIGIN_WORDS: Mapping[ValueOrigin, str | None] = MappingProxyType(
         "default": "default",
     }
 )
+
+#: Where a node's model comes from: its tier, or an override of its own.
+NodeSource = TierName | Literal["override"]
 
 #: The numbers a numeric row takes. ``settings.js`` checks each one.
 Numeric = Literal["integer", "decimal"]
@@ -188,9 +204,10 @@ def settings_view(
     error, the refusal of ``settings.env`` (``settings_file_refusal``), the
     modes of each vendor, the keys of the rows that choose a tier's vendor
     (``vendor_rows``), the vendors that the overrides select
-    (``override_vendors``), the ``iam`` notes and the model suggestions of each
-    vendor. The page's script picks the suggestions of a
-    tier from the vendor that the unsaved changes choose for it.
+    (``override_vendors``), the model of each LLM node (``nodes``), the ``iam``
+    notes and the model suggestions of each vendor. The page's script picks
+    the suggestions of a tier from the vendor that the unsaved changes choose
+    for it.
     """
     path = settings_dir(process_env) / SETTINGS_FILE
     revision, lines, refusal = _read_page(path)
@@ -253,6 +270,7 @@ def settings_view(
         ],
         "vendor_rows": [tier_setting_key(tier, "vendor") for tier in TIER_NAMES],
         "override_vendors": _override_vendors(files),
+        "nodes": _node_models(files, merged),
         "models": {vendor: list(tool_models(vendor)) for vendor in VENDOR_NAMES},
         "no_thinking": {
             vendor: list(no_thinking_models(vendor)) for vendor in VENDOR_NAMES
@@ -445,7 +463,9 @@ def _override_vendors(files: _Files) -> list[str]:
 
     The page cannot change an override, so a save keeps the key of each of
     these vendors, and the page's ``deletedKeys`` reads this list to say so.
-    A file the loader refuses gives none: the save then stops on that refusal.
+    It reads the raw ``[nodes]`` table, so a file that sets no tier still
+    gives its override vendors. A file that is missing or is not valid TOML
+    gives none.
     """
     try:
         _, nodes = files.lookup("model_tiers", ("nodes",))
@@ -461,6 +481,57 @@ def _override_vendors(files: _Files) -> list[str]:
             and vendor in VENDOR_NAMES
         }
     )
+
+
+def _node_models(files: _Files, merged: Mapping[str, str]) -> dict[str, Any]:
+    """The model tier file (``file``) and one row for each LLM node, read
+    from the settings in ``merged`` by the loader of the startup. ``files``
+    locates the file.
+
+    Each row holds the node key, the vendor and the model that the node runs
+    on, the source of that model, and the node whose setting a re-ask
+    follows (``follows``). A lane key has a row only where it has an
+    override. Where the loader refuses the file or its path, the data holds
+    the refusal and no rows, and ``file`` is ``None`` where the file does
+    not parse or its path is refused.
+    """
+    path: Path | None = None
+    try:
+        path, _ = files.lookup("model_tiers", ())
+        tiers = load_model_tiers(path, merged)
+    except ConfigError as exc:
+        file = None if path is None else str(path)
+        return {"file": file, "refusal": str(exc), "rows": []}
+    return {
+        "file": str(path),
+        "refusal": None,
+        "rows": [_node_row(tiers, node) for node in _node_keys(tiers)],
+    }
+
+
+def _node_keys(tiers: ModelTierConfig) -> list[str]:
+    """Each LLM node in the order of ``LLM_NODES``, with each lane override
+    after the ``analyze`` node of its framework."""
+    lanes: dict[str, list[str]] = {}
+    for node in sorted(tiers.nodes):
+        framework = framework_of_lane_key(node)
+        if framework is not None:
+            lanes.setdefault(tier_key("analyze", framework), []).append(node)
+    return [key for node in LLM_NODES for key in (node, *lanes.get(node, ()))]
+
+
+def _node_row(tiers: ModelTierConfig, node: str) -> dict[str, Any]:
+    binding = tiers.binding_of(node)
+    selection = tiers.selection_for(binding)
+    source: NodeSource = tier_named(binding) or "override"
+    follows = setting_node(node)
+    return {
+        "node": node,
+        "vendor": selection.vendor,
+        "model": selection.model,
+        "source": source,
+        "follows": None if follows == node else follows,
+    }
 
 
 def _value(
