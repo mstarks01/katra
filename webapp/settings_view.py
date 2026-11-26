@@ -187,7 +187,8 @@ def settings_view(
     (``store_shown``), the unknown lines of ``settings.env``, the engine's
     error, the refusal of ``settings.env`` (``settings_file_refusal``), the
     modes of each vendor, the keys of the rows that choose a tier's vendor
-    (``vendor_rows``), the ``iam`` notes and the model suggestions of each
+    (``vendor_rows``), the vendors that the overrides select
+    (``override_vendors``), the ``iam`` notes and the model suggestions of each
     vendor. The page's script picks the suggestions of a
     tier from the vendor that the unsaved changes choose for it.
     """
@@ -251,6 +252,7 @@ def settings_view(
             if (setup := IAM_SETUP[vendor]) is not None
         ],
         "vendor_rows": [tier_setting_key(tier, "vendor") for tier in TIER_NAMES],
+        "override_vendors": _override_vendors(files),
         "models": {vendor: list(tool_models(vendor)) for vendor in VENDOR_NAMES},
         "no_thinking": {
             vendor: list(no_thinking_models(vendor)) for vendor in VENDOR_NAMES
@@ -436,6 +438,29 @@ class _Files:
         for key in keys:
             value = value.get(key) if isinstance(value, dict) else None
         return path, value
+
+
+def _override_vendors(files: _Files) -> list[str]:
+    """The vendors that the model tier file's overrides select, sorted.
+
+    The page cannot change an override, so a save keeps the key of each of
+    these vendors, and the page's ``deletedKeys`` reads this list to say so.
+    A file the loader refuses gives none: the save then stops on that refusal.
+    """
+    try:
+        _, nodes = files.lookup("model_tiers", ("nodes",))
+    except ConfigError:
+        return []
+    tables = nodes.values() if isinstance(nodes, dict) else ()
+    return sorted(
+        {
+            vendor
+            for table in tables
+            if isinstance(table, dict)
+            and isinstance(vendor := table.get("vendor"), str)
+            and vendor in VENDOR_NAMES
+        }
+    )
 
 
 def _value(

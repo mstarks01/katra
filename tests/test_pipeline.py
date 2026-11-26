@@ -543,7 +543,7 @@ def test_each_llm_node_fingerprint_recomputes_from_the_artifact():
             assert node_run.model is None
             assert node_run.execution_fingerprint is None
             continue
-        tier = tiers.resolve_tier(canonical)
+        tier = tiers.binding_of(canonical)
         expected = sample_fingerprint(
             node_run.model,
             TierSampling(**clear[tier]),

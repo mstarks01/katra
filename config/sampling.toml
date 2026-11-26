@@ -3,9 +3,9 @@
 # green while production drifts, so there is no eval-only copy: per-tier tuning
 # is a reviewable diff here, promoted by an eval sweep.
 #
-# Keyed by tier, reusing model_tiers.toml's node -> tier map: `base` runs
-# extraction and repair, `strong` every framework's lane agents, its critic and
-# its re-ask. A package declares its own lanes, so how many `strong` calls a job
+# Keyed by tier, with a block for each override that sets its own (at the end
+# of this file). `base` runs extraction and repair, `strong` every framework's
+# lane agents, its critic and its re-ask. A package declares its own lanes, so how many `strong` calls a job
 # makes follows from the frameworks it named.
 #
 # Every decoding param the surface admits is listed per tier — pinned to a
@@ -113,7 +113,7 @@
 #                       provider library, so the timeout moved onto the
 #                       adapter. Sampling never owned it either way.
 
-version = 5
+version = 6
 
 # SIZING THE TWO CAPS. Measured, not chosen: token counts below are o200k_base
 # over artifacts in this repo, and reasoning tokens are spent against the same
@@ -208,36 +208,13 @@ structured_output = "auto" # the best format the pair supports, falling
 # thinking          unset -> the model's own preset. Set "low", "medium" or
 #                   "high"; the wire value each becomes is the vendor's business
 
-# The review tier's decoding params. Its values track `strong` because the
-# judgement is the same judgement: a critic reasons against the same cap the
-# pass it corrects did, and giving it less room is the failure the recritic
-# pairing check exists to refuse. What the tier buys is a different *model*,
-# never a cheaper decode.
+# OVERRIDE BLOCKS. A node with a model override in config/model_tiers.toml may
+# carry its own block here, under the same key: another vendor can need other
+# values. Optional, and none ships. A node with an override and no block uses
+# its tier's block above. An empty block gives the defaults of each field: no
+# max_output_tokens, so the vendor's own cap. A block for a node with no model
+# override is a load error. The re-ask follows its critic, so it uses its
+# critic's block.
 #
-# The block is required whether or not the node map points anything at it. A
-# sampling file that could omit a tier is one where moving critic/* onto
-# `review` silently runs it on values nobody chose.
-[tiers.review]
-max_output_tokens = 64000 # pinned: silence means a vendor-derived cap (see above)
-candidate_count = 1      # reserved Self-MoA lever; loader rejects != 1
-constrain_output = true  # send this tier's node schema to the provider.
-                         # Leave it true: setting it false is not currently a
-                         # working configuration -- see the note above.
-structured_output = "auto" # the best format the pair supports, falling
-                           # back to a more traditional one where refused.
-                           # "native" refuses a model without it; "tool"
-                           # covers a model the map marks native and the
-                           # provider refuses.
-# temperature       unset -> the model's own default. Set a value to state one;
-#                   a tier that does cannot then run Claude >= 4.7, which
-#                   rejects the param, and an OpenAI reasoning family accepts
-#                   only 1. Greedy decoding narrows variation; it never bought
-#                   reproducibility, which rests on the served build read back
-#                   from every response.
-# top_p             unset -> model default; no published per-tier constant
-# seed              unset -> no numeric default; buys consistency, not
-#                   reproducibility, and is unavailable on Anthropic at all
-# presence_penalty  unset -> effective default 0.0; valid range unverified
-# frequency_penalty unset -> effective default 0.0; valid range unverified
-# thinking          unset -> the model's own preset. Set "low", "medium" or
-#                   "high"; the wire value each becomes is the vendor's business
+# [nodes."critic/stride"]
+# max_output_tokens = 64000

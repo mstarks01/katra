@@ -78,12 +78,6 @@ VERTEX_TIERS = {
     "KATRA_MODEL_BASE_MODEL": "gemini-2.5-flash",
     "KATRA_MODEL_STRONG_VENDOR": "vertex",
     "KATRA_MODEL_STRONG_MODEL": "gemini-2.5-pro",
-    # Vertex here too, keeping this module's subject to one credential mode.
-    # The shipped node map points nothing at `review`, so this pair selects a
-    # tier no node in these tests runs on — but it must still be selected, or
-    # the tier config refuses to load at all.
-    "KATRA_MODEL_REVIEW_VENDOR": "vertex",
-    "KATRA_MODEL_REVIEW_MODEL": "gemini-2.5-pro",
 }
 
 # Building adapters for that selection needs these two present. They address the
@@ -103,7 +97,7 @@ def test_from_env_resolves_the_repo_configs_without_credentials():
     deployment = Deployment.from_env(env=VERTEX_TIERS)
 
     assert deployment.tiers.version == TIERS_SUPPORTED_VERSION
-    assert set(deployment.sampling.tiers) == {"base", "strong", "review"}
+    assert set(deployment.sampling.tiers) == {"base", "strong"}
     assert deployment.resilience.attempts >= 1
     assert deployment.manifest.version == MANIFEST_VERSION
     assert deployment.paths.model_tiers == PROJECT_ROOT / "config/model_tiers.toml"
@@ -132,7 +126,7 @@ def test_a_path_variable_picks_the_file_and_never_layers_a_second(tmp_path):
     """#10: exactly one file is read; the variable only chooses which."""
     custom = tmp_path / "sampling.toml"
     custom.write_text(
-        "version = 5\n[tiers.base]\ntemperature = 0.25\n[tiers.strong]\n[tiers.review]\n",
+        "version = 6\n[tiers.base]\ntemperature = 0.25\n[tiers.strong]\n",
         encoding="utf-8",
     )
 
@@ -142,6 +136,45 @@ def test_a_path_variable_picks_the_file_and_never_layers_a_second(tmp_path):
     # Not merged with the repo file: the strong tier is what the chosen file says.
     assert deployment.sampling.for_tier("strong").temperature is None
     assert deployment.paths.sampling == custom
+
+
+def test_a_sampling_block_for_a_node_with_no_model_override_stops_the_load(
+    tmp_path,
+):
+    """An override's sampling block sets values for that override only, so a
+    block whose node runs on its tier is refused (ADR 0136)."""
+    custom = tmp_path / "sampling.toml"
+    custom.write_text(
+        "version = 6\n[tiers.base]\n[tiers.strong]\n"
+        '[nodes."critic/stride"]\nmax_output_tokens = 100\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="no model override"):
+        Deployment.from_env(env=VERTEX_TIERS | {SAMPLING_VAR: str(custom)})
+
+
+def test_an_override_with_its_own_sampling_block_runs_on_it(tmp_path):
+    tiers = tmp_path / "model_tiers.toml"
+    tiers.write_text(
+        (PROJECT_ROOT / "config" / "model_tiers.toml").read_text(encoding="utf-8")
+        + '\n[nodes."critic/stride"]\nvendor = "vertex"\nmodel = "gemini-2.5-flash"\n',
+        encoding="utf-8",
+    )
+    custom = tmp_path / "sampling.toml"
+    custom.write_text(
+        "version = 6\n[tiers.base]\n[tiers.strong]\n"
+        '[nodes."critic/stride"]\nmax_output_tokens = 100\n',
+        encoding="utf-8",
+    )
+
+    deployment = Deployment.from_env(
+        env=VERTEX_TIERS | {SAMPLING_VAR: str(custom), MODEL_TIERS_VAR: str(tiers)}
+    )
+
+    assert deployment.binding_of(CRITIC_NODE) == "critic/stride"
+    assert deployment.binding_of(RECRITIC_NODE) == "critic/stride"
+    assert deployment.sampling.for_binding("critic/stride").max_output_tokens == 100
 
 
 def test_default_dir_prefers_the_bundled_copy_when_present(tmp_path, monkeypatch):
@@ -285,13 +318,13 @@ def test_the_environment_stays_out_of_repr_and_equality():
     assert deployment == Deployment.from_env(env=VERTEX_TIERS)
 
 
-def test_tier_of_walks_graph_node_to_tier():
+def test_binding_of_walks_graph_node_to_binding():
     """The one place this two-step walk is written."""
     deployment = Deployment.from_env(env=VERTEX_TIERS)
 
-    assert deployment.tier_of(graph.EXTRACT_NODE) == "base"
-    assert deployment.tier_of(CRITIC_NODE) == "strong"
-    assert deployment.tier_of(RECRITIC_NODE) == "strong"
+    assert deployment.binding_of(graph.EXTRACT_NODE) == "base"
+    assert deployment.binding_of(CRITIC_NODE) == "strong"
+    assert deployment.binding_of(RECRITIC_NODE) == "strong"
 
 
 # --- Building ---------------------------------------------------------------
@@ -549,12 +582,10 @@ OPENROUTER_ENV = {
     for tier in (
         "KATRA_MODEL_BASE_VENDOR",
         "KATRA_MODEL_STRONG_VENDOR",
-        "KATRA_MODEL_REVIEW_VENDOR",
     )
 } | {
     "KATRA_MODEL_BASE_MODEL": "anthropic/claude-sonnet-4.6",
     "KATRA_MODEL_STRONG_MODEL": "anthropic/claude-opus-4.7",
-    "KATRA_MODEL_REVIEW_MODEL": "anthropic/claude-opus-4.7",
     "KATRA_MODEL_CHARGES_OPENROUTER": "direct",
     **secret_env("KATRA_OPENROUTER_API_KEY_FILE", "sk-or-test"),
 }
@@ -718,20 +749,16 @@ ANTHROPIC_ENV = {
     "KATRA_MODEL_BASE_MODEL": CLAUDE_5,
     "KATRA_MODEL_STRONG_VENDOR": "anthropic",
     "KATRA_MODEL_STRONG_MODEL": CLAUDE_5,
-    "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-    "KATRA_MODEL_REVIEW_MODEL": CLAUDE_5,
     # A placeholder: the loader checks a variable is declared, never that it
     # authenticates, and nothing here reaches a provider.
     **secret_env("KATRA_ANTHROPIC_API_KEY_FILE", "sk-ant-not-a-real-key"),
 }
 
 NO_TEMPERATURE = """\
-version = 5
+version = 6
 [tiers.base]
 max_output_tokens = 8192
 [tiers.strong]
-max_output_tokens = 8192
-[tiers.review]
 max_output_tokens = 8192
 """
 
@@ -1019,14 +1046,11 @@ def test_gemini_and_openai_are_untouched_by_the_schema_gate():
 
 
 UNCONSTRAINED_BASE = """\
-version = 5
+version = 6
 [tiers.base]
 max_output_tokens = 8192
 constrain_output = false
 [tiers.strong]
-max_output_tokens = 8192
-constrain_output = false
-[tiers.review]
 max_output_tokens = 8192
 constrain_output = false
 """

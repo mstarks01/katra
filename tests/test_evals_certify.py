@@ -22,7 +22,6 @@ from katra.certification import (
 from katra.deployment import SAMPLING_VAR, Deployment
 from katra.graph import ENTRY_EXTRACT, tier_node_by_graph_node
 from katra.identity import build_identity
-from katra.model_tiers import TierName
 from katra.sampling import load_sampling
 from tests.factories import (
     DEFAULT_FRAMEWORKS,
@@ -37,16 +36,16 @@ TIER_NODE_BY_GRAPH_NODE = tier_node_by_graph_node(DEFAULT_FRAMEWORKS)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SAMPLING_PATH = REPO_ROOT / "config" / "sampling.toml"
-_TIER_OF = repo_tiers().resolve_tier
+_TIER_OF = repo_tiers().binding_of
 
 
-def tier_of(graph_node: str) -> TierName:
+def tier_of(graph_node: str) -> str:
     return _TIER_OF(TIER_NODE_BY_GRAPH_NODE[graph_node])
 
 
 def _blessed_from(observations: dict[str, frozenset[str]]) -> BlessedManifest:
     """Bless every fingerprint a variant produced, collapsed onto its tier."""
-    tiers: dict[TierName, set[str]] = {}
+    tiers: dict[str, set[str]] = {}
     for node, prints in observations.items():
         tiers.setdefault(tier_of(node), set()).update(prints)
     return blessed_manifest(tiers)
@@ -237,16 +236,34 @@ def test_promoting_one_tier_leaves_the_other_unblessed(tmp_path):
     assert manifest.blessed_for("strong") == frozenset()
 
 
-def test_promote_rejects_an_unknown_tier(tmp_path):
+@pytest.mark.parametrize("binding", ["review", "assemble", "recritic/stride"])
+def test_promote_rejects_an_unknown_binding(tmp_path, binding):
     sampling_copy, manifest_copy = _promote_setup(tmp_path)
-    with pytest.raises(CertificationError, match="unknown tier"):
+    with pytest.raises(CertificationError, match="unknown binding"):
         promote(
             load_sampling(SAMPLING_PATH, env={}),
-            keys(extract="vertex_ai/build-001"),  # a node name, not a tier
+            {binding: keys(base="vertex_ai/build-001")["base"]},
             build=build_identity(),
             sampling_path=sampling_copy,
             manifest_path=manifest_copy,
         )
+
+
+def test_promote_blesses_an_override_under_its_node_key(tmp_path):
+    """An override's fingerprints sit under its own key, quoted in the file,
+    and the file reads back."""
+    sampling_copy, manifest_copy = _promote_setup(tmp_path)
+    manifest = promote(
+        load_sampling(SAMPLING_PATH, env={}),
+        {"critic/stride": keys(base="vertex_ai/build-001")["base"]},
+        build=build_identity(),
+        sampling_path=sampling_copy,
+        manifest_path=manifest_copy,
+    )
+
+    assert manifest.blessed_for("critic/stride")
+    assert '"critic/stride" = [' in manifest_copy.read_text(encoding="utf-8")
+    assert load_manifest(manifest_copy) == manifest
 
 
 def test_promote_accumulates_blessed_builds(tmp_path):

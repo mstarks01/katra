@@ -427,12 +427,12 @@ def test_a_judge_through_an_aggregator_is_read_by_its_slug(
         assert breach in written["independence_breach"]
 
 
-def test_the_judge_samples_as_the_review_block_did():
-    """The judge's sampling keeps the values the ``review`` block of the
-    shipped sampling file holds."""
+def test_the_judge_samples_as_the_strong_block_does():
+    """The judge's sampling holds the values of the ``strong`` block of the
+    shipped sampling file: the judgement tier."""
     shipped = load_sampling(REPO_ROOT / "config" / "sampling.toml", env={})
 
-    assert judge_replay.JUDGE_SAMPLING == shipped.for_tier("review")
+    assert judge_replay.JUDGE_SAMPLING == shipped.for_tier("strong")
 
 
 @pytest.mark.parametrize(

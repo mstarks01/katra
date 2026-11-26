@@ -53,12 +53,7 @@ from katra.claims import (
 )
 from katra.errors import ConfigError
 from katra.markdown_loader import MarkdownFormatError, MarkdownLoader
-from katra.model_tiers import (
-    FRAMEWORK_ROLES,
-    framework_of_lane_key,
-    lane_key,
-    tier_key,
-)
+from katra.model_tiers import framework_of_lane_key, lane_key
 from katra.system_model import SystemModel
 
 __all__ = [
@@ -1207,12 +1202,13 @@ def _heading_issues(lane: str, path: Path) -> list[str]:
 
 
 def validate_packages(
-    names: Sequence[FrameworkName], root: Path, tier_nodes: Sequence[str]
+    names: Sequence[FrameworkName], root: Path, overrides: Sequence[str]
 ) -> None:
     """Every carried package: registered, well-formed, and runnable here.
 
     Check 1 of family A and the whole of family C, which need the carried set
-    and the tier config rather than one package. Called by
+    and the tier config's overrides rather than one package. A lane override
+    must name a lane the package declares. Called by
     :meth:`~katra.deployment.Deployment.from_env`.
     """
     unknown = [name for name in names if name not in PACKAGES]
@@ -1221,28 +1217,17 @@ def validate_packages(
             f"config names frameworks this build does not carry: {unknown};"
             f" it carries {sorted(PACKAGES)}"
         )
-    tiers = set(tier_nodes)
     for name in names:
         package = PACKAGES[name]
         validate_package(package, root / name)
-        missing = [
-            key
-            for key in (tier_key(role, name) for role in FRAMEWORK_ROLES)
-            if key not in tiers
-        ]
-        if missing:
-            raise FrameworkPackageError(
-                f"model_tiers.toml carries no {', '.join(missing)} for framework"
-                f" {name!r}"
-            )
         declared = {lane_key(name, lane) for lane in package.lanes}
         stray = sorted(
             key
-            for key in tiers
+            for key in overrides
             if framework_of_lane_key(key) == name and key not in declared
         )
         if stray:
             raise FrameworkPackageError(
-                f"model_tiers.toml keys {stray}, but framework {name!r} declares"
-                f" only the lanes {list(package.lanes)}"
+                f"model_tiers.toml overrides {stray}, but framework {name!r}"
+                f" declares only the lanes {list(package.lanes)}"
             )

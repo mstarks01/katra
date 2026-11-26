@@ -1046,9 +1046,10 @@ class TokenUsage:
     total_tokens: int
 ```
 
-- **`sampling`** lists the decoding parameters each tier actually used, once per
-  tier: `{"base": {"temperature": null, "max_output_tokens": 16384, ...},
-  "strong": {...}}`. A parameter left to the model's default shows as `null`,
+- **`sampling`** lists the decoding parameters each binding actually used, once
+  per binding: `{"base": {"temperature": null, "max_output_tokens": 16384, ...},
+  "strong": {...}}`. A deployment with an override also lists the override's
+  key, such as `"critic/stride"`. A parameter left to the model's default shows as `null`,
   which is what the shipped `temperature` looks like here. Values are whatever the param resolves
   to — a number, a count, a boolean, or a string for `thinking`, whose values are
   `"low"`, `"medium"` and `"high"` — so a consumer reading this block must not
@@ -1060,7 +1061,9 @@ class TokenUsage:
   because it is the one profiled family whose two values differ. On Claude,
   both fields hold the same string.
 - **`binding`** names the model setting that gave the node its model and its
-  sampling. It is the name of the node's tier: `base`, `strong` or `review`.
+  sampling: the node's tier, `base` or `strong`, or the node key of the
+  override it ran on, such as `critic/stride`. A re-ask names its critic's
+  binding. An archived report can also name `review`.
   The same value keys the node's block in `sampling`. It is `null` on a
   code-only node.
 - **`instruction_sha256`** is the digest of every instruction the graph this

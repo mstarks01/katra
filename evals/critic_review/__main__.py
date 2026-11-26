@@ -69,10 +69,10 @@ def _one_case(fixtures: list[CriticFixture]) -> str:
 def _critic_node(framework: FrameworkName) -> str:
     """This package's critic node, as the *graph* names it.
 
-    :meth:`~katra.deployment.Deployment.tier_of` takes this spelling
-    and walks it to a tier — graph node to canonical tier node to tier. The
+    :meth:`~katra.deployment.Deployment.binding_of` takes this spelling
+    and walks it to a binding — graph node to canonical tier node to binding. The
     tiers file spells the same node ``critic/<framework>``, so a caller that
-    asked ``tiers.resolve_tier`` with this name is a second reader of that
+    asked ``tiers.binding_of`` with this name is a second reader of that
     walk, and a wrong one.
     """
     return f"critic_{framework}"

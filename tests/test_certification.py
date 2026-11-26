@@ -197,6 +197,22 @@ class TestManifestLoading:
         with pytest.raises(CertificationError):
             load_manifest(bad)
 
+    def test_a_review_key_names_the_critic_override(self, tmp_path):
+        bad = tmp_path / "m.toml"
+        bad.write_text(
+            f"version = {MANIFEST_VERSION}\n[tiers]\nreview = []\n", encoding="utf-8"
+        )
+        with pytest.raises(CertificationError, match="critic override"):
+            load_manifest(bad)
+
+    def test_an_override_key_loads(self, tmp_path):
+        good = tmp_path / "m.toml"
+        good.write_text(
+            f'version = {MANIFEST_VERSION}\n[tiers]\n"critic/stride" = ["{FP_A}"]\n',
+            encoding="utf-8",
+        )
+        assert load_manifest(good).blessed_for("critic/stride") == {FP_A}
+
     def test_a_non_hex_fingerprint_is_rejected(self, tmp_path):
         bad = tmp_path / "m.toml"
         bad.write_text(
@@ -233,7 +249,7 @@ class TestGatePolicy:
     def gate(self, require_certified: bool) -> CertificationGate:
         return CertificationGate(
             manifest=blessed_manifest({"base": {FP_A}, "strong": {FP_B}}),
-            tier_of=tier_of,
+            binding_of=tier_of,
             require_certified=require_certified,
         )
 

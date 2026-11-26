@@ -1,20 +1,20 @@
 """Model-tier configuration for the graph's LLM nodes.
 
-There are three vendor-neutral tiers. ``base`` runs extraction, repair, the
-assertion pass and the capability reader.
-``strong`` runs a framework's lane agents. ``review`` exists so a deployment can
-bind criticism away from the analysis it checks. Each tier selects its own
-``(vendor, model)`` pair, so the three may run different vendors at once, and no
-vendor is privileged.
+There are two vendor-neutral tiers. ``base`` runs extraction, repair, the
+assertion pass and the capability reader. ``strong`` runs each framework's lane
+agents, its critic and its re-ask. Each tier selects its own ``(vendor, model)``
+pair, so the two may run different vendors at once, and no vendor is
+privileged. Which tier a node belongs to is fixed in code, in
+:data:`NODE_TIERS`.
 
-``review`` is a place rather than a policy. Which nodes sit on it is the node
-map's business, and the shipped map puts ``critic/<name>`` and
-``recritic/<name>`` on ``strong``. That is the same domain as the analysis,
-which is cheaper and is what most deployments want. What the tier gives is that a
-deployment can move them, and ``review_independence`` in the config file is
-where it says how far apart they have to be. Without ``review``, the only way
-to make criticism distinct is to run it on ``base``, which is a re-ask on a
-cheaper model than the pass it corrects. :func:`critic_pairing_issues` exists to refuse that.
+A node can also name its own ``(vendor, model)`` pair: an **override**, under
+``[nodes."<node>"]``. A node with an override runs on that pair, and a node
+without one runs on its tier's pair. An independent critic is an override on
+``critic/<name>``. ``recritic/<name>`` takes no override: it always runs on
+its critic's model, because a re-ask on another model than the pass it
+corrects is a different judgement. A lane key ``analyze/<name>/<lane>`` is an
+override too, and a lane without one runs on the model of
+``analyze/<name>``.
 
 Vendor and model are two keys rather than one router string. Three consumers
 need the vendor as a key: the credential mode it implies, the family-branching
@@ -30,16 +30,16 @@ vendor is reached the same way, and none of them is what an operator gets by
 doing nothing.
 
 Loading fails closed. An unselected tier, an unknown tier, vendor or node name,
-a floating model identifier from the file or from an env var, an undeclared
-credential mode for a vendor that allows more than one, a node missing from the
-mapping, or a config version other than :data:`SUPPORTED_VERSION`
+an override on a re-ask, a floating model identifier from the file or from an
+env var, an undeclared credential mode for a vendor that allows more than one,
+or a config version other than :data:`SUPPORTED_VERSION`
 raises :class:`ModelConfigError` rather than degrading. There is no cross-tier
 fallback and no compatibility shim for other schema versions.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Literal, Self, get_args
 
@@ -64,8 +64,11 @@ from katra.vendors import (
 # The only schema version this loader accepts. A file on any other version
 # fails its own check rather than being migrated in place.
 #
-# Three tables are optional:
+# Four tables are optional:
 #
+# * ``[nodes]``: the overrides, one ``[nodes."<node>"]`` table with ``vendor``
+#   and ``model`` for each node that runs on its own pair. A node with no
+#   table runs on its tier.
 # * ``[credentials]``: the credential mode of a vendor that allows more than
 #   one. Bedrock has the choice, so a file that selects it names a mode there
 #   or in ``KATRA_MODEL_CREDENTIALS_BEDROCK``. No shipped file selects a
@@ -79,15 +82,15 @@ from katra.vendors import (
 #   **Baseline** does, because it is named after the upstream that the record
 #   says served it. A key for a vendor that routes to one provider is an error,
 #   because there is nothing to pin.
-SUPPORTED_VERSION = 9
+SUPPORTED_VERSION = 10
 
-TierName = Literal["base", "strong", "review"]
-TIER_NAMES: tuple[TierName, ...] = ("base", "strong", "review")
+TierName = Literal["base", "strong"]
+TIER_NAMES: tuple[TierName, ...] = get_args(TierName)
 
-#: The key of one model setting that nodes run on: the name of a tier.
-#: Adapters, sampling blocks, execution records and report rows are keyed by
-#: it. :meth:`ModelTierConfig.binding_of` is the one reader of which binding a
-#: node runs on.
+#: The key of one model setting that nodes run on: the name of a tier, or the
+#: key of a node with an override. Adapters, sampling blocks, execution records
+#: and report rows are keyed by it. :meth:`ModelTierConfig.binding_of` is the
+#: one reader of which binding a node runs on.
 Binding = str
 
 
@@ -138,11 +141,9 @@ ReviewIndependence = Literal["shared", "distinct_model", "distinct_source_vendor
 # another's.
 #
 # ``recritic/<name>`` is the bounded critic re-ask: a distinct node so it is
-# pinned in its own right, and the loader requires it to resolve to the same
-# tier as its own ``critic/<name>``. That pairing is a check rather than a
-# comment in the config file: at two keys a comment holds, and at 2N keys it
-# drifts. A re-ask on a cheaper model than the pass it corrects is the failure
-# the check exists to catch.
+# pinned in its own right. It has no setting of its own, because it runs the
+# critic's judgement: :meth:`ModelTierConfig.binding_of` gives it its critic's
+# binding, so the two cannot run on different models.
 #: A node role that each framework has a tier key for.
 FrameworkRole = Literal["analyze", "critic", "recritic"]
 #: Each :data:`FrameworkRole`, in the order of the tier keys.
@@ -153,7 +154,7 @@ def tier_key(role: FrameworkRole, framework: str) -> str:
     """The tier-config key of one framework's node role, ``<role>/<framework>``.
 
     **The one spelling of a framework's tier key.** The node table, the graph's
-    node map, the package check and the two pairing checks all ask it.
+    node table, the package check and the independence check all ask it.
     """
     return f"{role}/{framework}"
 
@@ -161,8 +162,8 @@ def tier_key(role: FrameworkRole, framework: str) -> str:
 def lane_key(framework: str, lane: str) -> str:
     """The tier-config key of one lane, ``analyze/<framework>/<lane>``.
 
-    **The one spelling of a lane's tier key.** A node map may set it, and a
-    lane it does not set runs on ``analyze/<framework>``.
+    **The one spelling of a lane's tier key.** An override may name it, and a
+    lane with no override runs on the model of ``analyze/<framework>``.
     """
     return f"{tier_key('analyze', framework)}/{lane}"
 
@@ -201,23 +202,48 @@ LLM_NODES: tuple[str, ...] = (
 )
 
 
-def critic_pairing_issues(resolve_tier) -> list[str]:
-    """Every framework's ``recritic`` sits on the same tier as its ``critic``.
+#: The tier each LLM node belongs to. Fixed here and not in the config file:
+#: a deployment that wants a node on another model gives it an override. The
+#: workhorse nodes read sources and write rows; every framework node is
+#: judgement.
+_BASE: TierName = "base"
+_STRONG: TierName = "strong"
+NODE_TIERS: Mapping[str, TierName] = {
+    **dict.fromkeys(("extract", "repair", "assert", "capabilities"), _BASE),
+    **dict.fromkeys(FRAMEWORK_NODES, _STRONG),
+}
 
-    Takes the resolver rather than a config object so the rule can be stated
-    once and checked wherever a node -> tier map exists.
+
+def tier_of_node(node: str) -> TierName:
+    """The tier a node or a lane key belongs to. A lane belongs to the tier of
+    its framework's ``analyze`` node.
+
+    **The one reader of :data:`NODE_TIERS`.**
     """
-    pairs = [
-        (tier_key("recritic", name), tier_key("critic", name))
-        for name in FRAMEWORK_NAMES
-    ]
-    return [
-        f"{recritic} resolves to {resolve_tier(recritic)!r} but"
-        f" {critic} resolves to {resolve_tier(critic)!r};"
-        " a re-ask must not run on a cheaper model than the pass it corrects"
-        for recritic, critic in pairs
-        if resolve_tier(recritic) != resolve_tier(critic)
-    ]
+    framework = framework_of_lane_key(node)
+    if framework is not None:
+        node = tier_key("analyze", framework)
+    return NODE_TIERS[node]
+
+
+def is_override_key(node: str) -> bool:
+    """Whether ``node`` is a key that can carry an override.
+
+    Every LLM node except a re-ask, and every lane key. A re-ask runs on its
+    critic's model, so a key for it would name a second model for one
+    judgement.
+    """
+    known = node in NODE_TIERS or framework_of_lane_key(node) is not None
+    return known and not node.startswith(tier_key("recritic", ""))
+
+
+def is_binding_name(name: str) -> bool:
+    """Whether ``name`` can be a binding: a tier name or an override key.
+
+    **The one reader of the binding vocabulary.** A stored manifest key and an
+    archived record use it to refuse a name no configuration can produce.
+    """
+    return tier_named(name) is not None or is_override_key(name)
 
 
 _ENV_PREFIX = "KATRA_MODEL_"
@@ -230,6 +256,31 @@ _UPSTREAMS_STEM = f"{_ENV_PREFIX}UPSTREAMS"
 
 class ModelConfigError(ConfigError):
     """The model-tier configuration is invalid or unusable."""
+
+
+# ``KATRA_MODEL_REVIEW_*`` names a tier that is not in this version. A
+# deployment that sets one gets a message that names the critic override, not
+# the generic refusal.
+_RETIRED_REVIEW_PREFIX = f"{_ENV_PREFIX}REVIEW_"
+
+
+def retired_review_message(variables: Iterable[str]) -> str:
+    """The refusal for a ``KATRA_MODEL_REVIEW_*`` setting.
+
+    The one wording, so the loader and the settings file reader say the same
+    thing.
+    """
+    return (
+        f"{', '.join(variables)}: the review tier is not in this version."
+        " For an independent critic, give critic/<framework> an override:"
+        ' a [nodes."critic/<framework>"] table with vendor and model in'
+        " config/model_tiers.toml. The re-ask follows its critic."
+    )
+
+
+def is_retired_review_variable(name: str) -> bool:
+    """Whether ``name`` is a ``KATRA_MODEL_REVIEW_*`` variable."""
+    return name.startswith(_RETIRED_REVIEW_PREFIX)
 
 
 def env_vars_for(tier: TierName) -> tuple[str, str]:
@@ -314,7 +365,9 @@ class ModelTierConfig(BaseModel):
 
     version: int = Field(ge=1)
     tiers: dict[TierName, TierSelection]
-    nodes: dict[str, TierName]
+    #: The overrides: node key -> the ``(vendor, model)`` pair that node runs
+    #: on instead of its tier's. Empty in every shipped file.
+    nodes: dict[str, TierSelection] = Field(default_factory=dict)
     #: Which credential mode this deployment declares for each vendor. Keyed by
     #: vendor rather than by tier: a mode describes the deployment's
     #: relationship with a vendor, and a per-tier key could name two identities
@@ -363,46 +416,41 @@ class ModelTierConfig(BaseModel):
     def bound_tiers(self) -> frozenset[TierName]:
         """The tiers this deployment runs something on.
 
-        **The one reader of "is this tier bound".** The node map is what says
-        so. A tier with a selection that no node points at needs no adapter, no
-        credential and no SDK. Every site that decides what a deployment needs
-        reads this set, and not the wider set in ``self.tiers``. The loader asks
-        the same question of the raw node map before validation, through
-        :func:`tiers_in_use`, and a test holds the two answers equal.
-
-        A frozenset because callers only ask what is in it.
+        **The one reader of "is this tier bound".** A tier is bound while one
+        node runs on it, that is, while one node of the tier has no override.
+        A tier that every one of its nodes overrides needs no selection, no
+        adapter, no credential and no SDK. The loader asks the same question of
+        the raw tables before validation, through :func:`tiers_in_use`, and a
+        test holds the two answers equal.
         """
-        return frozenset(self.nodes.values())
+        return tiers_in_use(self.nodes)
 
     @property
     def bound_vendors(self) -> tuple[VendorName, ...]:
-        """Every vendor a bound tier selects, in tier order, without repeats.
+        """Every vendor a binding selects, in binding order, without repeats.
 
         The question "which providers does this deployment actually call", which
-        three callers ask: the credential-mode rule below, the build in
-        :func:`~katra.binding.build_tier_adapters`, and the
-        diagnostic page that tells an operator which variables to set. An answer
-        from every tier would list a vendor whose credentials nothing needs.
-
-        Tier order rather than sorted, so the list reads base-first the way the
-        config file does and does not reorder when a vendor is renamed.
+        several callers ask: the credential, charge and upstream rules below,
+        the build in :func:`~katra.binding.build_tier_adapters`, the settings
+        save that keeps each vendor's key, and the diagnostic page that tells
+        an operator which variables to set. An override's vendor is in it, and
+        a vendor that only an unbound tier selects is not.
         """
         return tuple(
             dict.fromkeys(
-                self.tiers[tier].vendor
-                for tier in TIER_NAMES
-                if tier in self.bound_tiers and tier in self.tiers
+                self.selection_for(binding).vendor for binding in self.bindings
             )
         )
 
     @model_validator(mode="after")
     def _check_complete(self) -> Self:
-        # The tiers this map runs something on, not all of them. `build_adapters`
-        # binds no adapter for an unused tier, so a demand for a selection for one
-        # would ask an operator to choose a model no request reaches.
-        in_use = self.bound_tiers
+        # The tiers a node runs on, not both. `build_tier_adapters` binds no
+        # adapter for an unused tier, so a demand for a selection for one would
+        # ask an operator to choose a model no request reaches.
         missing_tiers = [
-            tier for tier in TIER_NAMES if tier in in_use and tier not in self.tiers
+            tier
+            for tier in TIER_NAMES
+            if tier in self.bound_tiers and tier not in self.tiers
         ]
         if missing_tiers:
             raise ValueError(f"tiers missing entries for: {missing_tiers}")
@@ -410,21 +458,18 @@ class ModelTierConfig(BaseModel):
             validate_model_string(
                 selection.model, selection.vendor, source=f"tiers.{tier}.model"
             )
-        unknown = sorted(
-            node
-            for node in self.nodes
-            if node not in LLM_NODES and framework_of_lane_key(node) is None
-        )
-        if unknown:
-            raise ValueError(f"unknown node names: {unknown}")
-        missing = [node for node in LLM_NODES if node not in self.nodes]
-        if missing:
-            raise ValueError(f"nodes missing entries for: {missing}")
-        # The loader runs both cross-node rules here, because the validator
-        # holds a complete node -> tier map. The pairing matters because
-        # `review` is a place a critic can move to and leave its re-ask behind.
-        problems = critic_pairing_issues(self.nodes.__getitem__)
-        problems += self.independence_breaches()
+        problems = [
+            _override_key_problem(node)
+            for node in sorted(self.nodes)
+            if not is_override_key(node)
+        ]
+        if problems:
+            raise ValueError("; ".join(problems))
+        for node, selection in self.nodes.items():
+            validate_model_string(
+                selection.model, selection.vendor, source=f'nodes."{node}".model'
+            )
+        problems = self.independence_breaches()
         problems += self._credential_mode_problems()
         problems += self._charge_mode_problems()
         problems += self._upstream_problems()
@@ -441,8 +486,8 @@ class ModelTierConfig(BaseModel):
         it sit there would let a file state a mode the registry has since
         replaced.
 
-        Only vendors a **bound** tier selects are required to declare. A
-        multi-mode vendor nobody calls needs no identity.
+        Only vendors a binding selects are required to declare. A multi-mode
+        vendor nobody calls needs no identity.
         :attr:`bound_vendors` is the reader that makes the rule match its own
         statement, and the same one the build uses.
         """
@@ -466,15 +511,13 @@ class ModelTierConfig(BaseModel):
             allowed = vendor_for(vendor).credential_modes
             if len(allowed) > 1:
                 names = ", ".join(sorted(m.value for m in allowed))
-                tiers = ", ".join(
-                    tier
-                    for tier in TIER_NAMES
-                    if tier in self.bound_tiers
-                    and tier in self.tiers
-                    and self.tiers[tier].vendor == vendor
+                bindings = ", ".join(
+                    binding
+                    for binding in self.bindings
+                    if self.selection_for(binding).vendor == vendor
                 )
                 problems.append(
-                    f"vendor {vendor!r} (selected by tiers: {tiers}) allows more"
+                    f"vendor {vendor!r} (selected by: {bindings}) allows more"
                     f" than one credential mode ({names}); declare the one this"
                     f" deployment uses in credentials.{vendor} or"
                     f" {credentials_env_var_for(vendor)}"
@@ -490,9 +533,9 @@ class ModelTierConfig(BaseModel):
         wrong rather than two: a vendor may also report no charge at all, and a
         key describing an arrangement with such a vendor describes nothing.
 
-        Only vendors a **bound** tier selects are required to declare, exactly
-        as with credentials. An undeclared arrangement does no harm until a
-        call is made, and no call is made on a tier no node points at.
+        Only vendors a binding selects are required to declare, exactly as with
+        credentials. An undeclared arrangement does no harm until a call is
+        made, and no call is made on a tier no node runs on.
         """
         problems = []
         selected = set(self.bound_vendors)
@@ -564,7 +607,7 @@ class ModelTierConfig(BaseModel):
         return self.upstreams.get(vendor, ())
 
     def pinned_upstreams(self) -> tuple[str, ...]:
-        """Every upstream a bound tier's request is pinned to, without repeats.
+        """Every upstream a binding's request is pinned to, without repeats.
 
         What a job-wide bound reads: the deadline covers every tier a job runs
         on, so the slowest pinned upstream anywhere in the deployment is the
@@ -622,10 +665,12 @@ class ModelTierConfig(BaseModel):
         report carries instead is the policy itself, so a reader of a ``shared``
         run can see that the review was same-domain rather than infer it.
 
-        Checked per framework rather than once, because the node map is per
-        framework: a deployment may run one package's analysis on ``strong`` and
-        another's on ``base``, and each one's critic has to be independent of its
-        own analysis rather than of some other package's.
+        Checked per framework rather than once, because overrides are per node:
+        a deployment may run one package's analysis on an override and
+        another's on ``strong``, and each one's critic has to be independent of
+        its own analysis, and of each lane override of that framework, rather
+        than of some other package's. Each side is the node's effective
+        selection, so an override is compared and not the tier under it.
 
         **A label is not the thing it names**, which is what a gateway makes
         true. Neither policy compares the vendor key that a deployment wrote,
@@ -638,20 +683,19 @@ class ModelTierConfig(BaseModel):
             return []
         breaches = []
         for name in FRAMEWORK_NAMES:
-            critic = self.tiers[self.nodes[tier_key("critic", name)]]
+            critic = self.resolve_model(tier_key("critic", name))
             analyses = [
                 tier_key("analyze", name),
                 *(node for node in self.nodes if framework_of_lane_key(node) == name),
             ]
             for analysis in analyses:
-                analyze = self.tiers[self.nodes[analysis]]
-                detail = self._independence_detail(analyze, critic)
+                detail = self._independence_detail(self.resolve_model(analysis), critic)
                 if detail is not None:
                     breaches.append(
                         f"review_independence is {self.review_independence!r}"
                         f" but {analysis} and critic/{name} are not independent:"
-                        f" {detail}. Point critic/{name} and recritic/{name} at"
-                        f" a tier whose selection differs, or set"
+                        f" {detail}. Give critic/{name} an override in"
+                        f' [nodes."critic/{name}"] whose model differs, or set'
                         f' review_independence to "shared" and accept a'
                         f" same-domain review"
                     )
@@ -689,36 +733,43 @@ class ModelTierConfig(BaseModel):
             return "both run one model"
         return None
 
-    def resolve_tier(self, node: str) -> TierName:
-        """The tier the named LLM node runs on.
-
-        The node -> tier map lives here once; ``resolve_sampling`` reuses it via
-        this method so sampling never re-derives or duplicates it. A lane key
-        the map does not set resolves to its framework's ``analyze`` key.
-        """
-        if node in self.nodes:
-            return self.nodes[node]
-        framework = framework_of_lane_key(node)
-        if framework is None:
-            raise ModelConfigError(f"unknown LLM node: {node!r}")
-        return self.nodes[tier_key("analyze", framework)]
-
     def binding_of(self, node: str) -> Binding:
         """The binding the named LLM node runs on.
 
         **The one reader of "which model setting does this node use".** The
         adapters, the sampling resolver, the execution record and the report
-        row each key a node by this value. Every binding is a tier here.
+        row each key a node by this value. A node with an override runs on its
+        own key. A re-ask runs on its critic's binding. A lane key with no
+        override runs on its framework's ``analyze`` binding. Every other node
+        runs on its tier.
         """
-        return self.resolve_tier(node)
+        if node in self.nodes:
+            return node
+        if node.startswith(tier_key("recritic", "")) and node in NODE_TIERS:
+            return self.binding_of(tier_key("critic", node.split("/", 1)[1]))
+        if node in NODE_TIERS:
+            return tier_of_node(node)
+        framework = framework_of_lane_key(node)
+        if framework is None:
+            raise ModelConfigError(f"unknown LLM node: {node!r}")
+        return self.binding_of(tier_key("analyze", framework))
 
     @property
     def bindings(self) -> tuple[Binding, ...]:
-        """Every binding a node runs on, in tier order, without repeats."""
-        return tuple(tier for tier in TIER_NAMES if tier in self.bound_tiers)
+        """Every binding a node runs on: the bound tiers, then the overrides.
+
+        Tier order, then the override keys sorted, so the build order does not
+        vary with how a config file happens to list its nodes.
+        """
+        return (
+            *(tier for tier in TIER_NAMES if tier in self.bound_tiers),
+            *sorted(self.nodes),
+        )
 
     def selection_for(self, binding: Binding) -> TierSelection:
         """The ``(vendor, model)`` pair of one binding."""
+        if binding in self.nodes:
+            return self.nodes[binding]
         tier = tier_named(binding)
         if tier is None or tier not in self.tiers:
             raise ModelConfigError(f"no model selection for binding {binding!r}")
@@ -799,6 +850,9 @@ def _apply_env_overrides(raw: dict[str, object], env: Mapping[str, str]) -> None
     no deployment could configure itself from the environment alone.
     """
     known = env_variables()
+    retired = sorted(var for var in env if is_retired_review_variable(var))
+    if retired:
+        raise ModelConfigError(retired_review_message(retired))
     unknown = sorted(
         var for var in env if var.startswith(_ENV_PREFIX) and var not in known
     )
@@ -918,21 +972,62 @@ def _apply_upstream_overrides(raw: dict[str, object], env: Mapping[str, str]) ->
         table[vendor] = [name.strip() for name in listed.split(",") if name.strip()]
 
 
-def tiers_in_use(nodes_raw: object) -> set[str]:
-    """The tiers the node map actually runs something on.
+def tiers_in_use(nodes_raw: object) -> frozenset[TierName]:
+    """The tiers a node runs on, given the override table.
 
-    A tier is a place a node can sit, and an empty place does no harm when it
-    stays empty: :func:`~katra.binding.build_tier_adapters` already skips a tier nothing is bound to, so
-    a selection for one is a pair no request ever reaches. A tier that no node
-    uses needs no selection.
+    A tier is in use while one of its nodes has no override. A re-ask follows
+    its critic, so it uses a tier only where its critic does. A tier that no
+    node uses needs no selection: :func:`~katra.binding.build_tier_adapters`
+    binds no adapter for it, so a pair for it is a pair no request reaches.
 
-    A tier in use still needs one: the day somebody moves ``critic/*`` onto
-    ``review`` is the wrong day to find out no model was chosen for it. That
-    day is a node-map edit, and this is read on that edit, so the check fires
-    then -- at the same moment, with the same message.
+    Takes the raw table so the loader can ask before validation, and
+    :attr:`ModelTierConfig.bound_tiers` asks it of the validated one.
     """
-    nodes = nodes_raw if isinstance(nodes_raw, dict) else {}
-    return {tier for tier in nodes.values() if tier in TIER_NAMES}
+    overridden = set(nodes_raw) if isinstance(nodes_raw, dict) else set()
+
+    def on_tier(node: str) -> bool:
+        if node.startswith(tier_key("recritic", "")):
+            node = tier_key("critic", node.split("/", 1)[1])
+        return node not in overridden
+
+    return frozenset(tier for node, tier in NODE_TIERS.items() if on_tier(node))
+
+
+def _override_key_problem(node: str) -> str:
+    """Why ``node`` cannot carry an override, for the loader's message."""
+    if node.startswith(tier_key("recritic", "")):
+        critic = tier_key("critic", node.split("/", 1)[1])
+        return (
+            f'nodes."{node}": a re-ask runs on its critic\'s model and takes no'
+            f' override; set one on [nodes."{critic}"] and the re-ask follows it'
+        )
+    return f'nodes."{node}": no LLM node has this key'
+
+
+def _old_shape_problem(raw: Mapping[str, object]) -> str | None:
+    """Why ``raw`` holds a node -> tier map or a ``review`` tier, or ``None``.
+
+    The tier of each node is fixed in code, so a string value under
+    ``[nodes]`` names a tier this file cannot set, and ``review`` is not a
+    tier. Both get a message that names the override shape, because
+    "unsupported version" alone does not say what to write.
+    """
+    nodes = raw.get("nodes")
+    tiers = raw.get("tiers")
+    if isinstance(nodes, dict) and any(isinstance(v, str) for v in nodes.values()):
+        return (
+            "[nodes] holds tier names, which this version does not read: the"
+            ' tier of each node is fixed. Delete each `node = "<tier>"` line.'
+            ' To run one node on its own model, write a [nodes."<node>"] table'
+            ' with vendor and model, for example [nodes."critic/stride"].'
+        )
+    if isinstance(tiers, dict) and "review" in tiers:
+        return (
+            "[tiers.review] is not a tier in this version. For an independent"
+            ' critic, write a [nodes."critic/<framework>"] table with vendor'
+            " and model; the re-ask follows its critic."
+        )
+    return None
 
 
 def _require_selected_tiers(
@@ -990,6 +1085,14 @@ def load_model_tiers(
     """
     raw = read_toml(path, ModelConfigError)
 
+    # Before the overrides and the version check, so a file in the old shape
+    # gets the message that says what to write instead.
+    old_shape = _old_shape_problem(raw)
+    if old_shape is not None:
+        raise ModelConfigError(
+            f"{path}: {old_shape} Set version = {SUPPORTED_VERSION}."
+        )
+
     _apply_env_overrides(raw, env)
 
     version = raw.get("version")
@@ -998,8 +1101,8 @@ def load_model_tiers(
             f"{path}: unsupported version {version!r}; expected {SUPPORTED_VERSION}"
         )
 
-    # After the version check, so a version-2 file reports the schema it is
-    # rather than the selection it is missing.
+    # After the version check, so an old file reports the schema it is rather
+    # than the selection it is missing.
     _require_selected_tiers(path, raw.get("tiers"), raw.get("nodes"))
 
     try:

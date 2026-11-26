@@ -3191,19 +3191,12 @@ ONE_READERS: dict[str, _OneReader] = {
         },
         "",
     ),
-    "the binding of each node": _OneReader(
-        lambda node: _calls(node, "resolve_tier"),
-        ("src/katra/model_tiers.py", "binding_of"),
-        {
-            ("src/katra/model_tiers.py", "critic_pairing_issues"): (
-                "it compares the tiers of a critic and its recritic, and a"
-                " binding is no input to it"
-            ),
-            ("src/katra/deployment.py", "tier_of"): (
-                "only the certification gate calls it, and its manifest is"
-                " keyed by tier and not by binding"
-            ),
-        },
+    "the tier a node belongs to": _OneReader(
+        lambda node: (
+            isinstance(node, ast.Subscript) and _is_name(node.value, "NODE_TIERS")
+        ),
+        ("src/katra/model_tiers.py", "tier_of_node"),
+        {},
         "",
     ),
     "the tier of each graph node": _OneReader(

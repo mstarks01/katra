@@ -595,12 +595,15 @@ class TestModelSuggestions:
         assert not [name for name in names if name.lower().endswith(":batch")]
 
     def test_a_model_outside_the_map_serves_without_a_refusal(self, tmp_path):
-        settings = hand_written(KATRA_MODEL_REVIEW_MODEL="claude-sonnet-5-5")
+        settings = hand_written(
+            KATRA_MODEL_STRONG_VENDOR="anthropic",
+            KATRA_MODEL_STRONG_MODEL="claude-sonnet-5-5",
+        )
         client = client_for(tmp_path, settings)
 
         assert "claude-sonnet-5-5" not in tool_models("anthropic")
         assert client.get("/").status_code == 200
-        assert rows_of(client)["tiers.review.model"]["value"] == "claude-sonnet-5-5"
+        assert rows_of(client)["tiers.strong.model"]["value"] == "claude-sonnet-5-5"
 
 
 class TestAnEngineThatDoesNotBuild:

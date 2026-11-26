@@ -212,7 +212,6 @@ from katra.model_tiers import (
     Binding,
     FrameworkRole,
     ReviewIndependence,
-    TierName,
     lane_key,
     tier_key,
 )
@@ -1241,8 +1240,8 @@ class Analysis:
             input=input_ref,
             nodes=list(nodes),
             sampling={
-                tier: params.model_dump()
-                for tier, params in pipeline.tier_sampling.items()
+                binding: params.model_dump()
+                for binding, params in pipeline.tier_sampling.items()
             },
             system_model=self.system_model,
             boundary_crossings=self.boundary_crossings,
@@ -2743,9 +2742,9 @@ class Pipeline:
     (``vertex_ai/gemini-2.5-pro``) — what the run asked for, which the report
     records as ``requested_model``. Deterministic nodes carry none.
 
-    ``tier_sampling`` is the resolved per-tier clear block the report records
-    once per tier; ``node_sampling`` is the same values keyed by graph node, so
-    a fingerprint can be computed for a node without re-walking the tier map.
+    ``tier_sampling`` is the resolved clear block the report records once per
+    binding; ``node_sampling`` is the same values keyed by graph node, so a
+    fingerprint can be computed for a node without re-walking the tier config.
 
     There is deliberately **no** ``node_fingerprints`` here. A fingerprint's
     model half is the *served* build, which is only known once a node has
@@ -2760,7 +2759,7 @@ class Pipeline:
 
     workflow: Workflow
     node_models: dict[str, str]
-    tier_sampling: dict[TierName, TierSampling]
+    tier_sampling: dict[Binding, TierSampling]
     node_sampling: dict[str, TierSampling]
     instruction_sha256: str
     #: What each LLM node was told, per node: its size and its own digest. The

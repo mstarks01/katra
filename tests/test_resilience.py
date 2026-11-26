@@ -296,8 +296,6 @@ def test_the_timeout_reaching_litellm_is_the_one_the_file_states(
         "KATRA_MODEL_BASE_MODEL": "gpt-4o-2024-08-06",
         "KATRA_MODEL_STRONG_VENDOR": "openai",
         "KATRA_MODEL_STRONG_MODEL": "gpt-5.6",
-        "KATRA_MODEL_REVIEW_VENDOR": "openai",
-        "KATRA_MODEL_REVIEW_MODEL": "gpt-5.6",
         **secret_env("KATRA_OPENAI_API_KEY_FILE", "not-a-real-key"),
     }
     adapter = build_tier_adapters(

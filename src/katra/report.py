@@ -267,7 +267,7 @@ def disclaimer_for(record: AssertionRecord | None) -> str:
     return f"{DEFAULT_DISCLAIMER} {assertion_disclosure(record)}"
 
 
-# One value in a report's per-tier sampling clear block. Wide on purpose: it is
+# One value in a report's per-binding sampling clear block. Wide on purpose: it is
 # every scalar type a resolved sampling param can hold, and the block is a
 # *record* of what a run resolved rather than a place a value is decided. The
 # enumeration is `TierSampling`'s field types — number, count, flag, and the
@@ -365,7 +365,7 @@ class NodeRun(BaseModel):
 
     ``execution_fingerprint`` is the identity hash a deployment's manifest
     blesses: ``sha256`` of the versioned execution identity — both routes, the
-    resolved tier sampling, the built graph's instruction digest, and the
+    resolved sampling of its binding, the built graph's instruction digest, and the
     versions of the distributions that sit between the node and its provider.
     See :mod:`katra.identity`. Computed per node *execution*, so a
     build that moves partway through an eval sweep gives one node two hashes.
@@ -839,13 +839,13 @@ class Report(BaseModel):
     job: Job
     input: InputRef
     nodes: list[NodeRun]
-    # The resolved per-tier decoding params this run used, in the clear, once
-    # per tier: tier name -> the tier's resolved sampling values (the
+    # The resolved decoding params this run used, in the clear, once per
+    # binding: binding -> its resolved sampling values (the
     # serialized ``TierSampling``). Recorded as plain scalars, not the
     # ``TierSampling`` model, so this low-level schema module stays free of the
     # sampling/model_tiers import (which cycles back through skills). Each
     # node's execution_fingerprint is recomputable from its two routes and its
-    # tier's entry here, together with ``analysis_context`` and ``execution``. Empty only on reports with no LLM provenance at all —
+    # binding's entry here, together with ``analysis_context`` and ``execution``. Empty only on reports with no LLM provenance at all —
     # the stub runner's. An eval report carries this block like any other: a
     # sweep's fingerprints are evidence, and evidence nobody can recompute from
     # the artifact is an assertion.

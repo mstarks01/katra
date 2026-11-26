@@ -36,10 +36,10 @@ from tests.test_runtime_certification import FP_A, CertifyingRunner
 from tests.test_settings_env import (
     OTHER_MODEL,
     env_in,
-    hand_written,
     settings_client,
     write_settings,
 )
+from tests.test_settings_env import hand_written as _hand_written
 from tests.test_webapp import LOOPBACK, SAME_ORIGIN, posted, run_to_completion
 from tests.test_webapp_cell import Recording
 from tests.test_webapp_questions import PausingRunner, shown_list, start
@@ -55,7 +55,21 @@ from webapp.settings_save import (
     apply_save,
 )
 
+#: The ``strong`` tier on Anthropic, so a tier uses the Anthropic key that most
+#: tests here save and keep.
+STRONG_ON_ANTHROPIC = {
+    "KATRA_MODEL_STRONG_VENDOR": "anthropic",
+    "KATRA_MODEL_STRONG_MODEL": "claude-opus-5",
+}
+
+
+def hand_written(**overrides: str) -> str:
+    """A ``settings.env`` with a tier on each vendor whose key a test keeps."""
+    return _hand_written(**(STRONG_ON_ANTHROPIC | overrides))
+
+
 BASE_MODEL = TEST_TIER_ENV["KATRA_MODEL_BASE_MODEL"]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_the_other_model_is_one_the_list_suggests():
@@ -262,7 +276,7 @@ class TestASaveThatPasses:
         refused = save(
             client,
             {
-                "tiers.strong.vendor": "openai",
+                "tiers.strong.vendor": TEST_TIER_ENV["KATRA_MODEL_STRONG_VENDOR"],
                 "tiers.strong.model": "gpt-4o-2024-08-06",
                 "sampling.strong.thinking": "high",
             },
@@ -359,7 +373,7 @@ class TestARefusedSave:
             ("tiers.base.model", "qzxv-latest"),
             ("tiers.base.model", "projects/p/locations/l/endpoints/qzxv"),
             ("tiers.base.model", "arn:aws:bedrock:qzxv"),
-            ("tiers.review.model", "claude-qzxv"),
+            ("tiers.strong.model", "gemini-qzxv-latest"),
             ("upstreams.openrouter", "/qzxv"),
             ("frameworks.carried", "qzxv"),
             ("frameworks.carried", "qzxv,qzxv"),
@@ -843,6 +857,34 @@ class TestAKeySave:
         assert Path(old_key).is_file()
         assert f"KATRA_ANTHROPIC_API_KEY_FILE={old_key}" in settings_text(tmp_path)
 
+    def test_a_save_keeps_the_key_of_a_vendor_only_an_override_uses(self, tmp_path):
+        """The key of an override's vendor is in use (#2352).
+
+        No tier selects Anthropic here; the critic override does. A save that
+        counted tiers alone deleted that key file, and the next job failed on
+        the critic.
+        """
+        tiers_file = tmp_path / "model_tiers.toml"
+        tiers_file.write_text(
+            (PROJECT_ROOT / "config" / "model_tiers.toml").read_text(encoding="utf-8")
+            + '\n[nodes."critic/stride"]\nvendor = "anthropic"\n'
+            'model = "claude-opus-5"\n',
+            encoding="utf-8",
+        )
+        old_key = key_on_disk(tmp_path)
+        client, _ = app_on(
+            tmp_path,
+            _hand_written(KATRA_ANTHROPIC_API_KEY_FILE=old_key),
+            KATRA_TIERS_FILE=str(tiers_file),
+        )
+
+        assert page_data(client.get("/settings"))["override_vendors"] == ["anthropic"]
+        saved = save(client, {"resilience.timeout_ms": "5000"})
+
+        assert saved.status_code == 200, saved.text
+        assert Path(old_key).is_file()
+        assert f"KATRA_ANTHROPIC_API_KEY_FILE={old_key}" in settings_text(tmp_path)
+
 
 class TestAFirstRun:
     def test_one_save_of_models_and_keys_fills_the_cell(self, tmp_path):
@@ -861,10 +903,10 @@ class TestAFirstRun:
             client,
             {
                 **{
-                    f"tiers.{tier}.{field}": TEST_TIER_ENV[
+                    f"tiers.{tier}.{field}": (TEST_TIER_ENV | STRONG_ON_ANTHROPIC)[
                         f"KATRA_MODEL_{tier.upper()}_{field.upper()}"
                     ]
-                    for tier in ("base", "strong", "review")
+                    for tier in ("base", "strong")
                     for field in ("vendor", "model")
                 },
                 ANTHROPIC_KEY: KEY,
@@ -980,8 +1022,8 @@ class TestTheSaveOperation:
                 tmp_path,
                 {
                     ANTHROPIC_KEY: KEY,
-                    "tiers.review.vendor": "openai",
-                    "tiers.review.model": OTHER_MODEL,
+                    "tiers.strong.vendor": TEST_TIER_ENV["KATRA_MODEL_STRONG_VENDOR"],
+                    "tiers.strong.model": TEST_TIER_ENV["KATRA_MODEL_STRONG_MODEL"],
                 },
                 swap=swapped.append,
             )
@@ -1065,8 +1107,8 @@ class TestTheSaveOperation:
         outcome = applied(
             tmp_path,
             {
-                "tiers.review.vendor": "openai",
-                "tiers.review.model": OTHER_MODEL,
+                "tiers.strong.vendor": TEST_TIER_ENV["KATRA_MODEL_STRONG_VENDOR"],
+                "tiers.strong.model": TEST_TIER_ENV["KATRA_MODEL_STRONG_MODEL"],
                 "credentials.openai.api_key": KEY,
             },
             build=recording,

@@ -66,7 +66,7 @@ def gate(require_certified: bool = False) -> CertificationGate:
         manifest=BlessedManifest(
             version=MANIFEST_VERSION, tiers={"base": frozenset({FP_A})}
         ),
-        tier_of=lambda _node: "base",
+        binding_of=lambda _node: "base",
         require_certified=require_certified,
     )
 

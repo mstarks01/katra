@@ -370,7 +370,7 @@ class TestThePausePathIsCertified:
                 version=MANIFEST_VERSION,
                 tiers={"base": frozenset(blessed), "strong": frozenset(blessed)},
             ),
-            tier_of=lambda _node: "base",
+            binding_of=lambda _node: "base",
             require_certified=require_certified,
         )
 

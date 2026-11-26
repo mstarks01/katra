@@ -1268,14 +1268,14 @@ def test_the_settings_page_runs_its_script(browser, tmp_path):
     from webapp.main import create_app
     from webapp.settings_page import EXAMPLES
 
-    write_settings(tmp_path, hand_written(KATRA_MODEL_REVIEW_MODEL="claude-sonnet-5-5"))
+    write_settings(tmp_path, hand_written(KATRA_MODEL_STRONG_MODEL="gemini-9.9-pro"))
     for url in serve(create_app(env=env_in(tmp_path, KATRA_MAX_SOURCES="5"))):
         page, errors = opened(browser, url + "/settings")
         page.wait_for_selector("#settings-rows tr[data-key]")
         assert page.is_hidden("#changes-panel")
         current = page.locator('#settings-nav[aria-current="page"]')
         assert current.inner_text() == "Settings"
-        review = page.locator('tr[data-key="tiers.review.model"]').inner_text()
+        strong = page.locator('tr[data-key="tiers.strong.model"]').inner_text()
         sources = page.locator('tr[data-key="resilience.max_sources"]').inner_text()
         location, key = (
             page.locator(f'tr[data-key="{row}"] input').get_attribute("placeholder")
@@ -1306,8 +1306,8 @@ def test_the_settings_page_runs_its_script(browser, tmp_path):
         )
         page.close()
     assert errors == [], f"the settings page raised: {errors}"
-    assert "Not in the model list" in review
-    assert "Shipped: none shipped" in review
+    assert "Not in the model list" in strong
+    assert "Shipped: none shipped" in strong
     assert "KATRA_MAX_SOURCES" in sources
     assert location == f"e.g. {EXAMPLES['credentials.vertex.location']}"
     assert key is not None and "e.g." not in key
@@ -1469,8 +1469,14 @@ def test_the_settings_page_saves_a_key_with_the_vendor_that_needs_it(browser, tm
     from webapp.main import create_app
 
     key = "sk-typed-in-the-browser-never-shown"
-    write_settings(tmp_path, hand_written())
-    vendor = 'tr[data-key="tiers.review.vendor"] select'
+    write_settings(
+        tmp_path,
+        hand_written(
+            KATRA_MODEL_STRONG_VENDOR="anthropic",
+            KATRA_MODEL_STRONG_MODEL="claude-opus-5",
+        ),
+    )
+    vendor = 'tr[data-key="tiers.strong.vendor"] select'
     key_row = 'tr[data-key="credentials.anthropic.api_key"]'
     for url in serve(create_app(env=env_in(tmp_path))):
         page, errors = opened(browser, url + "/settings")
@@ -1502,18 +1508,20 @@ def test_the_settings_page_saves_a_key_with_the_vendor_that_needs_it(browser, tm
 
 
 @pytest.mark.parametrize(
-    "vendors",
+    ("vendors", "override"),
     [
-        {"base": "openai", "strong": "vertex", "review": "openai"},
-        {"base": "anthropic", "strong": "anthropic", "review": "anthropic"},
-        {"base": "anthropic", "strong": "vertex", "review": "openai"},
+        ({"base": "openai", "strong": "vertex"}, None),
+        ({"base": "anthropic", "strong": "anthropic"}, None),
+        ({"base": "anthropic", "strong": "vertex"}, None),
+        ({"base": "openai", "strong": "vertex"}, "anthropic"),
     ],
 )
 def test_the_page_warns_of_each_key_line_that_the_save_removes(
-    browser, tmp_path, vendors
+    browser, tmp_path, vendors, override
 ):
     """The page and the server each read which saved key a save removes:
-    the warnings before the save name the key lines that it removes."""
+    the warnings before the save name the key lines that it removes. An
+    override's vendor keeps its key on both sides."""
     from katra.settings_variables import secret_vars
     from tests.test_settings_env import env_in, hand_written, write_settings
     from webapp.main import create_app
@@ -1524,9 +1532,21 @@ def test_the_page_warns_of_each_key_line_that_the_save_removes(
         "anthropic": "claude-opus-5",
         "vertex": "gemini-2.5-pro",
     }
+    process = {}
+    if override is not None:
+        tiers = tmp_path / "model_tiers.toml"
+        tiers.write_text(
+            (
+                Path(__file__).resolve().parents[1] / "config" / "model_tiers.toml"
+            ).read_text(encoding="utf-8")
+            + f'\n[nodes."critic/stride"]\nvendor = "{override}"\n'
+            f'model = "{models[override]}"\n',
+            encoding="utf-8",
+        )
+        process["KATRA_TIERS_FILE"] = str(tiers)
     path = write_settings(tmp_path, hand_written())
     before = path.read_text(encoding="utf-8")
-    for url in serve(create_app(env=env_in(tmp_path))):
+    for url in serve(create_app(env=env_in(tmp_path, **process))):
         page, errors = opened(browser, url + "/settings")
         page.wait_for_selector('tr[data-key="tiers.base.model"]')
         for tier, vendor in vendors.items():
@@ -1549,25 +1569,27 @@ def test_the_page_warns_of_each_key_line_that_the_save_removes(
     }
     assert errors == [], f"the settings page raised: {errors}"
     assert removed == warned
+    if override is not None:
+        assert f"credentials.{override}.api_key" not in removed
 
 
 def test_a_tier_model_suggests_the_models_of_the_vendor_just_chosen(browser, tmp_path):
     from tests.test_settings_env import env_in, hand_written, write_settings
     from webapp.main import create_app
 
-    write_settings(tmp_path, hand_written())
-    model = 'tr[data-key="tiers.review.model"]'
+    write_settings(tmp_path, hand_written(KATRA_MODEL_STRONG_MODEL="gemini-9.9-pro"))
+    model = 'tr[data-key="tiers.strong.model"]'
     for url in serve(create_app(env=env_in(tmp_path))):
         page, errors = opened(browser, url + "/settings")
         page.wait_for_selector(model)
         before = page.locator(f"{model} input").get_attribute("list")
-        page.select_option('tr[data-key="tiers.review.vendor"] select', "gemini")
+        page.select_option('tr[data-key="tiers.strong.vendor"] select', "gemini")
         after = page.locator(f"{model} input").get_attribute("list")
         suggested = page.locator(f"#{after} option").count()
         note = page.locator(model).inner_text()
         page.close()
     assert errors == [], f"the settings page raised: {errors}"
-    assert (before, after) == ("models-anthropic", "models-gemini")
+    assert (before, after) == ("models-vertex", "models-gemini")
     assert suggested > 0
     assert "Not in the model list" in note
 
@@ -1578,11 +1600,11 @@ def test_a_saved_vendor_that_names_an_object_key_still_draws_the_table(
     from tests.test_settings_env import env_in, hand_written, write_settings
     from webapp.main import create_app
 
-    write_settings(tmp_path, hand_written(KATRA_MODEL_REVIEW_VENDOR="__proto__"))
+    write_settings(tmp_path, hand_written(KATRA_MODEL_STRONG_VENDOR="__proto__"))
     for url in serve(create_app(env=env_in(tmp_path))):
         page, errors = opened(browser, url + "/settings")
-        page.wait_for_selector('tr[data-key="tiers.review.model"]')
-        note = page.locator('tr[data-key="tiers.review.model"]').inner_text()
+        page.wait_for_selector('tr[data-key="tiers.strong.model"]')
+        note = page.locator('tr[data-key="tiers.strong.model"]').inner_text()
         page.close()
     assert errors == [], f"the settings page raised: {errors}"
     assert "Not in the model list" in note

@@ -72,7 +72,7 @@ from katra.report import (
 )
 from katra.sampling import TierSampling
 from katra.sources import Source
-from katra.vendors import ProviderAuthError
+from katra.vendors import ProviderAuthError, vendor_for
 
 # The fixture, and it is part of the contract rather than a sample: every
 # provider is asked the same question, so a lane that swapped in its own text
@@ -682,9 +682,9 @@ def _redacted(text: str, deployment: Deployment) -> str:
     hides the one fact that diagnoses a wrong-region request — a corrupted
     diagnostic, in the file whose whole job is to report one.
     """
-    for selection in deployment.tiers.tiers.values():
-        mode = deployment.tiers.credential_mode(selection.vendor)
-        for var in selection.vendor_entry.secret_env_vars(mode):
+    for vendor in deployment.tiers.bound_vendors:
+        mode = deployment.tiers.credential_mode(vendor)
+        for var in vendor_for(vendor).secret_env_vars(mode):
             # A file this process cannot read put no value into a request.
             value = ""
             with contextlib.suppress(ProviderAuthError):

@@ -111,13 +111,6 @@ jobs:
       KATRA_MODEL_BASE_MODEL: gemini-2.5-flash
       KATRA_MODEL_STRONG_VENDOR: vertex
       KATRA_MODEL_STRONG_MODEL: gemini-2.5-pro
-      # `review` selects the same pair as `strong`. Every tier must name one or
-      # the config refuses to load, and the shipped node map binds nothing to
-      # this tier -- so no adapter is built for it and it costs no credential.
-      # The shipped `review_independence = "shared"` is what makes a repeated
-      # pair legal here.
-      KATRA_MODEL_REVIEW_VENDOR: vertex
-      KATRA_MODEL_REVIEW_MODEL: gemini-2.5-pro
       KATRA_VERTEX_PROJECT: ${{ vars.GCP_PROJECT_ID }}
       KATRA_VERTEX_LOCATION: ${{ vars.GCP_LOCATION }}
 
@@ -304,13 +297,6 @@ jobs:
       KATRA_MODEL_BASE_MODEL: ${{ matrix.base_model }}
       KATRA_MODEL_STRONG_VENDOR: ${{ matrix.vendor }}
       KATRA_MODEL_STRONG_MODEL: ${{ matrix.strong_model }}
-      # `review` selects the same pair as `strong`. Every tier must name one or
-      # the config refuses to load, and the shipped node map binds nothing to
-      # this tier -- so no adapter is built for it and it costs no credential.
-      # The shipped `review_independence = "shared"` is what makes a repeated
-      # pair legal here.
-      KATRA_MODEL_REVIEW_VENDOR: ${{ matrix.vendor }}
-      KATRA_MODEL_REVIEW_MODEL: ${{ matrix.strong_model }}
       # Bedrock allows two credential modes, so a deployment that selects it
       # declares one. Set for every leg because a declaration for a vendor no
       # tier selects is legal and reads as nothing; a per-leg value would be a

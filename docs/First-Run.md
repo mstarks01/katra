@@ -20,8 +20,7 @@ logs a warning that names the command to run.
 
 ## 2. Select models and provide credentials
 
-The service has three model tiers: `base`, `strong` and `review`. The shipped
-node map binds nodes to two of them, so a first run uses these two:
+The service has two model tiers, `base` and `strong`:
 
 | Tier | Used for |
 | --- | --- |
@@ -29,9 +28,9 @@ node map binds nodes to two of them, so a first run uses these two:
 | `strong` | Framework analyzers, framework review, and one review retry if needed. |
 
 The shipped [`config/model_tiers.toml`](../config/model_tiers.toml) deliberately
-selects neither tier. Choose a vendor and model for both. No node uses
-`review` until you move a critic onto it, so a first run needs no `review`
-selection. The following pairs are the reference pairs declared in
+selects neither tier. Choose a vendor and model for both. A node can later get
+a model of its own through an override, but a first run needs none. The
+following pairs are the reference pairs declared in
 `katra.conformance.REFERENCE_MODELS`:
 
 <!-- every-vendor -->
@@ -270,11 +269,9 @@ command above writes the file that chain finds on a workstation. On GKE or Cloud
 Run, bind a service account instead and set no file at all.
 
 The tiers may use different vendors. In that case, set credentials for each
-vendor a tier the node map binds selects — the shipped map binds `base` and
-`strong`, so `review` needs neither a selection nor a credential until you move
-criticism onto it, and the loader asks for both at that edit. You may also select models through the matching
-`KATRA_MODEL_BASE_{VENDOR,MODEL}`, `KATRA_MODEL_STRONG_{VENDOR,MODEL}` and
-`KATRA_MODEL_REVIEW_{VENDOR,MODEL}` environment variables, and a credential
+vendor that a tier or an override selects. You may also select models through
+the matching `KATRA_MODEL_BASE_{VENDOR,MODEL}` and
+`KATRA_MODEL_STRONG_{VENDOR,MODEL}` environment variables, and a credential
 mode through `KATRA_MODEL_CREDENTIALS_{VENDOR}` and a charge arrangement
 through `KATRA_MODEL_CHARGES_{VENDOR}`. See
 [Configuration](Configuration.md#model-overrides-deploy-time-no-image-rebuild)

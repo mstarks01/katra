@@ -77,12 +77,12 @@ async def read_case(case_dir: Path, deployment: Deployment) -> dict:
 
 def main(out: str, case_dirs: list[str]) -> None:
     deployment = Deployment.from_env()
-    tier = deployment.tier_of(CAPABILITIES_NODE)
+    tier = deployment.binding_of(CAPABILITIES_NODE)
     record = {
         "node": CAPABILITIES_NODE,
         "tier": tier,
-        "selection": deployment.tiers.tiers[tier].model_dump(mode="json"),
-        "sampling": deployment.sampling.for_tier(tier).model_dump(mode="json"),
+        "selection": deployment.tiers.selection_for(tier).model_dump(mode="json"),
+        "sampling": deployment.sampling.for_binding(tier).model_dump(mode="json"),
         "pinned_upstreams": list(deployment.tiers.pinned_upstreams()),
         "commit": repo_commit().model_dump(),
     }

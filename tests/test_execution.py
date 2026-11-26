@@ -386,7 +386,7 @@ def test_every_llm_node_fingerprint_recomputes_from_what_the_run_recorded(graph_
             assert node_run.execution_fingerprint is None
             assert node_run.instruction_sha256 is None
             continue
-        tier = tiers.resolve_tier(canonical)
+        tier = tiers.binding_of(canonical)
         clear = pipeline.tier_sampling[tier].model_dump()
         assert node_run.instruction_sha256 == pipeline.instruction_sha256
         expected = sample_fingerprint(

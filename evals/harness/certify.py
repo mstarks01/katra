@@ -46,7 +46,7 @@ from katra.certification import (
     load_manifest,
 )
 from katra.identity import execution_fingerprint
-from katra.model_tiers import TIER_NAMES, Binding, TierName
+from katra.model_tiers import Binding, is_binding_name, tier_named
 from katra.sampling import SamplingConfig, SamplingParam, TierSampling
 
 
@@ -113,9 +113,9 @@ def promote(
 ) -> BlessedManifest:
     """Promote a sweep winner: re-pin ``sampling.toml`` and bless its fingerprints.
 
-    ``keys`` maps each **tier** to every identity key it presented. There is no
-    node -> tier walk: a fingerprint's payload carries no node name, so blessing
-    is per tier in substance as well as in storage.
+    ``keys`` maps each **binding** to every identity key it presented. There is
+    no node -> binding walk: a fingerprint's payload carries no node name, so
+    blessing is per binding in substance as well as in storage.
 
     ``build`` is the sweep's, not this process's. It completes the identity, and
     reading it from the promoting machine instead would bless a hash describing
@@ -132,9 +132,9 @@ def promote(
     describing params the measured configuration never held. The manifest is
     deployment-local by design and follows for the same reason.
     """
-    unknown = sorted(set(keys) - set(TIER_NAMES))
+    unknown = sorted(key for key in keys if not is_binding_name(key))
     if unknown:
-        raise CertificationError(f"unknown tier(s) in served builds: {unknown}")
+        raise CertificationError(f"unknown binding(s) in served builds: {unknown}")
 
     sampling_path = Path(sampling_path)
     rewritten = _rewrite_sampling_values(
@@ -142,24 +142,21 @@ def promote(
     )
 
     base = load_manifest(manifest_path) if Path(manifest_path).exists() else None
-    merged: dict[TierName, frozenset[str]] = dict(base.tiers) if base else {}
-    # Walked in the vocabulary's order rather than the caller's, so the written
-    # manifest does not vary with the order a sweep happened to report tiers in.
-    for tier in TIER_NAMES:
-        blessing = keys.get(tier)
+    merged: dict[Binding, frozenset[str]] = dict(base.tiers) if base else {}
+    for binding, blessing in keys.items():
         if not blessing:
             continue
         fingerprints = {
             execution_fingerprint(
                 requested_route=key.requested,
                 served_route=key.served,
-                sampling=sampling.for_tier(tier).identity_params(),
+                sampling=sampling.for_binding(binding).identity_params(),
                 instruction_sha256=key.instruction_sha256,
                 build=build,
             )
             for key in blessing
         }
-        merged[tier] = frozenset({*merged.get(tier, frozenset()), *fingerprints})
+        merged[binding] = frozenset({*merged.get(binding, frozenset()), *fingerprints})
     manifest = BlessedManifest(version=MANIFEST_VERSION, tiers=merged)
 
     # Both writes happen only once the rewrite has succeeded, so a rejected
@@ -337,12 +334,20 @@ def _select_served(tier: str, identity: TierIdentity, chosen: str | None) -> str
 
 
 def _wanted_values(sampling: SamplingConfig) -> dict[tuple[str, str], str]:
-    """The ``(tier, file key) -> serialized value`` a promotion means to write."""
+    """The ``(section, file key) -> serialized value`` a promotion means to write.
+
+    A section is a block's header as the file spells it: ``tiers.<tier>`` or
+    ``nodes."<node>"``.
+    """
+    blocks = {
+        **{f"tiers.{tier}": block for tier, block in sampling.tiers.items()},
+        **{f'nodes."{node}"': block for node, block in sampling.nodes.items()},
+    }
     wanted: dict[tuple[str, str], str] = {}
-    for tier_name, tier in sampling.tiers.items():
-        for param, value in tier.model_dump().items():
+    for section, block in blocks.items():
+        for param, value in block.model_dump().items():
             if value is not None and param not in _NOT_PROMOTABLE:
-                wanted[(tier_name, param)] = _file_value(param, value)
+                wanted[(section, param)] = _file_value(param, value)
     return wanted
 
 
@@ -360,7 +365,8 @@ def _file_value(param: str, value: float | str) -> str:
 def _rewrite_sampling_values(text: str, sampling: SamplingConfig) -> str:
     """Re-pin present param lines from ``sampling``; raise on an unset promotion.
 
-    Walks the file line by line, tracking the current ``[tiers.<tier>]`` section,
+    Walks the file line by line, tracking the current ``[tiers.<tier>]`` or
+    ``[nodes."<node>"]`` section,
     and rewrites the value on each ``<param> = <value>`` line the config sets,
     keeping any trailing comment. A param the config sets but the file does not
     already pin has nowhere to land without inventing an uncommented line, so it
@@ -368,23 +374,23 @@ def _rewrite_sampling_values(text: str, sampling: SamplingConfig) -> str:
     """
     wanted = _wanted_values(sampling)
     written: set[tuple[str, str]] = set()
-    tier: str | None = None
+    current: str | None = None
     lines = text.splitlines(keepends=True)
     for index, line in enumerate(lines):
-        section = _tier_section(line)
+        section = _block_section(line)
         if section is not None:
-            tier = section
+            current = section
             continue
-        if tier is None:
+        if current is None:
             continue
-        param, updated = _rewrite_line(line, tier, wanted)
+        param, updated = _rewrite_line(line, current, wanted)
         if param is not None:
             lines[index] = updated
-            written.add((tier, param))
+            written.add((current, param))
 
     unwritten = sorted(key for key in wanted if key not in written)
     if unwritten:
-        detail = ", ".join(f"tiers.{t}.{p}" for t, p in unwritten)
+        detail = ", ".join(f"{section}.{p}" for section, p in unwritten)
         raise CertificationError(
             f"cannot promote unset param(s) {detail}: the file leaves them"
             " unset with a rationale; pinning one is a human decision"
@@ -392,16 +398,18 @@ def _rewrite_sampling_values(text: str, sampling: SamplingConfig) -> str:
     return "".join(lines)
 
 
-def _tier_section(line: str) -> str | None:
-    """The tier named by a ``[tiers.<tier>]`` header line, or ``None``."""
+def _block_section(line: str) -> str | None:
+    """The section a ``[tiers.<tier>]`` or ``[nodes."<node>"]`` header line
+    names, or ``None``."""
     stripped = line.strip()
-    if stripped.startswith("[tiers.") and stripped.endswith("]"):
-        return stripped[len("[tiers.") : -1]
+    starts = stripped.startswith(("[tiers.", "[nodes."))
+    if starts and stripped.endswith("]"):
+        return stripped[1:-1]
     return None
 
 
 def _rewrite_line(
-    line: str, tier: str, wanted: Mapping[tuple[str, str], str]
+    line: str, section: str, wanted: Mapping[tuple[str, str], str]
 ) -> tuple[str | None, str]:
     """Rewrite one ``<param> = <value>`` line if the config re-pins it.
 
@@ -415,7 +423,7 @@ def _rewrite_line(
     if not sep:
         return None, line
     param = key.strip()
-    value = wanted.get((tier, param))
+    value = wanted.get((section, param))
     if value is None:
         return None, line
     rebuilt = f"{key}= {value}"
@@ -429,16 +437,17 @@ def _dump_manifest(manifest: BlessedManifest) -> str:
 
     Hand-rolled rather than via a TOML writer (not a dependency here): the shape
     is a version plus a table of hex-string arrays, and every value is already
-    validated to ``[0-9a-f]{64}``. Tier keys are re-checked against the known
-    tier names as defence in depth against a crafted key landing verbatim in a
-    file the *service* parses (OWASP A05).
+    validated to ``[0-9a-f]{64}``. Binding keys are re-checked against the
+    binding vocabulary as defence in depth against a crafted key landing
+    verbatim in a file the *service* parses (OWASP A05). A node key holds a
+    ``/``, so it is written quoted.
     """
     parts = [
         "# Blessed execution-identity fingerprints — a machine record.",
         "# Written by evals.harness.certify.promote, single-sourced with",
-        "# config/sampling.toml. Keyed by TIER: a fingerprint is",
-        "# (vendor-prefixed served build, tier sampling) and carries no node",
-        "# name, so two nodes on one tier present the same hash by construction.",
+        "# config/sampling.toml. Keyed by BINDING: a fingerprint is",
+        "# (vendor-prefixed served build, binding sampling) and carries no",
+        "# node name, so two nodes on one binding present the same hash.",
         "#",
         "# Deployment-local: the repo ships this empty, and only a deployment",
         "# that has run a sanctioned sweep can fill it in.",
@@ -447,14 +456,15 @@ def _dump_manifest(manifest: BlessedManifest) -> str:
         "",
         "[tiers]",
     ]
-    for tier in sorted(manifest.tiers):
-        if tier not in TIER_NAMES:
-            raise CertificationError(f"refusing to write unknown tier key {tier!r}")
-        prints = sorted(manifest.tiers[tier])
+    for binding in sorted(manifest.tiers):
+        if not is_binding_name(binding):
+            raise CertificationError(f"refusing to write unknown binding {binding!r}")
+        key = binding if tier_named(binding) is not None else f'"{binding}"'
+        prints = sorted(manifest.tiers[binding])
         if not prints:
-            parts.append(f"{tier} = []")
+            parts.append(f"{key} = []")
             continue
-        parts.append(f"{tier} = [")
+        parts.append(f"{key} = [")
         parts.extend(f'  "{fingerprint}",' for fingerprint in prints)
         parts.append("]")
     return "\n".join(parts) + "\n"
