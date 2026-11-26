@@ -220,7 +220,7 @@ from katra.vendors import ServedTrust, vendor_for_route
 # ``state`` is ``stated``, ``absent`` or ``unknown`` (ADR 0134). A stored 3.5
 # job record gets 409 ``UnreadableSchema``. The report route serves a stored
 # report of any version, and its page reads both shapes.
-SCHEMA_VERSION = "4.0"
+SCHEMA_VERSION = "4.1"
 
 # The envelope's disclaimer, which is about the *service* rather than about any
 # one framework. It does not say "threat model": that is false of a report
@@ -353,6 +353,12 @@ class NodeRun(BaseModel):
     level once, on the envelope's ``execution`` block, rather than repeating it
     on every node.
 
+    ``binding`` names the model setting the node ran on, which gave it its
+    requested route and its sampling, and which keys its block in
+    :attr:`Report.sampling`. The tier config's
+    :meth:`~katra.model_tiers.ModelTierConfig.binding_of` decides it. It is
+    ``None`` on a deterministic FunctionNode.
+
     ``execution_fingerprint`` is the identity hash a deployment's manifest
     blesses: ``sha256`` of the versioned execution identity — both routes, the
     resolved tier sampling, the built graph's instruction digest, and the
@@ -438,6 +444,7 @@ class NodeRun(BaseModel):
     node: str = Field(min_length=1, max_length=100)
     model: str | None = None  # served; None for deterministic FunctionNodes
     requested_model: str | None = None  # configured
+    binding: str | None = Field(default=None, min_length=1, max_length=100)
     instruction_sha256: Sha256Hex | None = None
     execution_fingerprint: Sha256Hex | None = None
     duration_ms: int = Field(ge=0)

@@ -19,12 +19,13 @@ from evals.harness.artifact import CORPUS_DIR, load_artifact, rendered_sources
 from evals.harness.bundle import read_report, stride_threats
 from evals.harness.identity import SubsetVerbIdentity
 from evals.harness.ledger import Ledger
+from evals.harness.modes import EvalRunError
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import flows_by_case, load_case
 from evals.harness.scorer import score_case
 from evals.reference_facts import load_facts
 from katra.claim_identity import report_rows
-from katra.model_tiers import charges_env_var_for
+from katra.model_tiers import TierSelection, charges_env_var_for
 from katra.offline import OFFLINE_ENV
 from katra.report import TokenUsage
 from tests.eval_factories import sweep_document, write_report_sweep
@@ -357,6 +358,7 @@ def _args(sweep, out, **given):
         "case": None,
         "dry_run": False,
         "accept_cost": None,
+        "judge": "anthropic/claude-opus-5",
     }
     return argparse.Namespace(**(namespace | given))
 
@@ -368,7 +370,7 @@ def no_call(monkeypatch):
     def refuse(*_args, **_kwargs):
         raise AssertionError("the command built a call it must not send")
 
-    monkeypatch.setattr(judge_replay, "tier_call", refuse)
+    monkeypatch.setattr(judge_replay, "selection_call", refuse)
 
 
 def test_the_dry_run_sends_nothing_and_writes_the_requests(sweep, tmp_path, no_call):
@@ -388,11 +390,10 @@ def test_the_dry_run_sends_nothing_and_writes_the_requests(sweep, tmp_path, no_c
 def test_the_command_refuses_a_judge_from_the_writers_source_vendor(
     sweep, tmp_path, monkeypatch, no_call, capsys
 ):
-    monkeypatch.setenv("KATRA_MODEL_REVIEW_VENDOR", "openai")
-    monkeypatch.setenv("KATRA_MODEL_REVIEW_MODEL", "gpt-4.1-mini")
-
     code = judge_replay.command_judge_replay(
-        _args(sweep, tmp_path / "out.json", accept_cost="100")
+        _args(
+            sweep, tmp_path / "out.json", accept_cost="100", judge="openai/gpt-4.1-mini"
+        )
     )
 
     assert code == 1
@@ -406,12 +407,15 @@ def test_the_command_refuses_a_judge_from_the_writers_source_vendor(
 def test_a_judge_through_an_aggregator_is_read_by_its_slug(
     sweep, tmp_path, monkeypatch, no_call, capsys, model, breach
 ):
-    monkeypatch.setenv("KATRA_MODEL_REVIEW_VENDOR", "openrouter")
-    monkeypatch.setenv("KATRA_MODEL_REVIEW_MODEL", model)
     monkeypatch.setenv(charges_env_var_for("openrouter"), "direct")
     out = tmp_path / "requests.json"
 
-    assert judge_replay.command_judge_replay(_args(sweep, out, dry_run=True)) == 0
+    assert (
+        judge_replay.command_judge_replay(
+            _args(sweep, out, dry_run=True, judge=f"openrouter/{model}")
+        )
+        == 0
+    )
 
     written = json.loads(out.read_text(encoding="utf-8"))
     assert written["judge"]["route"] == f"openrouter/{model}"
@@ -420,6 +424,30 @@ def test_a_judge_through_an_aggregator_is_read_by_its_slug(
         assert "independence distinct source vendors" in capsys.readouterr().out
     else:
         assert breach in written["independence_breach"]
+
+
+@pytest.mark.parametrize(
+    ("named", "vendor", "model"),
+    [
+        ("anthropic/claude-opus-5", "anthropic", "claude-opus-5"),
+        ("openrouter/anthropic/claude-opus-5", "openrouter", "anthropic/claude-opus-5"),
+    ],
+)
+def test_the_judge_flag_names_a_vendor_and_its_model(named, vendor, model):
+    """The vendor is the text before the first slash, so an aggregator's model
+    keeps its own slash."""
+    assert judge_replay.judge_selection(named) == TierSelection(
+        vendor=vendor, model=model
+    )
+
+
+@pytest.mark.parametrize(
+    "named",
+    ["claude-opus-5", "nobody/claude-opus-5", "anthropic/", "openai/gpt-latest"],
+)
+def test_the_judge_flag_refuses_what_is_not_a_pinned_pair(named):
+    with pytest.raises(EvalRunError):
+        judge_replay.judge_selection(named)
 
 
 def test_the_command_refuses_a_cost_above_the_accepted_amount(
@@ -450,15 +478,15 @@ def test_offline_mode_refuses_the_first_call(sweep, tmp_path, capsys):
 
 
 def _scripted(usage=None, fail_on=None, sent=None, attempts=1, charge=None):
-    """A ``tier_call`` stand-in that rejects every finding.
+    """A ``selection_call`` stand-in that rejects every finding.
 
-    ``usage`` is the token usage each call reports, as ``tier_call`` records
+    ``usage`` is the token usage each call reports, as ``adapter_call`` records
     it in ``seen``, and ``fail_on`` the number of the call that raises a
     provider error. ``charge`` is the charge each call reports, or ``None``
     for no charge, as on a direct vendor.
     """
 
-    def build(_deployment, _tier, _schema, spent, seen):
+    def build(_deployment, _binding, _selection, _sampling, _schema, spent, seen):
         calls = []
 
         async def call(instruction, turn):
@@ -504,7 +532,7 @@ def _scripted(usage=None, fail_on=None, sent=None, attempts=1, charge=None):
 
 def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeypatch):
     sent = []
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent))
+    monkeypatch.setattr(judge_replay, "selection_call", _scripted(sent=sent))
     out = tmp_path / "out.json"
 
     assert judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100")) == 0
@@ -518,7 +546,10 @@ def test_a_live_run_writes_the_verdicts_and_the_numbers(sweep, tmp_path, monkeyp
     assert written["void_batches"] == []
     assert written["not_run"] == []
     assert written["stopped"] is None
-    assert written["judge"] == {"tier": "review", "route": "anthropic/claude-opus-5"}
+    assert written["judge"] == {
+        "route": "anthropic/claude-opus-5",
+        "sampling": judge_replay.JUDGE_SAMPLING.model_dump(),
+    }
 
 
 def test_the_measured_usage_holds_the_next_call(sweep, tmp_path, monkeypatch, capsys):
@@ -527,7 +558,7 @@ def test_the_measured_usage_holds_the_next_call(sweep, tmp_path, monkeypatch, ca
     what was accepted and the hold stops the second call."""
     sent = []
     usage = TokenUsage(prompt_tokens=2_000_000, total_tokens=2_000_000).model_dump()
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(usage, sent=sent))
+    monkeypatch.setattr(judge_replay, "selection_call", _scripted(usage, sent=sent))
     out = tmp_path / "out.json"
 
     code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="5.00"))
@@ -545,9 +576,8 @@ def test_the_measured_usage_holds_the_next_call(sweep, tmp_path, monkeypatch, ca
 def openrouter_judge(monkeypatch):
     """A judge through an aggregator: a route with no price whose vendor
     reports the whole charge of each call."""
-    monkeypatch.setenv("KATRA_MODEL_REVIEW_VENDOR", "openrouter")
-    monkeypatch.setenv("KATRA_MODEL_REVIEW_MODEL", "anthropic/claude-opus-5")
     monkeypatch.setenv(charges_env_var_for("openrouter"), "direct")
+    return "openrouter/anthropic/claude-opus-5"
 
 
 def test_a_charged_judge_stops_at_the_cap(
@@ -556,10 +586,14 @@ def test_a_charged_judge_stops_at_the_cap(
     """The first call reports $0.60. Before the second, $0.60 spent and up to
     $0.60 for the next call pass the $1.00 cap, so the hold stops it."""
     sent = []
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent, charge=0.60))
+    monkeypatch.setattr(
+        judge_replay, "selection_call", _scripted(sent=sent, charge=0.60)
+    )
     out = tmp_path / "out.json"
 
-    code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="1.00"))
+    code = judge_replay.command_judge_replay(
+        _args(sweep, out, accept_cost="1.00", judge=openrouter_judge)
+    )
 
     assert code == 1
     assert len(sent) == 1
@@ -572,10 +606,12 @@ def test_a_charged_judge_inside_the_cap_runs_every_call(
     sweep, tmp_path, monkeypatch, openrouter_judge
 ):
     sent = []
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent, charge=0.40))
+    monkeypatch.setattr(
+        judge_replay, "selection_call", _scripted(sent=sent, charge=0.40)
+    )
 
     code = judge_replay.command_judge_replay(
-        _args(sweep, tmp_path / "out.json", accept_cost="1.00")
+        _args(sweep, tmp_path / "out.json", accept_cost="1.00", judge=openrouter_judge)
     )
 
     assert (code, len(sent)) == (0, 2)
@@ -585,10 +621,14 @@ def test_a_charged_judge_call_that_reports_no_charge_stops_the_run(
     sweep, tmp_path, monkeypatch, openrouter_judge
 ):
     sent = []
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(sent=sent, charge=None))
+    monkeypatch.setattr(
+        judge_replay, "selection_call", _scripted(sent=sent, charge=None)
+    )
     out = tmp_path / "out.json"
 
-    code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100"))
+    code = judge_replay.command_judge_replay(
+        _args(sweep, out, accept_cost="100", judge=openrouter_judge)
+    )
 
     assert (code, len(sent)) == (1, 1)
     assert "reported no charge" in json.loads(out.read_text())["stopped"]
@@ -611,7 +651,7 @@ def test_a_call_that_reports_no_usage_counts_at_its_estimate():
 def test_usage_within_the_accepted_amount_runs_every_call(sweep, tmp_path, monkeypatch):
     usage = TokenUsage(prompt_tokens=1_000, total_tokens=1_000).model_dump()
     sent = []
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(usage, sent=sent))
+    monkeypatch.setattr(judge_replay, "selection_call", _scripted(usage, sent=sent))
 
     code = judge_replay.command_judge_replay(
         _args(sweep, tmp_path / "out.json", accept_cost="5.00")
@@ -622,7 +662,7 @@ def test_usage_within_the_accepted_amount_runs_every_call(sweep, tmp_path, monke
 
 
 def test_a_provider_error_keeps_the_paid_answers(sweep, tmp_path, monkeypatch):
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted(fail_on=2))
+    monkeypatch.setattr(judge_replay, "selection_call", _scripted(fail_on=2))
     out = tmp_path / "out.json"
 
     code = judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100"))
@@ -646,7 +686,7 @@ def test_each_answer_is_written_as_it_arrives(sweep, tmp_path, monkeypatch):
         return real(inputs, requests, raws)
 
     monkeypatch.setattr(judge_replay, "judged", judged)
-    monkeypatch.setattr(judge_replay, "tier_call", _scripted())
+    monkeypatch.setattr(judge_replay, "selection_call", _scripted())
 
     assert judge_replay.command_judge_replay(_args(sweep, out, accept_cost="100")) == 0
     # The file held one call not run after the first answer.
@@ -733,7 +773,7 @@ def test_the_hold_prices_each_failed_attempt(
     usage = TokenUsage(prompt_tokens=400_000, total_tokens=400_000).model_dump()
     sent = []
     monkeypatch.setattr(
-        judge_replay, "tier_call", _scripted(usage, sent=sent, attempts=attempts)
+        judge_replay, "selection_call", _scripted(usage, sent=sent, attempts=attempts)
     )
 
     code = judge_replay.command_judge_replay(
@@ -745,11 +785,9 @@ def test_the_hold_prices_each_failed_attempt(
         assert "1 call(s) have not run" in capsys.readouterr().out
 
 
-def _tier_call_on(monkeypatch, response):
-    """Run one ``tier_call`` whose adapter yields ``response``; return what it
-    recorded in ``seen`` and ``spent``."""
-    from types import SimpleNamespace
-
+def _adapter_call_on(response):
+    """Run one ``adapter_call`` whose adapter yields ``response``; return what
+    it recorded in ``seen`` and ``spent``."""
     from google.genai import types
 
     from evals.harness import node_call as module
@@ -760,22 +798,11 @@ def _tier_call_on(monkeypatch, response):
         async def generate_content_async(self, request, stream):
             yield response
 
-    monkeypatch.setattr(
-        module, "build_tier_adapters", lambda *a, **k: {"review": Adapter()}
-    )
-    deployment = SimpleNamespace(
-        tiers=SimpleNamespace(bound_tiers=frozenset({"review"})),
-        resilience=None,
-        env={},
-        sampling=SimpleNamespace(
-            for_tier=lambda tier: SimpleNamespace(
-                to_generate_content_config=types.GenerateContentConfig
-            )
-        ),
-    )
     seen: list = []
     spent: list = []
-    call = module.tier_call(deployment, "review", None, spent, seen)
+    call = module.adapter_call(
+        Adapter(), judge_replay.JUDGE_SAMPLING, None, spent, seen
+    )
     asyncio.run(call("instruction", types.Content(role="user", parts=[])))
     return seen, spent
 
@@ -783,7 +810,7 @@ def _tier_call_on(monkeypatch, response):
 def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch):
     """The sweep path builds its node run from the response's stamps through
     ``event_usage``, ``event_attempts`` and ``event_reasks``; the replay builds
-    it from what ``tier_call`` records. The two price alike."""
+    it from what ``adapter_call`` records. The two price alike."""
     from google.adk.models.llm_response import LlmResponse
     from google.genai import types
 
@@ -800,7 +827,7 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
         ),
         custom_metadata={ATTEMPTS_METADATA_KEY: 3, REASKS_METADATA_KEY: 1},
     )
-    seen, _ = _tier_call_on(monkeypatch, response)
+    seen, _ = _adapter_call_on(response)
     route = "anthropic/claude-opus-5"
     swept = NodeRun(
         node="judge",
@@ -830,7 +857,7 @@ def test_a_reported_charge_of_zero_stays_zero(monkeypatch):
         custom_metadata={CHARGE_METADATA_KEY: 0.0},
     )
 
-    seen, spent = _tier_call_on(monkeypatch, response)
+    seen, spent = _adapter_call_on(response)
 
     assert seen[0]["reported_charge_usd"] == 0.0
     assert spent == [0.0]

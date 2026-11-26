@@ -3,6 +3,8 @@
 - **Status**: accepted
 - **Date**: 2026-11-24
 - **Effort**: [#764](https://github.com/mstarks01/katra/issues/764)
+- **Amended by**: [ADR 0136](0136-a-node-may-name-its-own-model.md), which
+  compares the effective model of each node and names the judge with `--judge`
 
 ## Context
 

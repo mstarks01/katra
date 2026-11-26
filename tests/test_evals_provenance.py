@@ -17,10 +17,12 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from evals.harness.artifact import ARTIFACT_VERSION, load_artifact
 from evals.harness.certify import plan_promotion
 from evals.harness.provenance import (
+    NodeExecution,
     ProvenanceError,
     provenance_of,
 )
@@ -105,7 +107,7 @@ def sweep(sampling, **served: str) -> list[NodeRun]:
 def provenance(sampling, executions=None):
     return provenance_of(
         executions if executions is not None else sweep(sampling),
-        tier_of=tier_of,
+        binding_of=tier_of,
         sampling=sampling,
         tiers_config_version=TIERS_VERSION,
         build=build_identity(),
@@ -237,6 +239,32 @@ class TestArtifactSerialization:
 
         (entry,) = record.to_json()["node_runs"]["extract"]
         assert "served_upstream" not in entry
+
+    def test_the_identities_list_the_tiers_first_and_then_other_bindings(
+        self, sampling
+    ):
+        bindings = {"extract": "critic/stride", CRITIC_NODE: "base"}
+        record = provenance_of(
+            sweep(sampling),
+            binding_of=bindings.__getitem__,
+            sampling=sampling,
+            tiers_config_version=TIERS_VERSION,
+            build=build_identity(),
+            tree="",
+        )
+
+        assert list(record.tier_identities()) == ["base", "critic/stride"]
+
+    def test_an_archived_review_tier_still_reads(self, sampling):
+        """An archived sweep can name ``review``; its record must stay readable."""
+        execution = provenance(sampling).node_runs["extract"][0]
+        stored = execution.to_json()
+
+        assert (
+            NodeExecution.model_validate(stored | {"tier": "review"}).tier == "review"
+        )
+        with pytest.raises(ValidationError):
+            NodeExecution.model_validate(stored | {"tier": ""})
 
     def test_a_deterministic_node_contributes_no_identity(self, sampling):
         # A FunctionNode has no served build and so no execution identity; it
@@ -690,7 +718,7 @@ class TestTheTreeIsRecorded:
     def test_provenance_carries_the_tree_it_is_given(self, sampling):
         record = provenance_of(
             sweep(sampling),
-            tier_of=tier_of,
+            binding_of=tier_of,
             sampling=sampling,
             tiers_config_version=TIERS_VERSION,
             build=build_identity(),

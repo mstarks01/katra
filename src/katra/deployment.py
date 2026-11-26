@@ -89,7 +89,7 @@ from katra.graph import (
     tier_node_by_graph_node,
 )
 from katra.markdown_loader import MarkdownLoader
-from katra.model_tiers import ModelTierConfig, TierName, load_model_tiers
+from katra.model_tiers import Binding, ModelTierConfig, TierName, load_model_tiers
 from katra.pipeline import AdkPipelineRunner
 from katra.resilience import ResilienceConfig, load_resilience
 from katra.sampling import SamplingConfig, load_sampling
@@ -430,6 +430,15 @@ class Deployment:
         map is a superset of any selection's with no key belonging to two.
         """
         return self.tiers.resolve_tier(self.tier_nodes[graph_node])
+
+    def binding_of(self, graph_node: str) -> Binding:
+        """The binding a *graph* node runs on, by the walk :meth:`tier_of` takes.
+
+        The second step is :meth:`~katra.model_tiers.ModelTierConfig.binding_of`,
+        the one reader of which model setting a node uses. A caller that keys
+        a model, a sampling block or an execution record reads this.
+        """
+        return self.tiers.binding_of(self.tier_nodes[graph_node])
 
     @cached_property
     def tier_nodes(self) -> Mapping[str, str]:

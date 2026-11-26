@@ -266,6 +266,30 @@ class TestResolution:
             config.resolve_model("assemble")
 
 
+class TestBindings:
+    """Every node runs on a binding, and each binding is a tier here."""
+
+    def test_each_node_runs_on_the_binding_of_its_tier(self, config_path):
+        config = load_model_tiers(config_path(config_toml()), env={})
+        for node in LLM_NODES:
+            assert config.binding_of(node) == config.resolve_tier(node)
+            assert config.selection_for(config.binding_of(node)) == (
+                config.resolve_model(node)
+            )
+
+    def test_the_bindings_are_the_bound_tiers_in_tier_order(self, config_path):
+        config = load_model_tiers(config_path(config_toml()), env={})
+        assert config.bindings == tuple(
+            tier for tier in TIER_NAMES if tier in config.bound_tiers
+        )
+
+    @pytest.mark.parametrize("binding", ["critic/stride", "eval/judge", ""])
+    def test_a_binding_with_no_selection_is_refused(self, config_path, binding):
+        config = load_model_tiers(config_path(config_toml()), env={})
+        with pytest.raises(ModelConfigError, match="no model selection for binding"):
+            config.selection_for(binding)
+
+
 class TestEnvOverrides:
     def test_model_alone_overrides_one_tier_only(self, config_path):
         # The real ops case: retune a tier's model on a deployed revision.

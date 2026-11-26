@@ -657,7 +657,7 @@ async def _run_mode(
         assertions=resolved,
         provenance=provenance_of(
             executions,
-            tier_of=deployment.tier_of,
+            binding_of=deployment.binding_of,
             sampling=deployment.sampling,
             tiers_config_version=deployment.tiers.version,
             build=build_identity(),

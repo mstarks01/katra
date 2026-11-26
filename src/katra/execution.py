@@ -535,6 +535,7 @@ class GraphExecutor:
                     node=finish.node,
                     model=served,
                     requested_model=requested,
+                    binding=self._pipeline.node_bindings.get(finish.node),
                     # Stamped with the fingerprint or not at all: the digest is
                     # an input to that hash, and a row carrying one without the
                     # other states an identity it cannot account for.

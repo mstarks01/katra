@@ -143,10 +143,17 @@ def test_node_runs_record_the_served_and_the_requested_model(graph_run):
     assert nodes[CRITIC].requested_model == STRONG_MODEL
 
 
+def test_node_runs_record_the_binding_each_node_ran_on(graph_run):
+    nodes = by_node(graph_run)
+    assert nodes[graph.EXTRACT_NODE].binding == "base"
+    assert nodes[CRITIC].binding == "strong"
+
+
 def test_a_deterministic_node_carries_no_model_and_no_fingerprint(graph_run):
     assemble = by_node(graph_run)[graph.ASSEMBLE_NODE]
     assert assemble.model is None
     assert assemble.requested_model is None
+    assert assemble.binding is None
     assert assemble.execution_fingerprint is None
 
 

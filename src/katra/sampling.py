@@ -2,9 +2,9 @@
 
 Decoding parameters are pinned per tier in a versioned TOML file, and eval and
 production read it from the same place. ``base`` and ``strong`` carry their own
-params. The node-to-tier map lives once in ``model_tiers.toml``, and this module
-reuses it through :meth:`~katra.model_tiers.ModelTierConfig.resolve_tier` rather than duplicating
-it.
+params. The node-to-binding map lives once in ``model_tiers.toml``, and this
+module reuses it through :meth:`~katra.model_tiers.ModelTierConfig.binding_of`
+rather than duplicating it.
 
 Four things about the surface:
 
@@ -83,7 +83,7 @@ from pydantic import (
 
 from katra.config_files import read_toml, validation_problems
 from katra.errors import ConfigError
-from katra.model_tiers import TIER_NAMES, TierName
+from katra.model_tiers import TIER_NAMES, Binding, TierName, tier_named
 from katra.parsing import is_version
 
 # The only schema version this loader accepts. Every config file pins its own
@@ -339,6 +339,17 @@ class SamplingConfig(BaseModel):
         """The resolved sampling params for one tier."""
         return self.tiers[tier]
 
+    def for_binding(self, binding: Binding) -> TierSampling:
+        """The resolved sampling params for one binding.
+
+        Every binding is a tier here, so a binding that names no tier is an
+        error.
+        """
+        tier = tier_named(binding)
+        if tier is None:
+            raise SamplingConfigError(f"no sampling block for binding {binding!r}")
+        return self.for_tier(tier)
+
 
 SamplingResolver = Callable[[str], TierSampling]
 
@@ -349,16 +360,17 @@ def env_var_for(tier: TierName, param: str) -> str:
 
 
 def make_resolve_sampling(
-    config: SamplingConfig, resolve_tier: Callable[[str], TierName]
+    config: SamplingConfig, binding_of: Callable[[str], Binding]
 ) -> SamplingResolver:
-    """The injected sibling of ``resolve_model``: node -> its tier's sampling.
+    """The injected sibling of ``resolve_model``: node -> its binding's sampling.
 
-    ``resolve_tier`` is :meth:`~katra.model_tiers.ModelTierConfig.resolve_tier`, so the node -> tier
-    walk lives once in the tier config and the graph stays purely node-centric.
+    ``binding_of`` is :meth:`~katra.model_tiers.ModelTierConfig.binding_of`, so
+    the node -> binding walk lives once in the tier config and the graph stays
+    purely node-centric.
     """
 
     def resolve_sampling(node: str) -> TierSampling:
-        return config.for_tier(resolve_tier(node))
+        return config.for_binding(binding_of(node))
 
     return resolve_sampling
 

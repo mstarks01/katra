@@ -209,6 +209,7 @@ from katra.knowledge import (
 from katra.links import LinkAnswer, apply_answers
 from katra.markdown_loader import MarkdownLoader, estimate_tokens
 from katra.model_tiers import (
+    Binding,
     FrameworkRole,
     ReviewIndependence,
     TierName,
@@ -2774,6 +2775,9 @@ class Pipeline:
     #: selection (:func:`tier_node_by_graph_node`), so a caller computing a
     #: fingerprint reads it from here rather than rebuilding it.
     tier_nodes: dict[str, str]
+    #: Each LLM graph node against the binding it runs on: the key of the model
+    #: setting it took. The report row of each node records it.
+    node_bindings: dict[str, Binding]
     #: How far this deployment required criticism to sit from the analysis it
     #: checks. Carried on the built graph rather than looked up where the report
     #: is stamped, because the tier config is what enforced it and the driver
@@ -3317,6 +3321,10 @@ def build_pipeline(
             node_instructions=instruction_sizes(llm_nodes),
             frameworks=tuple(frameworks),
             tier_nodes=tier_nodes,
+            node_bindings={
+                node.name: binding.binding_of(tier_nodes[node.name])
+                for node in llm_nodes
+            },
             review_independence=binding.review_independence,
             extraction_format=extraction_format if extracts else None,
         )

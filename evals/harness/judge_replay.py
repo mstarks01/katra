@@ -29,7 +29,8 @@ through :func:`~evals.harness.bundle.stride_threats`. ASVS writes exclusions,
 which are not findings at an element, and #764 names them as a later
 population.
 
-**A different source vendor.** The judge runs on the ``review`` tier, and the
+**A different source vendor.** The judge runs on the model that ``--judge``
+names, with the vendor's default sampling, and the output records both. The
 command refuses to send when :func:`~katra.model_tiers.source_vendor_breach`
 finds that the judge's model and a model that wrote the sweep come from one
 **Source Vendor**. The writers are the routes that the sweep's provenance
@@ -99,7 +100,7 @@ from evals.harness.flow_ids import (
 from evals.harness.identity import SubsetVerbIdentity
 from evals.harness.ledger import Ledger
 from evals.harness.modes import EvalRunError
-from evals.harness.node_call import NodeCall, spent_line, tier_call
+from evals.harness.node_call import NodeCall, selection_call, spent_line
 from evals.harness.plants import Plant, write_plants
 from evals.harness.prices import price_calls, unit_prices
 from evals.harness.provenance import REPO_ROOT
@@ -118,17 +119,24 @@ from katra.execution import seed_state
 from katra.frameworks.stride.record import Threat
 from katra.graph import STATE_INPUT_TEXT, STATE_SOURCE_TEXTS, render_model
 from katra.grounding import normalize, verify_normalized
-from katra.model_tiers import TierName, TierSelection, source_vendor_breach
+from katra.model_tiers import (
+    ModelConfigError,
+    TierSelection,
+    source_vendor_breach,
+    validate_model_string,
+)
 from katra.offline import LiveInferenceRefused
 from katra.report import NodeRun, TokenUsage
+from katra.sampling import TierSampling
 from katra.sources import text_digest
 from katra.system_model import EXCERPT_MAX_CHARS, FLOW_ID_VERSION, SystemModel
+from katra.vendors import VENDOR_NAMES
 
 #: The node name a judge call takes in the node runs the spend hold prices.
 JUDGE_NODE = "judge"
 
-#: The tier the judge runs on.
-JUDGE_TIER: TierName = "review"
+#: The judge's sampling: every param at the vendor's default.
+JUDGE_SAMPLING = TierSampling()
 
 #: The judge's instruction. It is eval-only text, so it sits under ``evals/``.
 INSTRUCTION = REPO_ROOT / "evals" / "prompts" / "judge.md"
@@ -604,6 +612,12 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         help="write the requests or the verdicts here",
     )
     parser.add_argument(
+        "--judge",
+        required=True,
+        help="the judge's model as <vendor>/<model>, for example"
+        " openrouter/anthropic/claude-opus-5. Its sampling is the vendor's default",
+    )
+    parser.add_argument(
         "--samples",
         type=int,
         default=DEFAULT_SAMPLES,
@@ -656,13 +670,24 @@ def moved_sources(artifact: EvalArtifact, cases: Sequence[str]) -> list[str]:
     ]
 
 
-def _judge_selection(deployment: Deployment) -> TierSelection:
-    selection = deployment.tiers.tiers.get(JUDGE_TIER)
-    if selection is None:
+def judge_selection(named: str) -> TierSelection:
+    """The judge's ``(vendor, model)`` pair from ``--judge <vendor>/<model>``.
+
+    The vendor is the text before the first ``/``. An aggregator's model
+    carries a slash of its own, so the rest is the model as the vendor spells
+    it. The model must be pinned, as a tier's model must be.
+    """
+    vendor, _, model = named.partition("/")
+    if vendor not in VENDOR_NAMES or not model:
         raise EvalRunError(
-            f"the tier config selects no {JUDGE_TIER!r} tier for the judge"
+            f"--judge {named!r} is not <vendor>/<model>; the vendors are"
+            f" {', '.join(VENDOR_NAMES)}"
         )
-    return selection
+    try:
+        validate_model_string(model, vendor, source="--judge")
+    except ModelConfigError as error:
+        raise EvalRunError(str(error)) from error
+    return TierSelection(vendor=vendor, model=model)
 
 
 def measured_run(
@@ -826,8 +851,8 @@ def command_judge_replay(args: argparse.Namespace) -> int:
                 f"{artifact.path} is a {artifact.mode} sweep; a plant inverts the"
                 " blessed model, which only an analysis sweep's reports carry"
             )
+        judge = judge_selection(args.judge)
         deployment = Deployment.from_env()
-        judge = _judge_selection(deployment)
         rng = random.SystemRandom()
         named = _cases(artifact, args.case)
         moved = moved_sources(artifact, named)
@@ -877,7 +902,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     head = {
         "record": record,
         "instruction_sha256": text_digest(instruction),
-        "judge": {"tier": JUDGE_TIER, "route": judge.route},
+        "judge": {"route": judge.route, "sampling": JUDGE_SAMPLING.model_dump()},
         "writers": list(writers),
         "independence_breach": breach,
         "moved_sources": moved,
@@ -897,8 +922,7 @@ def command_judge_replay(args: argparse.Namespace) -> int:
         print(
             f"refused: the judge must run a model from a source vendor other than"
             f" the source vendor of each model that wrote the sweep; {breach}."
-            f" Point the {JUDGE_TIER!r} tier at a model from another source"
-            f" vendor",
+            f" Name a model from another source vendor in --judge",
             file=sys.stderr,
         )
         return 1
@@ -911,7 +935,9 @@ def command_judge_replay(args: argparse.Namespace) -> int:
     seen: list[dict[str, Any]] = []
     raws: list[str | None] = [None] * len(requests)
 
-    call = tier_call(deployment, JUDGE_TIER, JudgeAnswer, spent, seen)
+    call = selection_call(
+        deployment, JUDGE_NODE, judge, JUDGE_SAMPLING, JudgeAnswer, spent, seen
+    )
     # The sweep's own hold, between calls rather than between cases: it prices
     # the usage each call reported, and it asks again by typing, or stops where
     # --accept-cost leaves no hand to ask.
