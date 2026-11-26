@@ -227,8 +227,11 @@ def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, valu
     )[framework]
 
     problems = list(verify_corpus._check_claims(framework, spoiled, set(), options))
+    before = list(verify_corpus._check_claims(framework, records, set(), options))
 
-    assert f"{framework}[0] fields of the wrong shape: ['{field}']" in problems
+    assert [problem for problem in problems if problem not in before] == [
+        f"{framework}[0] fields of the wrong shape: ['{field}']"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -277,6 +280,8 @@ def test_a_route_defect_is_reported_beside_a_chapter_defect():
     problems = list(verify_corpus._asvs_record_issues("a", record, {"level": 2}))
 
     assert len(problems) == 2
+    assert [problem for problem in problems if "is not an ASVS chapter" in problem]
+    assert [problem for problem in problems if "names alternate routes" in problem]
 
 
 def test_a_null_disposition_is_unjudged_for_both_readers():
