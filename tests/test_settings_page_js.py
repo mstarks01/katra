@@ -36,7 +36,7 @@ const rows = [
     key_saved: false, vendor: "anthropic", modes: ["api_key"] },
 ];
 const settings = { revision: "one", rows, modes: { anthropic: ["api_key"], openai: ["api_key"] },
-  vendor_rows: ["tiers.base.vendor"], override_vendors: [], models: {}, iam: [], unknown: [], settings_file: "settings.env",
+  vendor_rows: ["tiers.base.vendor"], override_vendors: [], nodes: { file: null, refusal: null, rows: [] }, models: {}, iam: [], unknown: [], settings_file: "settings.env",
   error: null, settings_file_refusal: null, ...__PAGE__ };
 const ids = Object.fromEntries([
   "settings", "settings-rows", "model-lists", "settings-search", "changes-list",

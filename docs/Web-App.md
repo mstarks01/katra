@@ -118,7 +118,9 @@ form field, not a query parameter, not a header. The framework picker is not an
 exception to this: it chooses what the app analyses, never what analyses it.
 Model selection lives in
 [`config/model_tiers.toml`](../config/model_tiers.toml) and the `KATRA_MODEL_*`
-overrides. To change a model, use the [Settings page](#the-settings-page). The
+overrides. To change the model of a tier, use the
+[Settings page](#the-settings-page). To give one node its own model, set an
+override in `config/model_tiers.toml`. The
 app has no authentication, so its save accepts only a request from the app's own
 page on loopback: the same `Host` and `Sec-Fetch-Site` checks as each other
 writing route.
@@ -604,6 +606,21 @@ says that the save checks the model. The row says that a change makes each run
 uncertified until a sweep measures it. The other sampling rows and review
 independence show "Shown only" and the reason.
 
+The **Node models** rows follow the **Models** group. Each LLM node has one
+row, and the row shows:
+
+- the node key, such as `critic/stride`;
+- the model and the vendor that the node runs on;
+- the source of that model: the tier, such as "strong tier", or "override".
+
+A `recritic/<framework>` row says that it follows `critic/<framework>`, because
+the re-ask always runs on the model of its critic. A lane key,
+`analyze/<framework>/<lane>`, has a row only when it has an override. The node
+rows show the saved settings, and the page does not change them. An override is
+set only in the model tier file, under `[nodes."<node>"]`, and no variable sets
+one. The page names that file above the rows. When the loader refuses the file,
+the page shows its message in place of the rows.
+
 The page can tell whether a model takes a thinking level, but not which levels
 it takes: the pinned litellm checks the parameter and not its value. A save of a
 level on a model that takes none is refused on the tier's thinking row.
@@ -657,7 +674,7 @@ settings that were in force stay in force. After the save:
   shows, as a restart does.
 - A job storage change does not apply until a restart. The page names each
   changed job storage setting and tells you to restart the app.
-- A save that leaves no tier on a vendor removes the key line of that vendor
+- A save that leaves no tier and no override on a vendor removes the key line of that vendor
   and deletes its key file. The panel says so before the save.
 
 The app makes the settings directory at the first save, with mode `0700`, and
