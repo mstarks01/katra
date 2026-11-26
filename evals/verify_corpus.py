@@ -299,14 +299,24 @@ def _asvs_record_issues(
     # rather than as a lint finding, which reports the whole corpus unreadable
     # instead of naming the one record. Caught here, where the record is.
     disposition = record.get("disposition")
+    also_acceptable = record.get("also_acceptable", [])
+    wrong = [
+        field
+        for field, shaped in (
+            ("disposition", disposition is None or isinstance(disposition, str)),
+            ("also_acceptable", strings(also_acceptable)),
+        )
+        if not shaped
+    ]
+    if wrong:
+        yield f"{where} fields of the wrong shape: {wrong}"
+        return
     if disposition is not None and disposition not in ASVS_DISPOSITIONS:
         yield (
             f"{where} disposition {disposition!r} is not one of"
             f" {sorted(ASVS_DISPOSITIONS)}"
         )
-    for issue in route_issues(
-        record["requirement"], disposition, record.get("also_acceptable", [])
-    ):
+    for issue in route_issues(record["requirement"], disposition, also_acceptable):
         yield f"{where} {issue}"
 
 
@@ -850,7 +860,6 @@ _TEXT_FIELDS = (
     "category",
     "chapter",
     "requirement",
-    "disposition",
 )
 
 
@@ -868,8 +877,6 @@ def _wrong_shapes(record: dict) -> list[str]:
     ]
     if not strings(record.get("affected_element_ids", [])):
         wrong.append("affected_element_ids")
-    if not strings(record.get("also_acceptable", [])):
-        wrong.append("also_acceptable")
     return wrong
 
 

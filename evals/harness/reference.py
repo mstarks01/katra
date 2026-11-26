@@ -385,8 +385,8 @@ def route_issues(
     issues = []
     if stray := sorted(set(also_acceptable) - routes):
         issues.append(
-            f"{requirement} names {stray} as an alternate route, and a route is"
-            " a kind of evidence rather than a different answer"
+            f"{requirement} names {stray} as an alternate route; a route is a"
+            f" kind of evidence, one of {sorted(routes)}"
         )
     if disposition in also_acceptable:
         issues.append(

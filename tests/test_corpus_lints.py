@@ -210,6 +210,7 @@ def test_an_unmeasured_lane_fails_the_merge_bar():
         ("asvs", "chapter", ["V6"]),
         ("asvs", "requirement", 621),
         ("asvs", "also_acceptable", "needs-code"),
+        ("asvs", "disposition", ["needs-code"]),
     ],
 )
 def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, value):
@@ -234,7 +235,7 @@ def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, valu
             ["needs-code"],
             "expects 'gap-from-prose' and names alternate routes",
         ),
-        ("needs-config", ["not-applicable"], "as an alternate route, and a route"),
+        ("needs-config", ["not-applicable"], "as an alternate route; a route is"),
         ("needs-config", ["needs-config"], "repeats its own disposition"),
         ("needs-config", ["needs-code", "needs-code"], "repeats an alternate route"),
     ],
@@ -258,6 +259,33 @@ def test_an_alternate_route_the_loader_refuses_is_a_problem(
     assert [problem for problem in problems if message in problem]
     with pytest.raises(ValidationError, match=message):
         ReferenceRequirement.model_validate(record)
+
+
+def test_a_null_disposition_is_unjudged_for_both_readers():
+    case_dir = verify_corpus.case_dirs()[0]
+    record = {
+        **verify_corpus._load_json(verify_corpus.claims_file(case_dir, "asvs"))[0],
+        "disposition": None,
+    }
+    options = verify_corpus.declared_options(
+        verify_corpus._load_json_object(case_dir / "case.json")
+    )["asvs"]
+
+    problems = list(verify_corpus._asvs_record_issues("a", record, options))
+
+    assert problems == []
+    assert ReferenceRequirement.model_validate(record).disposition is None
+
+
+def test_a_route_field_on_a_stride_record_is_only_unexpected():
+    case_dir = verify_corpus.case_dirs()[0]
+    records = verify_corpus._load_json(verify_corpus.claims_file(case_dir, "stride"))
+    spoiled = [{**records[0], "also_acceptable": "x"}, *records[1:]]
+
+    problems = list(verify_corpus._check_claims("stride", spoiled, set(), {}))
+
+    assert "stride[0] has unexpected fields: ['also_acceptable']" in problems
+    assert not [problem for problem in problems if "wrong shape" in problem]
 
 
 def test_a_severity_or_a_framework_block_of_the_wrong_shape_is_a_problem():
