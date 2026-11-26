@@ -631,7 +631,7 @@ OPEN: dict[tuple[str, str], str] = {
         "chapter and section IDs read from the rows of a catalog file, which"
         " holds them as data and not as a type"
     ),
-    ("katra.model_tiers", "LLM_NODES"): (
+    ("katra.model_tiers", "NODE_TIERS"): (
         "node names that hold one entry for each role of each framework in the"
         " registry, so a new framework adds a member"
     ),

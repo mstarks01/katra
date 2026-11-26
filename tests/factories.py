@@ -94,7 +94,6 @@ from katra.links import LinkAnswer
 from katra.markdown_loader import MarkdownLoader
 from katra.model_tiers import (
     ModelTierConfig,
-    TierName,
     charges_env_var_for,
     credentials_env_var_for,
     load_model_tiers,
@@ -164,13 +163,6 @@ TEST_TIER_ENV: dict[str, str] = {
     "KATRA_MODEL_BASE_MODEL": "gpt-4.1-mini",
     "KATRA_MODEL_STRONG_VENDOR": "vertex",
     "KATRA_MODEL_STRONG_MODEL": "gemini-2.5-pro",
-    # A third vendor on `review`, so the tier is not accidentally covered by
-    # whatever `strong` happens to select. The shipped node map leaves criticism
-    # on `strong`, so nothing here runs on this pair until a test moves it —
-    # which is the point: an unexercised tier that is also unselectable would
-    # hide every defect in selecting it.
-    "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-    "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
     # The assertion pass runs by default (ADR 0075). The scripted sweeps that
     # read this env script the lanes and the critic and no ``assert`` node, so
     # they turn it off; a test of the pass sets it on.
@@ -230,8 +222,8 @@ def adk_runner(pipeline: Pipeline) -> AdkPipelineRunner:
     return AdkPipelineRunner(pipeline, certification=None)
 
 
-def blessed_manifest(tiers: dict[TierName, set[str]]) -> BlessedManifest:
-    """A manifest at the current version, blessing the prints given per tier."""
+def blessed_manifest(tiers: dict[str, set[str]]) -> BlessedManifest:
+    """A manifest at the current version, blessing the prints given per binding."""
     return BlessedManifest(
         version=MANIFEST_VERSION,
         tiers={tier: frozenset(prints) for tier, prints in tiers.items()},
@@ -288,8 +280,6 @@ def tiers_for(
         "KATRA_MODEL_BASE_MODEL": base,
         "KATRA_MODEL_STRONG_VENDOR": vendor,
         "KATRA_MODEL_STRONG_MODEL": strong,
-        "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-        "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
     }
     if len(entry.credential_modes) > 1:
         chosen = entry.credential_modes[0] if mode is None else mode
@@ -1433,9 +1423,7 @@ def scripted_pipeline(
 
     def resolve(tier_node: str) -> BaseLlm:
         model = llm_class(
-            model=BASE_MODEL
-            if tiers.resolve_tier(tier_node) == "base"
-            else STRONG_MODEL,
+            model=BASE_MODEL if tiers.binding_of(tier_node) == "base" else STRONG_MODEL,
             reply=EMPTY_CLAIMS,
             seen=[],
         )

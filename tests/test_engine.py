@@ -320,8 +320,6 @@ DEPLOYMENT_ENV = {
     "KATRA_MODEL_BASE_MODEL": "gemini-2.5-flash",
     "KATRA_MODEL_STRONG_VENDOR": "vertex",
     "KATRA_MODEL_STRONG_MODEL": "gemini-2.5-pro",
-    "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-    "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
     "KATRA_VERTEX_PROJECT": "test-project",
     "KATRA_VERTEX_LOCATION": "us-central1",
     "GOOGLE_APPLICATION_CREDENTIALS": "/nonexistent/adc.json",

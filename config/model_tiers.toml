@@ -1,15 +1,12 @@
 # Model-tier configuration — source of truth for tier -> (vendor, model) and
-# LLM node -> tier.
+# for the overrides: node -> its own (vendor, model).
 #
 # The loader reads the `version` below only, and refuses every other version.
 #
-# NODE KEYS ARE PER FRAMEWORK: `analyze/<framework>`, `critic/<framework>` and
-# `recritic/<framework>`. A lane may also have its own optional key,
-# `analyze/<framework>/<lane>`; a lane with no key runs on `analyze/<framework>`.
-#
-# WHY THE FRAMEWORK FIRST: every lane of one framework runs the same judgement,
-# so one key per framework is the usual knob. A lane key exists for a model
-# that refuses one lane at its content filter and runs the others well.
+# EACH NODE BELONGS TO ONE TIER, AND THE CODE FIXES WHICH: extract, repair,
+# assert and capabilities run on `base`; every framework's `analyze/<framework>`,
+# `critic/<framework>` and `recritic/<framework>` run on `strong`. A node runs
+# on its tier's (vendor, model) pair unless it has an override in [nodes] below.
 #
 # WHY `analyze/`: `Analyst` names a human, the person who reads the report, so
 # each node is named for what it does: it analyses one lane. The graph's own node
@@ -27,10 +24,8 @@
 # line. `base` is the workhorse (extraction, repair); `strong` is judgement
 # (every framework's lane agents, its critic and its re-ask). A vendor's product
 # names, such as Gemini's `flash` and `pro`, would be false under a Claude or GPT
-# model string. `review` is the third tier and the exception: it
-# names a place rather than a capability, and exists so criticism can be moved
-# off the model it checks. All three select independently, so mixed-vendor sets
-# are ordinary, not a special case.
+# model string. The two select independently, and each override selects its
+# own pair, so mixed-vendor sets are ordinary, not a special case.
 #
 # PINNING is per model family and deliberately weak — an open-world denylist of
 # floating words (`latest`, `preview`, `exp`, `experimental`), plus a canonical
@@ -46,7 +41,7 @@
 # The rule matches a shape rather than a list of numbered builds, so the check
 # does not break when a vendor retires a build.
 #
-# ENV OVERRIDES are two vars per tier: KATRA_MODEL_{BASE,STRONG,REVIEW}_VENDOR and
+# ENV OVERRIDES are two vars per tier: KATRA_MODEL_{BASE,STRONG}_VENDOR and
 # _MODEL, plus KATRA_MODEL_CREDENTIALS_{VENDOR}, KATRA_MODEL_CHARGES_{VENDOR}
 # and KATRA_MODEL_UPSTREAMS_{VENDOR} for the three vendor tables below. `_MODEL` alone is the ops case (retune on a deployed revision without
 # an image rebuild). `_VENDOR` alone is a build-time error — a cross-vendor pair
@@ -62,7 +57,7 @@
 # rather than reaching a vendor nobody picked. Every vendor is reached through one adapter and they differ only in
 # the credential mode each implies; none is cheaper to select than the others.
 
-version = 9
+version = 10
 
 # HOW FAR THE CRITIC MUST SIT FROM THE ANALYSIS IT CHECKS. Required, and there
 # is deliberately no default: inheriting `shared` is how an install that meant
@@ -70,7 +65,8 @@ version = 9
 # unusual about it.
 #
 #   "shared"            criticism may run on the very model it checks. What the
-#                       shipped node map below does. A critic on one model still
+#                       shipped file does: no override, so the critic runs on
+#                       `strong` beside the analysis. A critic on one model still
 #                       catches inconsistency and unsupported claims, and it
 #                       costs one tier rather than two.
 #   "distinct_model"    every framework's critic must run a different model
@@ -91,14 +87,16 @@ version = 9
 # failure. It does not make a second opinion a better one, and no measurement in
 # this repository says a second source vendor finds more. Choose it as a risk control.
 #
-# Asking for more than "shared" while leaving critic/* on `strong` beside
-# analyze/* is a load-time error naming the framework, not a warning: a
-# deployment that asked for an independent reviewer and did not get one has a
-# configuration to fix, not a run to annotate.
+# Asking for more than "shared" while critic/<framework> runs on the same model
+# as analyze/<framework> or one of its lane overrides is a load-time error
+# naming the framework, not a warning: a deployment that asked for an
+# independent reviewer and did not get one has a configuration to fix, not a
+# run to annotate. An independent critic is an override on critic/<framework>;
+# recritic/<framework> follows it.
 review_independence = "shared"
 
 # CHOOSE A VENDOR AND MODEL FOR EACH TIER. Fill in the template below, or set
-# KATRA_MODEL_{BASE,STRONG,REVIEW}_VENDOR together with the matching _MODEL —
+# KATRA_MODEL_{BASE,STRONG}_VENDOR together with the matching _MODEL —
 # the two halves must move together, since a vendor without its model is not a
 # usable selection. Model identifiers must be pinned: the identifier may not
 # carry `latest`, `preview`, `exp` or `experimental` as a whole word, and Claude
@@ -110,10 +108,6 @@ review_independence = "shared"
 # model = "<model>"
 #
 # [tiers.strong]
-# vendor = "<vertex|anthropic|openai|bedrock|gemini|openrouter>"
-# model = "<model>"
-#
-# [tiers.review]
 # vendor = "<vertex|anthropic|openai|bedrock|gemini|openrouter>"
 # model = "<model>"
 #
@@ -160,17 +154,6 @@ review_independence = "shared"
 # [upstreams]
 # openrouter = ["openai"]
 #
-# `review` is NOT required while `review_independence = "shared"` leaves the
-# node map pointing criticism at `strong`, because nothing runs on it and the
-# loader binds no adapter for a tier nothing is bound to. Selecting a pair for
-# an empty place is a choice with no consequence, and a repeat of the `strong`
-# pair is a choice that says nothing.
-#
-# The day somebody moves critic/* onto `review` is still the wrong day to find
-# out no model was chosen for it, and that day is an edit to the [nodes] map
-# below. The loader reads this file on that edit, so it refuses then, with the
-# same message it would have given at a first run.
-#
 # A TEMPLATE RATHER THAN A WORKED PAIR, and that is the same decision as the
 # empty tier tables above. One worked pair would be the one example a reader
 # copies, which makes it a privileged default. The vendors below are alphabetical, equally
@@ -196,12 +179,6 @@ review_independence = "shared"
 # It spells the Claude minor version with a dot, so a tier row copied off the
 # `anthropic` row is refused with a hint rather than accepted.
 #
-# `review` needs a pair only once something sits on it. Under the shipped
-# `review_independence = "shared"` nothing does, so a deployment that wants the
-# shipped arrangement names these two and stops; a deployment that wants an
-# independent critic moves critic/* onto `review` in [nodes] and names a third
-# pair, and the loader asks for it at that edit.
-#
 # The Anthropic pin is 4.6 on both of the tiers above because that is the pair
 # this project
 # has profiled, and it is free choice: no generation is refused here, and a
@@ -211,47 +188,31 @@ review_independence = "shared"
 # `uv run python -m katra.conformance` to see what each pair supports
 # before choosing.
 #
-# The three tiers select independently, so a mixed set — a cheap workhorse from
-# one vendor, judgement from another, review from a third — is ordinary rather
-# than a special case.
+# The two tiers and each override select independently, so a mixed set — a
+# cheap workhorse from one vendor, judgement from another, an independent
+# critic from a third — is ordinary rather than a special case.
 #
 # BEDROCK NEEDS ITS CLIENT LIBRARY IN THE IMAGE: `pip install
-# katra[bedrock]`. The build refuses to bind a Bedrock tier without
-# it, and names the extra.
+# katra[bedrock]`. The build refuses to bind a Bedrock tier or override
+# without it, and names the extra.
 
-[nodes]
-extract = "base"
-repair = "base"
-# The assertion pass reads the same sources extraction read and writes rows
-# rather than judgements, so it is transcription on the workhorse tier.
-assert = "base"
-# The capability reader also reads the sources and writes rows the gate checks,
-# so it is transcription on the workhorse tier too. A job runs it only where a
-# selected framework reads capabilities, and KATRA_CAPABILITY_READER=false
-# turns it off, but every install names its tier, as it does for the assertion
-# pass.
-capabilities = "base"
-# Three keys per framework. Every lane of one framework runs the same judgement,
-# so one key per framework is the usual knob: an operator choosing to run one
-# framework cheaper than another is the choice that has a purpose. A lane key,
-# described at the top of this file, is the exception.
+# OVERRIDES. A node that runs on its own (vendor, model) pair gets a table of
+# its own. Optional, and none ships. The key is a node key:
 #
-# THE KEYS ARE REQUIRED IN EVERY INSTALL, including one whose `carried` list
-# names a single framework. `LLM_NODES` derives from `FrameworkName`, which names
-# what this build can spell rather than what this install runs, so a file missing
-# a framework's three keys fails `_check_complete` and the message names them.
-# That message is the fix. The version does not move for a key added under the
-# same schema: adding a framework is a data edit here.
+#   extract, repair, assert, capabilities
+#   analyze/<framework>, critic/<framework>
+#   analyze/<framework>/<lane>   a lane the framework declares
 #
-# ASVS runs 17 lanes against STRIDE's 6, so this is the knob that decides what
-# the extra lanes cost. The two frameworks select independently.
-"analyze/asvs" = "strong"
-"critic/asvs" = "strong"
-"recritic/asvs" = "strong"
-"analyze/stride" = "strong"
-"critic/stride" = "strong"
-# The bounded critic re-ask (ticket 038): same judgement as the critic, so
-# always the same tier. The loader *checks* the pairing rather than trusting
-# this comment — at two keys a comment holds, at 2N keys it drifts, and a re-ask
-# on a cheaper model than the pass it corrects is the fault the check refuses.
-"recritic/stride" = "strong"
+# recritic/<framework> takes no override: the re-ask runs its critic's
+# judgement, so it always runs on its critic's model. A lane with no override
+# runs on the model of analyze/<framework>. A lane key exists for a model that
+# refuses one lane at its content filter and runs the others well.
+#
+# An override may also carry its own sampling block, in config/sampling.toml
+# under the same key. Without one, the node uses its tier's block.
+#
+# An independent critic for STRIDE:
+#
+# [nodes."critic/stride"]
+# vendor = "<vertex|anthropic|openai|bedrock|gemini|openrouter>"
+# model = "<model>"

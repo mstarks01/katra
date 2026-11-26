@@ -3192,18 +3192,47 @@ ONE_READERS: dict[str, _OneReader] = {
         "",
     ),
     "the binding of each node": _OneReader(
-        lambda node: _calls(node, "resolve_tier"),
+        lambda node: _calls(node, "tier_of_node"),
         ("src/katra/model_tiers.py", "binding_of"),
         {
-            ("src/katra/model_tiers.py", "critic_pairing_issues"): (
-                "it compares the tiers of a critic and its recritic, and a"
-                " binding is no input to it"
+            ("src/katra/sampling.py", "for_binding"): (
+                "it picks the tier block for an override that has no block of"
+                " its own, and binding_of has already given it that binding"
             ),
-            ("src/katra/deployment.py", "tier_of"): (
-                "only the certification gate calls it, and its manifest is"
-                " keyed by tier and not by binding"
+            ("src/katra/model_tiers.py", "tiers_in_use"): (
+                "it reads the raw override table before validation, and a test"
+                " holds its answer equal to the bindings that binding_of gives"
             ),
         },
+        "",
+    ),
+    "the shape of a lane name": _OneReader(
+        lambda node: _calls(node, "isalnum"),
+        ("src/katra/model_tiers.py", "is_lane_slug"),
+        {
+            ("src/katra/job_controls.py", "_quoted"): (
+                "it asks whether a text holds any letter or digit at all, which"
+                " is no rule about the shape of a lane name"
+            ),
+        },
+        "",
+    ),
+    "the re-ask follows its critic": _OneReader(
+        lambda node: (
+            _calls(node, "tier_key")
+            and bool(node.args)
+            and _is_constant(node.args[0], "recritic")
+        ),
+        ("src/katra/model_tiers.py", "setting_node"),
+        {},
+        "",
+    ),
+    "the tier a node belongs to": _OneReader(
+        lambda node: (
+            isinstance(node, ast.Subscript) and _is_name(node.value, "NODE_TIERS")
+        ),
+        ("src/katra/model_tiers.py", "tier_of_node"),
+        {},
         "",
     ),
     "the tier of each graph node": _OneReader(

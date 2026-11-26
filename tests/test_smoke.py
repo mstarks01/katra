@@ -129,14 +129,14 @@ def node_run(node: str, **overrides: object) -> dict[str, object]:
     """One LLM node's execution record, consistent by construction."""
     requested = DEPLOYMENT.tiers.resolve_model(TIER_NODES[node]).route
     served = join_served(requested, served_build(requested))
-    tier = DEPLOYMENT.tier_of(node)
+    tier = DEPLOYMENT.binding_of(node)
     run = {
         "node": node,
         "model": served,
         "requested_model": requested,
         "instruction_sha256": SAMPLE_INSTRUCTIONS,
         "execution_fingerprint": sample_fingerprint(
-            served, DEPLOYMENT.sampling.for_tier(tier), requested=requested
+            served, DEPLOYMENT.sampling.for_binding(tier), requested=requested
         ),
         "duration_ms": 1200,
     }

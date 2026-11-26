@@ -1009,8 +1009,6 @@ def test_the_diagnostic_reports_the_vendors_the_build_actually_binds():
         "KATRA_MODEL_STRONG_MODEL": "claude-opus-5",
         # Bound to nothing by the shipped node map, and deliberately a vendor
         # the other two tiers do not use.
-        "KATRA_MODEL_REVIEW_VENDOR": "bedrock",
-        "KATRA_MODEL_REVIEW_MODEL": "anthropic.claude-opus-5",
         **secret_env("KATRA_ANTHROPIC_API_KEY_FILE", "declared"),
     }
     config = PROJECT_ROOT / "config"

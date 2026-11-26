@@ -138,8 +138,8 @@ JUDGE_NODE = "judge"
 
 #: The judge's sampling, pinned here because the judge is no node and has no
 #: block in ``config/sampling.toml``. It holds the values of the ``strong``
-#: and ``review`` blocks of that file: a pinned output cap and every other
-#: param at its default.
+#: block of that file: a pinned output cap and every other param at its
+#: default.
 JUDGE_SAMPLING = TierSampling(max_output_tokens=64000)
 
 #: Where an error message sends an operator who must change the judge's sampling.

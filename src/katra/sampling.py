@@ -1,10 +1,15 @@
-"""Per-tier sampling configuration for the graph's LLM nodes.
+"""Per-binding sampling configuration for the graph's LLM nodes.
 
 Decoding parameters are pinned per tier in a versioned TOML file, and eval and
 production read it from the same place. ``base`` and ``strong`` carry their own
-params. The node-to-binding map lives once in ``model_tiers.toml``, and this
-module reuses it through :meth:`~katra.model_tiers.ModelTierConfig.binding_of`
-rather than duplicating it.
+params. A node with a model override may also carry its own block, under
+``[nodes."<node>"]``: another vendor can need other values. A node with an
+override and no block uses its tier's block. An empty block gives the vendor's
+defaults. A block for a node with no model override is refused when the
+deployment loads, by :meth:`SamplingConfig.override_problems`. The
+node-to-binding walk lives once in the tier config, and this module reuses it
+through :meth:`~katra.model_tiers.ModelTierConfig.binding_of` rather than
+duplicating it.
 
 Four things about the surface:
 
@@ -67,7 +72,7 @@ knob surface is exactly the offered surface and no wider.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -83,18 +88,24 @@ from pydantic import (
 
 from katra.config_files import read_toml, validation_problems
 from katra.errors import ConfigError
-from katra.model_tiers import TIER_NAMES, Binding, TierName, tier_named
+from katra.model_tiers import (
+    TIER_NAMES,
+    Binding,
+    TierName,
+    is_override_key,
+    tier_named,
+    tier_of_node,
+)
 from katra.parsing import is_version
 
 # The only schema version this loader accepts. Every config file pins its own
 # version and every loader exact-matches it, so the numbers are independent: a
 # shared one would gain nothing, since a stale file fails its own check.
 #
-# Every tier's block is required, the ``review`` tier's included: a file that
-# could omit a tier would run criticism moved onto ``review`` on values nobody
-# chose. ``constrain_output`` enters the execution identity, so a change to it
-# re-baselines every blessed number.
-SUPPORTED_VERSION = 5
+# Every tier's block is required: a file that could omit a tier would run its
+# nodes on values nobody chose. ``constrain_output`` enters the execution
+# identity, so a change to it re-baselines every blessed number.
+SUPPORTED_VERSION = 6
 
 # The uniform reasoning surface. Deliberately not per-vendor data: the enum is
 # what every vendor accepts, and the wire value it becomes (Gemini derives a
@@ -227,6 +238,7 @@ class _RawSampling(BaseModel):
 
     version: int
     tiers: dict[TierName, _RawTier]
+    nodes: dict[str, _RawTier] = Field(default_factory=dict)
 
 
 class TierSampling(_TierParams):
@@ -321,19 +333,43 @@ class TierSampling(_TierParams):
 
 
 class SamplingConfig(BaseModel):
-    """Validated per-tier sampling, keyed by tier."""
+    """Validated sampling: one block per tier, and one per override that sets
+    its own."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     version: int
     tiers: dict[TierName, TierSampling]
+    #: Node key -> the block of a node with a model override. A node with an
+    #: override and no entry here uses its tier's block.
+    nodes: dict[str, TierSampling] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_complete(self) -> Self:
         missing = [tier for tier in TIER_NAMES if tier not in self.tiers]
         if missing:
             raise ValueError(f"tiers missing entries for: {missing}")
+        unknown = sorted(node for node in self.nodes if not is_override_key(node))
+        if unknown:
+            raise ValueError(
+                f"nodes {unknown}: no node with a model override can have this key"
+            )
         return self
+
+    def override_problems(self, overridden: Iterable[str]) -> list[str]:
+        """Every node block whose node has no model override.
+
+        A block is the sampling of an override, so a block for a node that runs
+        on its tier would set values that no request carries. The deployment
+        holds both files and asks this when it loads.
+        """
+        stray = sorted(set(self.nodes) - set(overridden))
+        return [
+            f'nodes."{node}" in the sampling file sets sampling for a node with'
+            f' no model override; add [nodes."{node}"] to the model tier file,'
+            " or remove the block"
+            for node in stray
+        ]
 
     def for_tier(self, tier: TierName) -> TierSampling:
         """The resolved sampling params for one tier."""
@@ -342,16 +378,32 @@ class SamplingConfig(BaseModel):
     def for_binding(self, binding: Binding) -> TierSampling:
         """The resolved sampling params for one binding.
 
-        Every binding is a tier here, so a binding that names no tier is an
-        error.
+        A tier's block for a tier; a node's own block for an override that has
+        one; otherwise the block of the tier the node belongs to.
         """
         tier = tier_named(binding)
-        if tier is None:
+        if tier is not None:
+            return self.for_tier(tier)
+        if not is_override_key(binding):
             raise SamplingConfigError(f"no sampling block for binding {binding!r}")
-        return self.for_tier(tier)
+        if binding in self.nodes:
+            return self.nodes[binding]
+        return self.for_tier(tier_of_node(binding))
 
 
 SamplingResolver = Callable[[str], TierSampling]
+
+
+def sampling_by_binding(
+    config: SamplingConfig, bindings: Iterable[Binding]
+) -> dict[Binding, TierSampling]:
+    """The block of each binding, in the order given.
+
+    The report's clear block, a sweep's provenance and the identity a sweep
+    would carry each call it with the deployment's bindings, so a stored
+    Baseline and the identity a later sweep computes compare one set.
+    """
+    return {binding: config.for_binding(binding) for binding in bindings}
 
 
 def env_var_for(tier: TierName, param: str) -> str:
@@ -467,11 +519,17 @@ def load_sampling(path: Path | str, env: Mapping[str, str]) -> SamplingConfig:
     except ValidationError as exc:
         raise SamplingConfigError(f"{path}: {validation_problems(exc)}") from exc
 
-    resolved = {
-        tier: TierSampling(**raw_tier.model_dump())
-        for tier, raw_tier in parsed.tiers.items()
-    }
     try:
-        return SamplingConfig(version=parsed.version, tiers=resolved)
+        return SamplingConfig(
+            version=parsed.version,
+            tiers={
+                tier: TierSampling(**raw.model_dump())
+                for tier, raw in parsed.tiers.items()
+            },
+            nodes={
+                node: TierSampling(**raw.model_dump())
+                for node, raw in parsed.nodes.items()
+            },
+        )
     except ValidationError as exc:
         raise SamplingConfigError(f"{path}: {validation_problems(exc)}") from exc

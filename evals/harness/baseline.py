@@ -74,6 +74,8 @@ from katra.vendors import vendor_for_route
 # The tier whose model names a baseline. Spelled, not indexed: a position in
 # the tier vocabulary is not the analysis tier, so the tier is named. An index
 # would name every baseline ``<commit>-unknown-<hash>`` once a tier is appended.
+# A sweep where every ``strong`` node runs on an override has no ``strong``
+# model, and its name says ``unknown``; the hash still tells two apart.
 _NAMING_TIER: TierName = "strong"
 from evals.harness.archive import archive_bytes
 from evals.harness.artifact import (
@@ -167,8 +169,8 @@ class BaselineIdentity:
         if conflicted:
             raise BaselineError(
                 f"{artifact.path}: more than one requested model on"
-                f" tier(s) {sorted(conflicted)}; the identity carries one"
-                " requested model per tier"
+                f" binding(s) {sorted(conflicted)}; the identity carries one"
+                " requested model per binding"
             )
         sampling = json.dumps(
             {
@@ -314,7 +316,8 @@ def declared_pins(
 
 
 def _tiers_recorded(artifact: EvalArtifact) -> Mapping[str, Any]:
-    """The models block's per-tier table, or a refusal naming the artifact.
+    """The models block's selections keyed by binding — its ``tiers`` table and
+    its ``nodes`` table of overrides — or a refusal naming the artifact.
 
     Every shape the value can take, rather than the one a sweep writes. The
     block is JSON a contributor can hand-edit, and a stability fixture writes
@@ -327,13 +330,16 @@ def _tiers_recorded(artifact: EvalArtifact) -> Mapping[str, Any]:
             f"{artifact.path}: the models block is {type(block).__name__},"
             " not a table of what this run asked its providers for"
         )
-    tiers = block.get("tiers", {})
-    if not isinstance(tiers, Mapping):
-        raise BaselineError(
-            f"{artifact.path}: models.tiers is {type(tiers).__name__}, not a"
-            " table keyed by tier"
-        )
-    return tiers
+    tables: dict[str, Any] = {}
+    for name in ("tiers", "nodes"):
+        table = block.get(name, {})
+        if not isinstance(table, Mapping):
+            raise BaselineError(
+                f"{artifact.path}: models.{name} is {type(table).__name__}, not"
+                " a table keyed by binding"
+            )
+        tables |= table
+    return tables
 
 
 def _unmet_one_provider(artifact: EvalArtifact, identity: BaselineIdentity) -> str:

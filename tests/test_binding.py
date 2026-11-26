@@ -26,16 +26,13 @@ from tests.factories import DEFAULT_FRAMEWORKS, PROJECT_ROOT, repo_tiers, secret
 CARRIED_FRAMEWORKS = DEFAULT_FRAMEWORKS
 
 DIVERGENT = """\
-version = 5
+version = 6
 [tiers.base]
 temperature = 0.0
 seed = 11
 [tiers.strong]
 temperature = 1.0
 seed = 22
-[tiers.review]
-temperature = 1.0
-seed = 33
 """
 
 
@@ -69,7 +66,7 @@ def test_both_sampling_views_come_from_one_config(tiers, tmp_path):
 
     for graph_node, tier_node in tier_node_by_graph_node(CARRIED_FRAMEWORKS).items():
         resolved = binding.resolve_sampling(tier_node)
-        tier = tiers.resolve_tier(tier_node)
+        tier = tiers.binding_of(tier_node)
         assert resolved == binding.tier_sampling[tier], graph_node
 
 
@@ -136,8 +133,6 @@ class TestReasoningTemperatureFloor:
                 "KATRA_MODEL_BASE_MODEL": model,
                 "KATRA_MODEL_STRONG_VENDOR": "openai",
                 "KATRA_MODEL_STRONG_MODEL": model,
-                "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-                "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
             },
         )
         # ``build_tier_adapters`` rather than ``NodeBinding.from_configs``: the
@@ -185,8 +180,6 @@ class TestAThinkingLevelOnAModelThatTakesNone:
                 "KATRA_MODEL_BASE_MODEL": model,
                 "KATRA_MODEL_STRONG_VENDOR": "openai",
                 "KATRA_MODEL_STRONG_MODEL": model,
-                "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-                "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
             },
         )
         return build_tier_adapters(
@@ -226,8 +219,6 @@ def test_the_refusal_layer_sits_only_under_a_row_whose_body_states_a_category():
             "KATRA_MODEL_BASE_MODEL": "claude-opus-5",
             "KATRA_MODEL_STRONG_VENDOR": "openai",
             "KATRA_MODEL_STRONG_MODEL": "gpt-5.6-terra",
-            "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-            "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
         },
     )
     adapters = build_tier_adapters(

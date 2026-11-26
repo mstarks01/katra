@@ -1,10 +1,11 @@
-"""Binding a tier's ``(vendor, model, sampling, resilience)`` to one adapter.
+"""Binding one ``(vendor, model, sampling, resilience)`` setting to one adapter.
 
-There is one adapter per tier, shared by that tier's nodes, so ten LLM nodes use
-two. Each is an :class:`~katra.provider.ExecutedLlm` over an
+There is one adapter per binding, shared by the nodes on it: a tier, or a node
+with a model override. With no override, ten LLM nodes use two. Each is an
+:class:`~katra.provider.ExecutedLlm` over an
 :class:`~katra.provider.InProcessExecutor` holding the configured
 ``LiteLlm``, and the split is the seam that module describes: the translator
-holds the tier's configuration — the credential, the seed, the reasoning effort,
+holds the binding's configuration — the credential, the seed, the reasoning effort,
 the request timeout — while one call's own request is what crosses.
 
 What this module owns is every parameter ADK will not carry for the service.
@@ -40,7 +41,7 @@ Constructor kwargs reach ``acompletion`` through ``_additional_args`` before
 ``drop_params``, here or through ``LITELLM_DROP_PARAMS``, because LiteLLM's
 default is fail-closed and the sampling fingerprint's honesty depends on it.
 
-Seven build-time gates fire per tier, so a misconfiguration fails before any
+Seven build-time gates fire per binding, so a misconfiguration fails before any
 paid call rather than dying on node one of a paid-for job:
 
 * the supported-param check (:mod:`katra.model_gate`);
@@ -59,11 +60,11 @@ paid call rather than dying on node one of a paid-for job:
   at output validation mid-job, which is the one failure shape the other gates
   cannot see, because both the request and the response are well-formed;
 * the credential check (:meth:`Vendor.credential_kwargs`), which fires once per
-  tier and fails closed under :class:`~katra.vendors.ProviderAuthError`;
+  binding and fails closed under :class:`~katra.vendors.ProviderAuthError`;
 * the vendor-SDK check (:func:`~katra.vendors.require_sdk`), which
   asks whether the client library this vendor's provider needs is in the image.
-  Once per bound tier, so a tier nothing runs on needs no SDK — the same rule
-  that makes it need no credential.
+  Once per binding, so a tier that every one of its nodes overrides needs no
+  SDK — the same rule that makes it need no credential.
 
 No vendor is privileged, and every model reaches its provider through
 ``LiteLlm``. ADK emits a warning when a Gemini model runs through LiteLLM. That
@@ -101,7 +102,6 @@ from katra.model_tiers import (
     Binding,
     ModelTierConfig,
     ReviewIndependence,
-    TierName,
     TierSelection,
     tier_named,
 )
@@ -121,6 +121,7 @@ from katra.sampling import (
     TierSampling,
     env_var_for,
     make_resolve_sampling,
+    sampling_by_binding,
 )
 from katra.vendors import (
     RefusalShape,
@@ -275,9 +276,9 @@ def check_temperature(
     Takes the ``binding`` rather than a pre-composed source string because the
     message has to name **both** places the value can come from:
     ``sampling_source`` is where the caller read it, and :func:`_sampling_knob`
-    gives the env var that overrides a tier's value. Naming only the file sent a reader to a line that is not
-    there, since the shipped file sets no temperature and an override is the
-    ordinary way one arrives.
+    gives the env var that overrides a tier's value. Naming only the file sent
+    a reader to a line that is not there, since the shipped file sets no
+    temperature and an override is the ordinary way one arrives.
     """
     knobs = _sampling_knob(binding, "temperature", sampling_source)
     source = _binding_source(binding)
@@ -291,7 +292,16 @@ _SAMPLING_FILE = "config/sampling.toml"
 
 def _binding_source(binding: Binding) -> str:
     """Where a binding's selection sits in the config, for an error message."""
-    return f"tiers.{binding}"
+    if tier_named(binding) is not None:
+        return f"tiers.{binding}"
+    return f'nodes."{binding}"'
+
+
+def _sampling_source(binding: Binding, sampling: SamplingConfig) -> str:
+    """Where a binding's sampling is set, for an error message."""
+    if binding in sampling.nodes:
+        return f'{_SAMPLING_FILE} nodes."{binding}"'
+    return _SAMPLING_FILE
 
 
 def _sampling_knob(binding: Binding, param: str, sampling_source: str) -> str:
@@ -313,7 +323,7 @@ def _check_output_ceiling(
     source: str,
     sampling_source: str,
 ) -> None:
-    """Fail closed when a tier asks for more output than its model will serve.
+    """Fail closed when a binding asks for more output than its model will serve.
 
     ``max_output_tokens`` is pinned rather than left to a vendor-derived
     default, and the value that fits a tier's job is a property of the *job* —
@@ -333,9 +343,9 @@ def _check_output_ceiling(
         return
     raise ModelGateError(
         f"{source}: {vendor.name} serves at most {ceiling} output tokens for"
-        f" {model!r}, and this tier asks for {sampling.max_output_tokens}."
-        f" Lower max_output_tokens for this tier in {sampling_source}, or"
-        " select a model whose ceiling covers it — a tier that asks for more"
+        f" {model!r}, and this binding asks for {sampling.max_output_tokens}."
+        f" Lower max_output_tokens in {sampling_source}, or"
+        " select a model whose ceiling covers it — a binding that asks for more"
         " than the model will produce is rejected on its first request."
     )
 
@@ -424,22 +434,13 @@ def build_tier_adapters(
 ) -> dict[Binding, ExecutedLlm]:
     """One configured ``LiteLlm`` per binding, or fail closed before any call.
 
-    Bound, not every tier in the vocabulary. ``review`` exists so criticism can
-    be moved off the model it checks, and the shipped node map leaves it empty —
-    so building an adapter for it would demand a second vendor's credentials
-    from every deployment that never asked for an independent reviewer, and
-    refuse to start without them. The tier map is what says which tiers are in
-    use, and it is read here rather than assumed.
+    One for each of :attr:`~katra.model_tiers.ModelTierConfig.bindings`: each
+    tier a node runs on, and each override. A tier that every one of its nodes
+    overrides gets no adapter, so it needs no selection and no credential.
+    What the build does not require is a credential for a provider this
+    deployment does not call.
 
-    A tier nothing runs on needs no selection either. The config requires a
-    ``(vendor, model)`` pair only for the tiers the node map names -- the same
-    rule :attr:`~katra.model_tiers.ModelTierConfig.bindings` applies -- so
-    moving a node onto an empty tier is refused at
-    the edit that moves it, by the loader, rather than at a first run that never
-    reaches the tier. What it does not require is a credential for a provider
-    this deployment does not call.
-
-    Raises :class:`~katra.model_gate.ModelGateError` if a bound tier's
+    Raises :class:`~katra.model_gate.ModelGateError` if a binding's
     sampling is unsupported by its ``(vendor, model)`` — whether LiteLLM says so
     or :func:`_check_temperature_unset` does —
     :class:`~katra.vendors.ProviderAuthError` if its credentials are
@@ -449,10 +450,10 @@ def build_tier_adapters(
     if env is None:
         env = os.environ
     layers = _Layers.build()
-    # One policy, so one budget, shared by every tier and every node on them.
-    # A per-tier budget would let the lane agents storm the strong tier while
+    # One policy, so one budget, shared by every binding and every node on them.
+    # A per-binding budget would let the lane agents storm the strong tier while
     # the base tier's untouched allowance sat beside it; a storm is a property
-    # of the process, not of a tier. Capacity is one retry per LLM call of the
+    # of the process, not of a binding. Capacity is one retry per LLM call of the
     # widest job — what a single job may spend from a cold bucket.
     policy = resilience.retry_policy(budget_capacity=widest_llm_calls())
     # Walked in the config's fixed order rather than the node map's, so the
@@ -463,7 +464,7 @@ def build_tier_adapters(
             binding,
             tiers.selection_for(binding),
             sampling.for_binding(binding),
-            _SAMPLING_FILE,
+            _sampling_source(binding, sampling),
             tiers=tiers,
             resilience=resilience,
             env=env,
@@ -647,8 +648,8 @@ class NodeBinding:
     """Everything the graph binds onto an LLM node, as one value.
 
     ``resolve_sampling`` and ``tier_sampling`` are *views of the same object*:
-    the first hands each node its tier's decoding params, the second is the
-    clear block the report records for those same tiers. Sourced from different
+    the first hands each node its binding's decoding params, the second is the
+    clear block the report records for those same bindings. Sourced from different
     :class:`~katra.sampling.SamplingConfig` objects they would
     disagree silently — every node running on one config while the report
     attested to another, leaving each ``execution_fingerprint`` unverifiable
@@ -664,7 +665,7 @@ class NodeBinding:
 
     resolve_model: ModelResolver
     resolve_sampling: SamplingResolver
-    tier_sampling: dict[TierName, TierSampling]
+    tier_sampling: dict[Binding, TierSampling]
     #: Node -> the binding it runs on, from the same tier config as the two
     #: resolvers above. The report row of each node records it.
     binding_of: Callable[[str], Binding]
@@ -685,13 +686,13 @@ class NodeBinding:
     ) -> Self:
         """Bind one tier config and one sampling config onto the graph's nodes.
 
-        The node -> tier walk comes from ``tiers`` and is not re-derived; both
+        The node -> binding walk comes from ``tiers`` and is not re-derived; both
         sampling views come from ``sampling`` and cannot disagree.
         """
         return cls(
             resolve_model=resolve_model,
             resolve_sampling=make_resolve_sampling(sampling, tiers.binding_of),
-            tier_sampling=dict(sampling.tiers),
+            tier_sampling=sampling_by_binding(sampling, tiers.bindings),
             binding_of=tiers.binding_of,
             review_independence=tiers.review_independence,
         )

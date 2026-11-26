@@ -63,7 +63,7 @@ from katra.identity import IDENTITY_VERSION, execution_fingerprint
 from katra.model_tiers import TIER_NAMES, Binding, tier_named
 from katra.parsing import Sha256Hex
 from katra.report import NodeRun
-from katra.sampling import SamplingConfig, TierSampling
+from katra.sampling import SamplingConfig, TierSampling, sampling_by_binding
 
 #: The checkout this harness is part of. Every reader of the tree's identity
 #: asks about this directory, so the commit an artifact stops on and the tree
@@ -98,10 +98,10 @@ class NodeExecution(BaseModel):
     :class:`~katra.report.NodeRun`), so it is absent from this record
     rather than present with a hole in it.
 
-    ``tier`` is resolved once, here, from the deployment's node -> tier walk.
-    Promotion keys by tier and must not re-derive it: a reader of the artifact
-    holds no graph, and a second walk written against a later tier map would
-    silently re-attribute a historical hash.
+    ``tier`` holds the binding, resolved once, here, from the deployment's
+    node -> binding walk. Promotion keys by binding and must not re-derive it:
+    a reader of the artifact holds no graph, and a second walk written against
+    a later tier config would silently re-attribute a historical hash.
 
     ``instruction_sha256`` is per execution rather than per sweep, because a
     sweep builds one graph per framework selection its corpus declares and each
@@ -353,7 +353,7 @@ class RunProvenance(BaseModel):
             sampling = self.sampling.get(execution.tier)
             if sampling is None:
                 raise ProvenanceError(
-                    f"{execution.node} ran on tier {execution.tier!r}, which has no"
+                    f"{execution.node} ran on binding {execution.tier!r}, which has no"
                     " recorded sampling block: the fingerprint cannot be recomputed"
                 )
             recomputed = execution_fingerprint(
@@ -465,6 +465,7 @@ def provenance_of(
     executions: Iterable[NodeRun],
     *,
     binding_of: Callable[[str], Binding],
+    bindings: Iterable[Binding],
     sampling: SamplingConfig,
     tiers_config_version: int,
     build: Mapping[str, str],
@@ -480,7 +481,9 @@ def provenance_of(
 
     ``binding_of`` is the deployment's node -> binding walk, passed in rather
     than re-derived, so this module never becomes a second opinion on which
-    binding a node runs on.
+    binding a node runs on. ``bindings`` is the deployment's bindings: the
+    record holds the sampling block of each one, the same set the report's
+    clear block holds.
 
     ``build`` is the install the sweep ran on, handed in for the same reason
     ``binding_of`` is: it is the sweep's own observation, and re-reading it here
@@ -538,6 +541,6 @@ def provenance_of(
         tree=tree,
         sampling_config_version=sampling.version,
         tiers_config_version=tiers_config_version,
-        sampling={tier: block for tier, block in sampling.tiers.items()},
+        sampling=sampling_by_binding(sampling, bindings),
         node_runs={node: tuple(runs) for node, runs in node_runs.items()},
     )

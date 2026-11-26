@@ -340,12 +340,12 @@ def test_no_mitigation_hands_a_negative_fixture_its_own_anchors(fixture):
 
 
 def test_the_cli_resolves_its_critic_tier_through_the_one_reader():
-    """The CLI's node name is the graph's, and `tier_of` is what takes it.
+    """The CLI's node name is the graph's, and `binding_of` is what takes it.
 
     Two spellings name this node: the graph's ``critic_<framework>`` and the
     tiers file's ``critic/<framework>``.
-    :meth:`~katra.deployment.Deployment.tier_of` walks the graph
-    spelling to a tier, and asking ``tiers.resolve_tier`` with the
+    :meth:`~katra.deployment.Deployment.binding_of` walks the graph
+    spelling to a binding, and asking ``tiers.binding_of`` with the
     graph spelling raises ``unknown LLM node`` — so the run dies at its first
     line, after a reader has already paid for nothing.
 
@@ -366,5 +366,5 @@ def test_the_cli_resolves_its_critic_tier_through_the_one_reader():
 
     for framework in PACKAGES:
         node = _critic_node(framework)
-        assert deployment.tier_of(node) in ("base", "strong", "review")
+        assert deployment.binding_of(node) == "strong"
         assert node in deployment.tier_nodes

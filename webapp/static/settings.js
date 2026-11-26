@@ -35,10 +35,11 @@ function pending(row) {
   return value === null ? row.shipped : value;
 }
 
-// Each vendor that a tier names, with the unsaved changes applied. The server
-// lists the keys of the rows that choose a tier's vendor.
+// The vendors that a tier row chooses, with the unsaved changes applied, and
+// the vendors that the model tier file's overrides select. The page cannot
+// change an override.
 const chosenVendors = () =>
-  new Set(SETTINGS.vendor_rows.map(rowOf).filter(Boolean).map(pending).filter(Boolean));
+  new Set([...SETTINGS.vendor_rows.map(rowOf).filter(Boolean).map(pending).filter(Boolean), ...SETTINGS.override_vendors]);
 
 // The credential mode of a vendor: its only one, else the chosen one.
 function chosenMode(vendor) {
@@ -421,7 +422,7 @@ function panel() {
   if (saveable) {
     for (const row of deletedKeys()) {
       list.append(
-        h("li", { "data-key": row.key, class: "warning" }, `No tier uses ${row.vendor} after this save, so the save deletes the saved ${row.label}.`),
+        h("li", { "data-key": row.key, class: "warning" }, `No tier and no override uses ${row.vendor} after this save, so the save deletes the saved ${row.label}.`),
       );
     }
   }

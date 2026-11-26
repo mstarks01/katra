@@ -7,13 +7,16 @@ tested against is in ``tests/test_certification.py``.
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
 
+from evals.harness import certify as certify_module
 from evals.harness import modes
 from evals.harness.certify import TierIdentityKey, promote
 from katra.certification import (
+    MANIFEST_VERSION,
     BlessedManifest,
     CertificationError,
     certify,
@@ -22,7 +25,6 @@ from katra.certification import (
 from katra.deployment import SAMPLING_VAR, Deployment
 from katra.graph import ENTRY_EXTRACT, tier_node_by_graph_node
 from katra.identity import build_identity
-from katra.model_tiers import TierName
 from katra.sampling import load_sampling
 from tests.factories import (
     DEFAULT_FRAMEWORKS,
@@ -37,16 +39,16 @@ TIER_NODE_BY_GRAPH_NODE = tier_node_by_graph_node(DEFAULT_FRAMEWORKS)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SAMPLING_PATH = REPO_ROOT / "config" / "sampling.toml"
-_TIER_OF = repo_tiers().resolve_tier
+_TIER_OF = repo_tiers().binding_of
 
 
-def tier_of(graph_node: str) -> TierName:
+def tier_of(graph_node: str) -> str:
     return _TIER_OF(TIER_NODE_BY_GRAPH_NODE[graph_node])
 
 
 def _blessed_from(observations: dict[str, frozenset[str]]) -> BlessedManifest:
     """Bless every fingerprint a variant produced, collapsed onto its tier."""
-    tiers: dict[TierName, set[str]] = {}
+    tiers: dict[str, set[str]] = {}
     for node, prints in observations.items():
         tiers.setdefault(tier_of(node), set()).update(prints)
     return blessed_manifest(tiers)
@@ -237,16 +239,69 @@ def test_promoting_one_tier_leaves_the_other_unblessed(tmp_path):
     assert manifest.blessed_for("strong") == frozenset()
 
 
-def test_promote_rejects_an_unknown_tier(tmp_path):
+@pytest.mark.parametrize("binding", ["review", "assemble", "recritic/stride"])
+def test_promote_rejects_an_unknown_binding(tmp_path, binding):
     sampling_copy, manifest_copy = _promote_setup(tmp_path)
-    with pytest.raises(CertificationError, match="unknown tier"):
+    with pytest.raises(CertificationError, match="unknown binding"):
         promote(
             load_sampling(SAMPLING_PATH, env={}),
-            keys(extract="vertex_ai/build-001"),  # a node name, not a tier
+            {binding: keys(base="vertex_ai/build-001")["base"]},
             build=build_identity(),
             sampling_path=sampling_copy,
             manifest_path=manifest_copy,
         )
+
+
+@pytest.mark.parametrize(
+    "binding", ['analyze/stride/x"\nbase = ["' + "a" * 64 + '"]', 'analyze/stride/x"']
+)
+def test_a_binding_that_holds_a_quote_or_a_line_break_writes_nothing(tmp_path, binding):
+    """A hand-edited artifact cannot inject a line into the manifest: the key is
+    no binding, so the promotion stops before it writes either file."""
+    sampling_copy, manifest_copy = _promote_setup(tmp_path)
+    before = sampling_copy.read_text(encoding="utf-8")
+    with pytest.raises(CertificationError, match="unknown binding"):
+        promote(
+            load_sampling(SAMPLING_PATH, env={}),
+            {binding: keys(base="vertex_ai/build-001")["base"]},
+            build=build_identity(),
+            sampling_path=sampling_copy,
+            manifest_path=manifest_copy,
+        )
+    assert not manifest_copy.exists()
+    assert sampling_copy.read_text(encoding="utf-8") == before
+
+
+def test_each_manifest_key_is_an_escaped_toml_string(monkeypatch):
+    """The writer escapes each key on its own, beside the binding check: with
+    the check out of the way, a key that holds a quote, a backslash and a line
+    break reads back as one key and adds none."""
+    monkeypatch.setattr(certify_module, "is_binding_name", lambda name: True)
+    hostile = 'x"\\\nbase = ["' + "a" * 64 + '"]'
+    manifest = BlessedManifest.model_construct(
+        version=MANIFEST_VERSION, tiers={hostile: frozenset()}
+    )
+
+    read = tomllib.loads(certify_module._dump_manifest(manifest))
+
+    assert read["tiers"] == {hostile: []}
+
+
+def test_promote_blesses_an_override_under_its_node_key(tmp_path):
+    """An override's fingerprints sit under its own key, quoted in the file,
+    and the file reads back."""
+    sampling_copy, manifest_copy = _promote_setup(tmp_path)
+    manifest = promote(
+        load_sampling(SAMPLING_PATH, env={}),
+        {"critic/stride": keys(base="vertex_ai/build-001")["base"]},
+        build=build_identity(),
+        sampling_path=sampling_copy,
+        manifest_path=manifest_copy,
+    )
+
+    assert manifest.blessed_for("critic/stride")
+    assert '"critic/stride" = [' in manifest_copy.read_text(encoding="utf-8")
+    assert load_manifest(manifest_copy) == manifest
 
 
 def test_promote_accumulates_blessed_builds(tmp_path):

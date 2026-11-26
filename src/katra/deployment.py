@@ -8,7 +8,7 @@ through this one object — the HTTP service, the in-process engine, the first-r
 web app, the eval harness's pipeline builder and the eval CLI. Each file is
 therefore read once per process, a deployment that redirects
 ``KATRA_SAMPLING`` has its sweeps grading the configuration it runs, and
-:meth:`Deployment.tier_of` walks a node to its tier.
+:meth:`Deployment.binding_of` walks a node to its binding.
 
 A process holds one Deployment at a time. The first-run app holds it in one
 cell and replaces it when a save on its Settings page passes (ADR 0093). A job
@@ -89,7 +89,7 @@ from katra.graph import (
     tier_node_by_graph_node,
 )
 from katra.markdown_loader import MarkdownLoader
-from katra.model_tiers import Binding, ModelTierConfig, TierName, load_model_tiers
+from katra.model_tiers import Binding, ModelTierConfig, load_model_tiers
 from katra.pipeline import AdkPipelineRunner
 from katra.resilience import ResilienceConfig, load_resilience
 from katra.sampling import SamplingConfig, load_sampling
@@ -343,8 +343,8 @@ class Deployment:
         The package gate runs on this path, once per carried framework, and it
         is what makes every later lookup a defect rather than a configuration
         problem: by the time a job names a framework, that package is known to
-        be registered, well-formed, present on disk, and to have the three
-        ``model_tiers.toml`` keys its nodes resolve on.
+        be registered, well-formed, present on disk, and to declare each lane
+        that a ``model_tiers.toml`` override names.
 
         A variable with the prefix that the service does not read
         (:func:`~katra.config_files.retired_settings`) stops the startup too.
@@ -361,9 +361,12 @@ class Deployment:
         tiers = load_model_tiers(paths.model_tiers, env=env)
         frameworks = load_frameworks(paths.frameworks_file, env=env)
         validate_packages(frameworks, paths.frameworks, tuple(tiers.nodes))
+        sampling = load_sampling(paths.sampling, env=env)
+        if problems := sampling.override_problems(tiers.nodes):
+            raise ConfigError("; ".join(problems))
         return cls(
             tiers=tiers,
-            sampling=load_sampling(paths.sampling, env=env),
+            sampling=sampling,
             resilience=load_resilience(paths.resilience, env=env),
             manifest=load_manifest(paths.blessed_fingerprints),
             carried_frameworks=frameworks,
@@ -412,31 +415,22 @@ class Deployment:
         except SelectionError as exc:
             raise ConfigError(str(exc)) from exc
 
-    def tier_of(self, graph_node: str) -> TierName:
-        """The tier a *graph* node runs on, via its canonical tier-node name.
+    def binding_of(self, graph_node: str) -> Binding:
+        """The binding a *graph* node runs on, via its canonical tier-node name.
 
         The walk is two mappings deep — graph node to canonical node,
-        canonical node to tier — and each step has one reader:
+        canonical node to binding — and each step has one reader:
         :func:`~katra.graph.tier_node_by_graph_node` and
-        :meth:`~katra.model_tiers.ModelTierConfig.resolve_tier`. This
-        composes the two for a caller that holds a deployment. The graph build
-        holds a :class:`~katra.binding.NodeBinding` instead, and
-        composes the same two through its ``resolve_model`` and
-        ``resolve_sampling``.
+        :meth:`~katra.model_tiers.ModelTierConfig.binding_of`. This composes
+        the two for a caller that holds a deployment: the certification gate,
+        the provider smoke and the eval harness. The graph build holds a
+        :class:`~katra.binding.NodeBinding` instead, and composes the same two
+        through its ``resolve_model`` and ``resolve_sampling``.
 
         Built over everything this install **carries** rather than over one
         job's selection, which is what keeps a single gate serving every
         selection: a graph node name carries its own framework, so the carried
         map is a superset of any selection's with no key belonging to two.
-        """
-        return self.tiers.resolve_tier(self.tier_nodes[graph_node])
-
-    def binding_of(self, graph_node: str) -> Binding:
-        """The binding a *graph* node runs on, by the walk :meth:`tier_of` takes.
-
-        The second step is :meth:`~katra.model_tiers.ModelTierConfig.binding_of`,
-        the one reader of which model setting a node uses. A caller that keys
-        a model, a sampling block or an execution record reads this.
         """
         return self.tiers.binding_of(self.tier_nodes[graph_node])
 
@@ -444,7 +438,7 @@ class Deployment:
     def tier_nodes(self) -> Mapping[str, str]:
         """Every LLM graph node this install can run, against its tier key.
 
-        The map :meth:`tier_of` walks, exposed because callers that need to ask
+        The map :meth:`binding_of` walks, exposed because callers that need to ask
         *which nodes are LLM nodes* — the provider smoke's checks — would
         otherwise re-derive it from the framework list and drift from the map the
         gate actually resolves against.
@@ -528,11 +522,11 @@ class Deployment:
         Memoized so two jobs in one process can never be certified against
         different manifests, and so the gate the report route enforces is the
         same object the runner certified with. One gate serves every selection
-        — see :meth:`tier_of` for why that is sound.
+        — see :meth:`binding_of` for why that is sound.
         """
         return CertificationGate(
             manifest=self.manifest,
-            tier_of=self.tier_of,
+            binding_of=self.binding_of,
             require_certified=self.require_certified,
         )
 

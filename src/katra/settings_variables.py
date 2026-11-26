@@ -114,6 +114,10 @@ def merged_env(
             raise SettingsFileError(f"{var} in the process environment {refusal}")
     for var, (number, value) in lines.items():
         where = f"{path} line {number}"
+        if model_tiers.is_retired_review_variable(var):
+            raise SettingsFileError(
+                f"{where}: {model_tiers.retired_review_message([var])}"
+            )
         if var not in known:
             raise SettingsFileError(
                 f"{where}: {var} is not a setting that this version reads"

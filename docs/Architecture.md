@@ -246,18 +246,20 @@ not for any vendor's product line:
 - **`strong`** — judgement: every framework's lane agents, its `critic`, and the
   `recritic`.
 
-[`config/model_tiers.toml`](Configuration.md) maps nodes to tiers and each tier
-to a `(vendor, model)` pair. Deterministic `FunctionNode`s carry no model. The
-`strong` tier does most of a job's model work — the lane fan-out of every
-carried framework, plus the critic and its re-ask.
+Each LLM node belongs to a tier that the code fixes, and
+[`config/model_tiers.toml`](Configuration.md) maps each tier to a
+`(vendor, model)` pair. A node can also have an override: a pair of its own.
+Deterministic `FunctionNode`s carry no model. The `strong` tier does most of a
+job's model work — the lane fan-out of every carried framework, plus the critic
+and its re-ask.
 
-The tiers choose their vendor **independently**, so they can run different
-vendors at the same time. A third tier, `review`, exists so criticism can be
-bound off the model it checks; the shipped node map points nothing at it. Every
-vendor is reached through one adapter (LiteLLM), and the LLM nodes share **one
-adapter per bound tier** — so the checks on credentials and decoding
-parameters run once per tier rather than once per node, and a selected tier
-nothing runs on costs no credential at all.
+The tiers and the overrides choose their vendor **independently**, so they can
+run different vendors at the same time. An independent critic is an override on
+`critic/<framework>`, and the re-ask follows it. Every vendor is reached
+through one adapter (LiteLLM), and the LLM nodes share **one adapter per
+binding** — a tier, or an override — so the checks on credentials and decoding
+parameters run once per binding rather than once per node, and a tier where
+every node has an override costs no credential at all.
 
 ## Provenance and certification
 

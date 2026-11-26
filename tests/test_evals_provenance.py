@@ -60,7 +60,7 @@ BASE_SERVED = "openai/gpt-4.1-mini-2026-04-01"
 STRONG_REQUESTED = "vertex_ai/gemini-2.5-pro"
 STRONG_SERVED = "vertex_ai/gemini-2.5-pro-002"
 
-_TIER_OF = repo_tiers().resolve_tier
+_TIER_OF = repo_tiers().binding_of
 
 
 def tier_of(graph_node: str) -> str:
@@ -108,6 +108,7 @@ def provenance(sampling, executions=None):
     return provenance_of(
         executions if executions is not None else sweep(sampling),
         binding_of=tier_of,
+        bindings=("base", "strong"),
         sampling=sampling,
         tiers_config_version=TIERS_VERSION,
         build=build_identity(),
@@ -247,6 +248,7 @@ class TestArtifactSerialization:
         record = provenance_of(
             sweep(sampling),
             binding_of=bindings.__getitem__,
+            bindings=("base", "critic/stride"),
             sampling=sampling,
             tiers_config_version=TIERS_VERSION,
             build=build_identity(),
@@ -719,6 +721,7 @@ class TestTheTreeIsRecorded:
         record = provenance_of(
             sweep(sampling),
             binding_of=tier_of,
+            bindings=("base", "strong"),
             sampling=sampling,
             tiers_config_version=TIERS_VERSION,
             build=build_identity(),

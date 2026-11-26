@@ -17,12 +17,14 @@ from katra.graph import FrameworkNodes, Lane
 from katra.model_tiers import (
     FRAMEWORK_NODES,
     LLM_NODES,
+    NODE_TIERS,
     SUPPORTED_VERSION,
     TIER_NAMES,
     ModelConfigError,
     ModelTierConfig,
     TierSelection,
     env_vars_for,
+    is_binding_name,
     lane_key,
     load_model_tiers,
     tiers_in_use,
@@ -43,36 +45,33 @@ REPO_CONFIG = PROJECT_ROOT / "config" / "model_tiers.toml"
 BASE = "gemini-2.5-flash"
 STRONG = "gemini-2.5-pro"
 VENDOR = "vertex"
-# A second vendor on `review`, so an independence test has something to be
-# independent *of* without inventing a config the rest of the module does not use.
-REVIEW = "claude-opus-5"
-REVIEW_VENDOR = "anthropic"
+# A second vendor for a critic override, so an independence test has something
+# to be independent *of* without inventing a config the rest of the module does
+# not use.
+CRITIC = "claude-opus-5"
+CRITIC_VENDOR = "anthropic"
 
 
 def config_toml(
     base=BASE,
     strong=STRONG,
-    review=REVIEW,
     base_vendor=VENDOR,
     strong_vendor=VENDOR,
-    review_vendor=REVIEW_VENDOR,
-    nodes=None,
+    overrides=None,
     version=SUPPORTED_VERSION,
     independence="shared",
 ):
-    if nodes is None:
-        nodes = {
-            node: "base" if node in ("extract", "repair") else "strong"
-            for node in LLM_NODES
-        }
-    node_lines = "\n".join(f'"{node}" = "{tier}"' for node, tier in nodes.items())
+    """A tier file. ``overrides`` maps a node key to its ``(vendor, model)``."""
+    tables = "".join(
+        f'[nodes."{node}"]\nvendor = "{vendor}"\nmodel = "{model}"\n\n'
+        for node, (vendor, model) in (overrides or {}).items()
+    )
     return (
         f"version = {version}\n"
         f'review_independence = "{independence}"\n\n'
         f'[tiers.base]\nvendor = "{base_vendor}"\nmodel = "{base}"\n\n'
         f'[tiers.strong]\nvendor = "{strong_vendor}"\nmodel = "{strong}"\n\n'
-        f'[tiers.review]\nvendor = "{review_vendor}"\nmodel = "{review}"\n\n'
-        f"[nodes]\n{node_lines}\n"
+        f"{tables}"
     )
 
 
@@ -117,27 +116,19 @@ class TestNodeInventory:
         )
         assert LLM_NODES[4:] == FRAMEWORK_NODES
 
-    def test_every_carried_framework_needs_its_three_keys_of_every_install(self):
-        """The triple is required in every file, whatever that install carries.
-
-        ``LLM_NODES`` derives from ``FrameworkName``, which names what this build
-        can spell rather than what an install runs. So a deployment carrying
-        STRIDE alone still has to name ASVS's three keys, and a file that omits
-        them fails the completeness check by name. That message is the fix, and
-        it is the stated drawback of adding a framework without moving the schema
-        version.
-        """
+    def test_every_framework_the_build_can_spell_has_its_three_nodes(self):
+        """``LLM_NODES`` derives from ``FrameworkName``, which names what this
+        build can spell rather than what an install runs, so each framework has
+        its three nodes in the code whatever the install carries."""
         assert {name.split("/", 1)[1] for name in FRAMEWORK_NODES} == set(
             FRAMEWORK_NAMES
         )
 
     def test_the_tiers_are_named_on_a_capability_axis(self):
         # Not flash/pro: those are one vendor's product names and would be an
-        # active lie under a Claude or GPT model string. `review` names a place
-        # criticism can be bound to rather than a capability, which is the
-        # exception the third tier is: it exists so a critic can be moved off
-        # the model it checks, not because it is stronger or cheaper.
-        assert TIER_NAMES == ("base", "strong", "review")
+        # active lie under a Claude or GPT model string. A critic that must sit
+        # off the model it checks is an override, not a third tier.
+        assert TIER_NAMES == ("base", "strong")
 
 
 class TestRepoConfig:
@@ -153,8 +144,6 @@ class TestRepoConfig:
         "KATRA_MODEL_BASE_MODEL": "gpt-4.1-mini",
         "KATRA_MODEL_STRONG_VENDOR": "anthropic",
         "KATRA_MODEL_STRONG_MODEL": "claude-opus-5",
-        "KATRA_MODEL_REVIEW_VENDOR": "vertex",
-        "KATRA_MODEL_REVIEW_MODEL": "gemini-2.5-pro",
     }
 
     def test_shipped_config_selects_no_vendor(self):
@@ -170,40 +159,28 @@ class TestRepoConfig:
         assert "KATRA_MODEL_BASE_VENDOR" in message
         assert "docs/First-Run.md" in message
 
-    def test_a_tier_the_node_map_does_not_use_needs_no_selection(self):
-        """The shipped map runs criticism on ``strong``, so nothing sits on
-        ``review`` -- and ``build_adapters`` binds no adapter for a tier nothing
-        is bound to.
-
-        Requiring a pair for it anyway made a first run choose a vendor and a
-        model for a tier no request reaches, and the answer the config file
-        suggested was to repeat the ``strong`` pair, which chooses nothing.
-        """
-        selected = {
-            key: value for key, value in self.SELECTED.items() if "REVIEW" not in key
-        }
-
-        config = load_model_tiers(REPO_CONFIG, env=selected)
-
-        assert set(config.tiers) == {"base", "strong"}
-        assert "review" not in set(config.nodes.values())
-
-    def test_a_tier_the_node_map_does_use_is_still_required(self):
-        """The reason the requirement existed, kept: the day somebody moves
-        criticism onto ``review`` is the wrong day to find no model was chosen
-        for it. That day is a node-map edit, and this is read on that edit."""
-        moved = REPO_CONFIG.read_text(encoding="utf-8").replace(
-            '"critic/stride" = "strong"', '"critic/stride" = "review"'
+    def test_a_tier_every_node_overrides_needs_no_selection(self):
+        """A tier whose every node has an override runs nothing, so
+        ``build_tier_adapters`` binds no adapter for it and it needs no pair."""
+        tables = "".join(
+            f'\n[nodes."{node}"]\nvendor = "anthropic"\nmodel = "{CRITIC}"\n'
+            for node in ("extract", "repair", "assert", "capabilities")
         )
-        path = self.written(moved)
-        selected = {
-            key: value for key, value in self.SELECTED.items() if "REVIEW" not in key
-        }
+        path = self.written(REPO_CONFIG.read_text(encoding="utf-8") + tables)
+        selected = {key: v for key, v in self.SELECTED.items() if "BASE" not in key}
+
+        config = load_model_tiers(path, env=selected)
+
+        assert config.bound_tiers == {"strong"}
+        assert "base" not in config.tiers
+
+    def test_a_tier_a_node_uses_is_still_required(self):
+        selected = {key: v for key, v in self.SELECTED.items() if "BASE" not in key}
 
         with pytest.raises(ModelConfigError, match="no vendor selected") as excinfo:
-            load_model_tiers(path, env=selected)
+            load_model_tiers(REPO_CONFIG, env=selected)
 
-        assert "review" in str(excinfo.value)
+        assert "base" in str(excinfo.value)
 
     def written(self, text: str) -> Path:
         directory = Path(tempfile.mkdtemp())
@@ -220,25 +197,22 @@ class TestRepoConfig:
         ]
         assert not [line for line in live if "vendor" in line or "model =" in line]
 
-    def test_shipped_config_covers_all_llm_nodes(self):
+    def test_shipped_config_has_no_override(self):
         config = load_model_tiers(REPO_CONFIG, env=self.SELECTED)
-        assert set(config.nodes) == set(LLM_NODES)
+        assert config.nodes == {}
 
     def test_shipped_config_tier_assignment(self):
         config = load_model_tiers(REPO_CONFIG, env=self.SELECTED)
-        assert config.nodes["extract"] == "base"
-        assert config.nodes["repair"] == "base"
-        assert config.nodes["critic/stride"] == "strong"
+        for node in ("extract", "repair", "assert", "capabilities"):
+            assert config.binding_of(node) == "base"
         for node in FRAMEWORK_NODES:
-            assert config.nodes[node] == "strong"
+            assert config.binding_of(node) == "strong"
 
     def test_the_shipped_review_is_shared_and_says_so(self):
-        # The `review` tier exists and nothing is pointed at it. That is the
-        # cheaper default and the honest one: the policy states it rather than
-        # leaving a reader to work it out from the node map.
+        # No critic override ships. That is the cheaper default and the honest
+        # one: the policy states it rather than leaving a reader to work it out.
         config = load_model_tiers(REPO_CONFIG, env=self.SELECTED)
         assert config.review_independence == "shared"
-        assert "review" not in set(config.nodes.values())
         assert config.independence_breaches() == []
 
 
@@ -267,20 +241,42 @@ class TestResolution:
 
 
 class TestBindings:
-    """Every node runs on a binding, and each binding is a tier here."""
+    """Every node runs on a binding: its tier, or its own override key."""
 
-    def test_each_node_runs_on_the_binding_of_its_tier(self, config_path):
+    def test_each_node_runs_on_its_tier_with_no_override(self, config_path):
         config = load_model_tiers(config_path(config_toml()), env={})
         for node in LLM_NODES:
-            assert config.binding_of(node) == config.resolve_tier(node)
+            assert config.binding_of(node) == NODE_TIERS[node]
             assert config.selection_for(config.binding_of(node)) == (
                 config.resolve_model(node)
             )
 
-    def test_the_bindings_are_the_bound_tiers_in_tier_order(self, config_path):
-        config = load_model_tiers(config_path(config_toml()), env={})
-        assert config.bindings == tuple(
-            tier for tier in TIER_NAMES if tier in config.bound_tiers
+    def test_the_bindings_are_the_bound_tiers_then_the_overrides(self, config_path):
+        text = config_toml(
+            overrides={
+                "critic/stride": (CRITIC_VENDOR, CRITIC),
+                "assert": (CRITIC_VENDOR, CRITIC),
+            }
+        )
+        config = load_model_tiers(config_path(text), env={})
+        assert config.bindings == ("base", "strong", "assert", "critic/stride")
+
+    def test_an_override_changes_that_node_only(self, config_path):
+        text = config_toml(overrides={"analyze/asvs": (CRITIC_VENDOR, CRITIC)})
+        config = load_model_tiers(config_path(text), env={})
+        assert config.binding_of("analyze/asvs") == "analyze/asvs"
+        assert config.resolve_model("analyze/asvs").vendor == CRITIC_VENDOR
+        others = [node for node in LLM_NODES if node != "analyze/asvs"]
+        assert all(config.binding_of(node) == NODE_TIERS[node] for node in others)
+
+    @pytest.mark.parametrize("framework", FRAMEWORK_NAMES)
+    def test_a_critic_override_also_moves_its_recritic(self, config_path, framework):
+        critic = f"critic/{framework}"
+        text = config_toml(overrides={critic: (CRITIC_VENDOR, CRITIC)})
+        config = load_model_tiers(config_path(text), env={})
+        assert config.binding_of(f"recritic/{framework}") == critic
+        assert config.resolve_model(f"recritic/{framework}") == TierSelection(
+            vendor=CRITIC_VENDOR, model=CRITIC
         )
 
     @pytest.mark.parametrize("binding", ["critic/stride", "eval/judge", ""])
@@ -288,6 +284,52 @@ class TestBindings:
         config = load_model_tiers(config_path(config_toml()), env={})
         with pytest.raises(ModelConfigError, match="no model selection for binding"):
             config.selection_for(binding)
+
+
+class TestTheOverrideShape:
+    """The loader refuses the node -> tier map and a review tier by name."""
+
+    def test_a_tier_name_under_nodes_names_the_override_shape(self, config_path):
+        text = config_toml() + '[nodes]\nextract = "base"\n'
+        with pytest.raises(ModelConfigError, match="holds tier names") as excinfo:
+            load_model_tiers(config_path(text), env={})
+        assert '[nodes."<node>"]' in str(excinfo.value)
+
+    def test_a_review_tier_names_the_critic_override(self, config_path):
+        text = config_toml() + '[tiers.review]\nvendor = "vertex"\nmodel = "x"\n'
+        with pytest.raises(ModelConfigError, match="not a tier") as excinfo:
+            load_model_tiers(config_path(text), env={})
+        assert '[nodes."critic/<framework>"]' in str(excinfo.value)
+
+    def test_the_old_file_gets_the_shape_message_and_not_only_its_version(
+        self, config_path
+    ):
+        old = config_toml(version=9) + '[nodes]\n"critic/stride" = "strong"\n'
+        with pytest.raises(ModelConfigError, match="holds tier names") as excinfo:
+            load_model_tiers(config_path(old), env={})
+        assert f"version = {SUPPORTED_VERSION}" in str(excinfo.value)
+
+    def test_a_review_variable_names_the_critic_override(self, config_path):
+        env = {"KATRA_MODEL_REVIEW_VENDOR": "vertex"}
+        with pytest.raises(ModelConfigError, match="review tier is not in"):
+            load_model_tiers(config_path(config_toml()), env=env)
+
+    @pytest.mark.parametrize("framework", FRAMEWORK_NAMES)
+    def test_a_recritic_takes_no_override(self, config_path, framework):
+        text = config_toml(overrides={f"recritic/{framework}": (VENDOR, STRONG)})
+        with pytest.raises(ModelConfigError, match="re-ask runs on its critic"):
+            load_model_tiers(config_path(text), env={})
+
+    @pytest.mark.parametrize("node", ["assemble", "review", "critic"])
+    def test_a_key_of_no_llm_node_is_refused(self, config_path, node):
+        text = config_toml(overrides={node: (VENDOR, STRONG)})
+        with pytest.raises(ModelConfigError, match="no LLM node has this key"):
+            load_model_tiers(config_path(text), env={})
+
+    def test_an_override_model_is_pin_checked(self, config_path):
+        text = config_toml(overrides={"extract": (VENDOR, "gemini-latest")})
+        with pytest.raises(ModelConfigError, match="extract"):
+            load_model_tiers(config_path(text), env={})
 
 
 class TestEnvOverrides:
@@ -707,7 +749,7 @@ class TestDeclaredCredentialMode:
         with pytest.raises(ModelConfigError) as refused:
             load_model_tiers(path, env={})
         message = str(refused.value)
-        assert "selected by tiers: base)" in message
+        assert "selected by: base)" in message
         assert "KATRA_MODEL_CREDENTIALS_BEDROCK" in message
         assert "input_value" not in message
 
@@ -753,62 +795,58 @@ class TestDeclaredCredentialMode:
     def test_an_unbound_tiers_vendor_needs_no_declaration(self, config_path):
         """A vendor no adapter is built for needs no identity.
 
-        The shipped node map points nothing at ``review``, so a ``review`` tier
-        naming Bedrock needs no credential, no SDK and no declaration, and the
-        loader starts without one.
+        Every ``base`` node runs on an override here, so a ``base`` tier naming
+        Bedrock needs no credential, no SDK and no declaration, and the loader
+        starts without one.
 
         Both readers are :attr:`ModelTierConfig.bound_vendors`, so the loader
         cannot demand what the build does not need.
         """
+        overrides = {
+            node: (VENDOR, STRONG)
+            for node in ("extract", "repair", "assert", "capabilities")
+        }
         tiers = load_model_tiers(
             config_path(
-                config_toml(review_vendor="bedrock", review="anthropic.claude-opus-5")
+                config_toml(
+                    base_vendor="bedrock",
+                    base="anthropic.claude-opus-5",
+                    overrides=overrides,
+                )
             ),
             env={},
         )
 
         assert "bedrock" not in tiers.bound_vendors
-        assert tiers.bound_tiers == frozenset({"base", "strong"})
+        assert tiers.bound_tiers == frozenset({"strong"})
 
-    def test_a_bound_tiers_vendor_still_must_declare(self, config_path):
-        """The other direction, so the relaxation above cannot go too far.
-
-        Moving a node onto the tier is what makes the declaration necessary, and
-        the loader is what refuses at that edit rather than at a first run.
-        """
-        nodes = {
-            node: "review" if node == "extract" else "strong" for node in LLM_NODES
-        }
-        with pytest.raises(ModelConfigError, match="credentials.bedrock"):
-            load_model_tiers(
-                config_path(
-                    config_toml(
-                        review_vendor="bedrock",
-                        review="anthropic.claude-opus-5",
-                        nodes=nodes,
-                    )
-                ),
-                env={},
-            )
+    def test_an_overrides_vendor_must_declare(self, config_path):
+        """An override's vendor is called, so it declares a mode like a tier's."""
+        overrides = {"critic/stride": ("bedrock", "anthropic.claude-opus-5")}
+        with pytest.raises(ModelConfigError, match="credentials.bedrock") as refused:
+            load_model_tiers(config_path(config_toml(overrides=overrides)), env={})
+        assert "selected by: critic/stride)" in str(refused.value)
 
     @pytest.mark.parametrize(
-        "placed",
+        "overridden",
         [
-            {"extract": "base", "repair": "base"},
-            {"extract": "review"},
-            dict.fromkeys(LLM_NODES, "base"),
+            (),
+            ("extract",),
+            ("critic/stride",),
+            ("extract", "repair", "assert", "capabilities"),
+            FRAMEWORK_NODES[:2] + FRAMEWORK_NODES[3:5],
         ],
     )
-    def test_the_raw_reader_names_the_tiers_the_config_binds(self, config_path, placed):
-        """``tiers_in_use`` reads the node map before validation, and
-        ``bound_tiers`` reads it after, so each node map is put to both."""
-        nodes = {node: placed.get(node, "strong") for node in LLM_NODES}
+    def test_the_raw_reader_names_the_tiers_the_config_binds(
+        self, config_path, overridden
+    ):
+        """``tiers_in_use`` reads the override table before validation, and
+        ``bound_tiers`` reads it after, so each table is put to both."""
+        overrides = {node: (VENDOR, STRONG) for node in overridden}
 
-        tiers = load_model_tiers(
-            config_path(config_toml(review_vendor=VENDOR, nodes=nodes)), env={}
-        )
+        tiers = load_model_tiers(config_path(config_toml(overrides=overrides)), env={})
 
-        assert tiers_in_use(nodes) == set(tiers.bound_tiers)
+        assert tiers_in_use(overrides) == tiers.bound_tiers
 
     def test_the_environment_wins_over_the_file(self, config_path):
         """One rule, and the environment is the later reader of it.
@@ -861,20 +899,18 @@ class TestFileValidation:
         with pytest.raises(ModelConfigError, match="unsupported version"):
             load_model_tiers(config_path(config_toml(version=2)), env={})
 
-    def test_unknown_node_rejected(self, config_path):
-        nodes = {node: "strong" for node in LLM_NODES} | {"assemble": "base"}
-        with pytest.raises(ModelConfigError, match="unknown node"):
-            load_model_tiers(config_path(config_toml(nodes=nodes)), env={})
-
-    def test_missing_node_rejected(self, config_path):
-        nodes = {node: "strong" for node in LLM_NODES if node != "critic/stride"}
-        with pytest.raises(ModelConfigError, match="missing entries"):
-            load_model_tiers(config_path(config_toml(nodes=nodes)), env={})
+    def test_an_override_table_takes_only_vendor_and_model(self, config_path):
+        text = config_toml() + (
+            '[nodes."extract"]\nvendor = "vertex"\nmodel = "gemini-2.5-pro"\n'
+            'tier = "strong"\n'
+        )
+        with pytest.raises(ModelConfigError):
+            load_model_tiers(config_path(text), env={})
 
     def test_unknown_tier_name_rejected(self, config_path):
-        nodes = {node: "strong" for node in LLM_NODES} | {"extract": "turbo"}
+        text = config_toml() + '[tiers.turbo]\nvendor = "vertex"\nmodel = "x"\n'
         with pytest.raises(ModelConfigError):
-            load_model_tiers(config_path(config_toml(nodes=nodes)), env={})
+            load_model_tiers(config_path(text), env={})
 
     def test_unknown_vendor_in_file_rejected(self, config_path):
         with pytest.raises(ModelConfigError):
@@ -921,15 +957,10 @@ class TestFileValidation:
 
 
 def test_direct_construction_validates_completeness():
-    with pytest.raises(ValueError, match="nodes missing entries"):
+    with pytest.raises(ValueError, match="tiers missing entries"):
         ModelTierConfig(
             version=SUPPORTED_VERSION,
-            tiers={
-                "base": TierSelection(vendor=VENDOR, model=BASE),
-                "strong": TierSelection(vendor=VENDOR, model=STRONG),
-                "review": TierSelection(vendor=REVIEW_VENDOR, model=REVIEW),
-            },
-            nodes={},
+            tiers={"base": TierSelection(vendor=VENDOR, model=BASE)},
             review_independence="shared",
         )
 
@@ -947,21 +978,27 @@ class TestReviewIndependence:
     #: these tests fail on the rule they are about rather than on that one.
     CHARGES = '\n[charges]\nopenrouter = "direct"\n'
 
-    def critic_on(self, tier: str, independence: str, **kwargs):
-        """A config with every framework's critic and recritic on ``tier``."""
-        nodes = {
-            node: "base"
-            if node in ("extract", "repair")
-            else tier
-            if node.startswith(("critic/", "recritic/"))
-            else "strong"
-            for node in LLM_NODES
-        }
-        return config_toml(nodes=nodes, independence=independence, **kwargs)
+    def critic_on(
+        self,
+        independence: str,
+        critic_vendor: str = CRITIC_VENDOR,
+        critic: str = CRITIC,
+        *,
+        override: bool = True,
+        **kwargs,
+    ):
+        """A config with an override on every framework's critic, or with
+        every critic on ``strong`` where ``override`` is false."""
+        overrides = (
+            {f"critic/{name}": (critic_vendor, critic) for name in FRAMEWORK_NAMES}
+            if override
+            else {}
+        )
+        return config_toml(overrides=overrides, independence=independence, **kwargs)
 
     def test_shared_admits_a_critic_on_the_analysis_tier(self, config_path):
         config = load_model_tiers(
-            config_path(self.critic_on("strong", "shared")), env={}
+            config_path(self.critic_on("shared", override=False)), env={}
         )
         assert config.review_independence == "shared"
 
@@ -977,20 +1014,18 @@ class TestReviewIndependence:
         # artifact somebody already paid for.
         with pytest.raises(ModelConfigError, match="critic/stride are not independent"):
             load_model_tiers(
-                config_path(self.critic_on("strong", independence)), env={}
+                config_path(self.critic_on(independence, override=False)), env={}
             )
 
     @pytest.mark.parametrize(
         "independence", ["distinct_model", "distinct_source_vendor"]
     )
-    def test_the_review_tier_satisfies_both_policies(self, config_path, independence):
-        # `review` selects anthropic/claude-opus-5 against strong's
+    def test_a_critic_override_satisfies_both_policies(self, config_path, independence):
+        # The override selects anthropic/claude-opus-5 against strong's
         # vertex/gemini-2.5-pro, so it differs in model and in vendor.
-        config = load_model_tiers(
-            config_path(self.critic_on("review", independence)), env={}
-        )
+        config = load_model_tiers(config_path(self.critic_on(independence)), env={})
         assert config.independence_breaches() == []
-        assert config.resolve_model("critic/stride").vendor == REVIEW_VENDOR
+        assert config.resolve_model("critic/stride").vendor == CRITIC_VENDOR
 
     def test_a_distinct_model_from_one_source_vendor_fails_the_strict_policy(
         self, config_path
@@ -1000,28 +1035,25 @@ class TestReviewIndependence:
         # a deployment that asked for a distinct source vendor must not read as
         # satisfied by it.
         text = self.critic_on(
-            "review",
             "distinct_source_vendor",
-            review_vendor=VENDOR,
-            review="gemini-2.5-flash",
+            critic_vendor=VENDOR,
+            critic="gemini-2.5-flash",
         )
         with pytest.raises(ModelConfigError, match="source vendor 'google'"):
             load_model_tiers(config_path(text), env={})
 
         relaxed = self.critic_on(
-            "review", "distinct_model", review_vendor=VENDOR, review="gemini-2.5-flash"
+            "distinct_model", critic_vendor=VENDOR, critic="gemini-2.5-flash"
         )
         assert (
             load_model_tiers(config_path(relaxed), env={}).independence_breaches() == []
         )
 
-    def test_the_same_pair_under_two_tier_names_is_not_independence(self, config_path):
-        # Independence is about the selection, not the tier name. A `review`
-        # tier configured with strong's own pair is the shared case wearing a
-        # second label.
-        text = self.critic_on(
-            "review", "distinct_model", review_vendor=VENDOR, review=STRONG
-        )
+    def test_an_override_on_the_analysis_pair_is_not_independence(self, config_path):
+        # Independence is about the selection, not the binding name. An
+        # override configured with strong's own pair is the shared case wearing
+        # a second label.
+        text = self.critic_on("distinct_model", critic_vendor=VENDOR, critic=STRONG)
         with pytest.raises(ModelConfigError, match="both run one model"):
             load_model_tiers(config_path(text), env={})
 
@@ -1030,10 +1062,9 @@ class TestReviewIndependence:
     ):
         """The maker of the model decides, not the vendor that serves it."""
         text = self.critic_on(
-            "review",
             "distinct_source_vendor",
-            review_vendor="openrouter",
-            review="anthropic/claude-opus-4.7",
+            critic_vendor="openrouter",
+            critic="anthropic/claude-opus-4.7",
         )
         config = load_model_tiers(config_path(text + self.CHARGES), env={})
 
@@ -1042,25 +1073,23 @@ class TestReviewIndependence:
     def test_one_source_vendor_through_two_vendors_is_a_breach(self, config_path):
         """Claude on Vertex and Claude through OpenRouter share one maker."""
         text = self.critic_on(
-            "review",
             "distinct_source_vendor",
             strong="claude-opus-5",
-            review_vendor="openrouter",
-            review="anthropic/claude-opus-4.7",
+            critic_vendor="openrouter",
+            critic="anthropic/claude-opus-4.7",
         )
         with pytest.raises(ModelConfigError, match="source vendor 'anthropic'"):
             load_model_tiers(config_path(text + self.CHARGES), env={})
 
     def test_an_aggregator_on_the_analysis_side_is_read_by_its_slug(self, config_path):
         text = self.critic_on(
-            "review",
             "distinct_source_vendor",
             base_vendor="openrouter",
             base="anthropic/claude-sonnet-4.6",
             strong_vendor="openrouter",
             strong="openai/gpt-5.6",
-            review_vendor="anthropic",
-            review="claude-opus-5",
+            critic_vendor="anthropic",
+            critic="claude-opus-5",
         )
         config = load_model_tiers(config_path(text + self.CHARGES), env={})
 
@@ -1069,10 +1098,9 @@ class TestReviewIndependence:
     def test_a_model_whose_source_vendor_is_unknown_is_a_breach(self, config_path):
         """Fail closed: an unknown maker may be the analysis model's maker."""
         text = self.critic_on(
-            "review",
             "distinct_source_vendor",
-            review_vendor="openrouter",
-            review="unknown-lab/model-1",
+            critic_vendor="openrouter",
+            critic="unknown-lab/model-1",
         )
         with pytest.raises(ModelConfigError, match="'openrouter/unknown-lab/model-1'"):
             load_model_tiers(config_path(text + self.CHARGES), env={})
@@ -1087,14 +1115,13 @@ class TestReviewIndependence:
         blind spots — and by vendor key alone the pair read as independent.
         """
         text = self.critic_on(
-            "review",
             "distinct_model",
             base_vendor="openai",
             base="gpt-4o-2024-08-06",
             strong_vendor="openai",
             strong="gpt-5.6",
-            review_vendor="openrouter",
-            review="openai/gpt-5.6",
+            critic_vendor="openrouter",
+            critic="openai/gpt-5.6",
         )
         with pytest.raises(ModelConfigError, match="both run one model"):
             load_model_tiers(config_path(text + self.CHARGES), env={})
@@ -1102,10 +1129,9 @@ class TestReviewIndependence:
     def test_a_gateway_route_to_another_model_is_still_distinct(self, config_path):
         """A gateway is not a refusal under this policy, because the slug decides."""
         text = self.critic_on(
-            "review",
             "distinct_model",
-            review_vendor="openrouter",
-            review="anthropic/claude-opus-4.7",
+            critic_vendor="openrouter",
+            critic="anthropic/claude-opus-4.7",
         )
         assert (
             load_model_tiers(
@@ -1127,32 +1153,10 @@ class TestReviewIndependence:
         with pytest.raises(ModelConfigError, match="review_independence"):
             load_model_tiers(config_path(text), env={})
 
-    def test_the_recritic_pairing_still_holds_on_the_review_tier(self, config_path):
-        # Moving criticism to `review` must move the re-ask with it: a re-ask on
-        # a different tier from the pass it corrects is the drift
-        # critic_pairing_issues exists to refuse, whichever tier that is.
-        nodes = {
-            node: "base"
-            if node in ("extract", "repair")
-            else "review"
-            if node.startswith("critic/")
-            else "strong"
-            for node in LLM_NODES
-        }
-        with pytest.raises(ModelConfigError, match="recritic/stride"):
-            load_model_tiers(
-                config_path(config_toml(nodes=nodes, independence="shared")), env={}
-            )
 
-
-def test_the_review_tier_needs_no_credentials_until_something_runs_on_it():
-    """Selecting a tier is not the same as calling its provider (#506).
-
-    `review` is required in every config so that moving criticism onto it is a
-    one-line edit rather than a discovery. Building an adapter for it anyway
-    would demand a second vendor's credentials from every deployment that never
-    asked for an independent reviewer, and refuse to start without them.
-    """
+def test_the_shipped_config_builds_one_adapter_per_tier():
+    """With no override, the build binds the two tiers and asks only their
+    vendor's credential."""
     from katra.binding import build_tier_adapters
     from katra.resilience import load_resilience
     from katra.sampling import load_sampling
@@ -1165,8 +1169,6 @@ def test_the_review_tier_needs_no_credentials_until_something_runs_on_it():
             "KATRA_MODEL_STRONG_VENDOR": "openai",
             "KATRA_MODEL_STRONG_MODEL": "gpt-5.6",
             # A vendor whose key is deliberately absent from the env below.
-            "KATRA_MODEL_REVIEW_VENDOR": "anthropic",
-            "KATRA_MODEL_REVIEW_MODEL": "claude-opus-5",
         },
     )
     adapters = build_tier_adapters(
@@ -1187,46 +1189,55 @@ class TestLaneKeys:
 
     DOS = lane_key("stride", "denial-of-service")
 
-    def nodes_with(self, **lanes: str) -> dict[str, str]:
-        nodes = {
-            node: "base" if node in ("extract", "repair") else "strong"
-            for node in LLM_NODES
-        }
-        return nodes | lanes
-
     def test_a_lane_key_moves_its_lane_and_no_other(self, config_path):
-        text = config_toml(nodes=self.nodes_with(**{self.DOS: "review"}))
+        text = config_toml(overrides={self.DOS: (CRITIC_VENDOR, CRITIC)})
         config = load_model_tiers(config_path(text), env={})
-        assert config.resolve_tier(self.DOS) == "review"
-        assert config.resolve_tier(lane_key("stride", "spoofing")) == "strong"
-        assert config.resolve_tier("critic/stride") == "strong"
+        assert config.binding_of(self.DOS) == self.DOS
+        assert config.resolve_model(self.DOS).model == CRITIC
+        assert config.binding_of(lane_key("stride", "spoofing")) == "strong"
+        assert config.binding_of("critic/stride") == "strong"
 
-    def test_a_lane_the_map_does_not_set_runs_on_its_framework_key(self, config_path):
-        config = load_model_tiers(config_path(config_toml()), env={})
-        assert config.resolve_tier(self.DOS) == config.resolve_tier("analyze/stride")
+    def test_a_lane_with_no_override_follows_its_framework_key(self, config_path):
+        text = config_toml(overrides={"analyze/stride": (CRITIC_VENDOR, CRITIC)})
+        config = load_model_tiers(config_path(text), env={})
+        assert config.binding_of(self.DOS) == "analyze/stride"
+        assert config.resolve_model(self.DOS).model == CRITIC
 
-    @pytest.mark.parametrize("key", ["analyze/nope/flood", "analyze/stride/"])
-    def test_a_key_under_no_carried_framework_is_refused(self, config_path, key):
-        text = config_toml(nodes=self.nodes_with(**{key: "review"}))
-        with pytest.raises(ModelConfigError, match="unknown node names"):
-            load_model_tiers(config_path(text), env={})
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "analyze/nope/flood",
+            "analyze/stride/",
+            'analyze/stride/x"',
+            "analyze/stride/x\ny",
+            "analyze/stride/a/b",
+            "analyze/stride/ñ",
+        ],
+    )
+    def test_a_key_that_names_no_possible_lane_is_refused(self, config_path, key):
+        assert not is_binding_name(key)
+        with pytest.raises(ValidationError, match="no LLM node has this key"):
+            ModelTierConfig(
+                version=SUPPORTED_VERSION,
+                tiers={
+                    "base": TierSelection(vendor=VENDOR, model=BASE),
+                    "strong": TierSelection(vendor=VENDOR, model=STRONG),
+                },
+                nodes={key: TierSelection(vendor=CRITIC_VENDOR, model=CRITIC)},
+                review_independence="shared",
+            )
 
     def test_the_package_check_refuses_a_lane_the_package_does_not_declare(self):
-        keys = (*LLM_NODES, lane_key("stride", "flooding"))
+        keys = (lane_key("stride", "flooding"),)
         with pytest.raises(FrameworkPackageError, match="declares only the lanes"):
             validate_packages(("stride",), DEFAULT_FRAMEWORKS_DIR, keys)
 
     def test_a_lane_on_the_critic_model_breaches_independence(self, config_path):
         """Each lane is an analysis its critic must sit apart from."""
-        nodes = {
-            node: "base"
-            if node in ("extract", "repair")
-            else "review"
-            if node.startswith(("critic/", "recritic/"))
-            else "strong"
-            for node in LLM_NODES
-        } | {self.DOS: "review"}
-        text = config_toml(nodes=nodes, independence="distinct_model")
+        overrides = {
+            f"critic/{name}": (CRITIC_VENDOR, CRITIC) for name in FRAMEWORK_NAMES
+        } | {self.DOS: (CRITIC_VENDOR, CRITIC)}
+        text = config_toml(overrides=overrides, independence="distinct_model")
         with pytest.raises(
             ModelConfigError,
             match="analyze/stride/denial-of-service and critic/stride are not",

@@ -203,6 +203,7 @@ from katra.model_tiers import ModelTierConfig, TierSelection
 from katra.questions import question_fallback
 from katra.report import NodeRun, TokenUsage
 from katra.retry import RefusedCompletionError, UnfinishedCompletionError
+from katra.sampling import sampling_by_binding
 
 EVALS_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CORPUS_DIR = EVALS_ROOT / "corpus"
@@ -658,6 +659,7 @@ async def _run_mode(
         provenance=provenance_of(
             executions,
             binding_of=deployment.binding_of,
+            bindings=deployment.tiers.bindings,
             sampling=deployment.sampling,
             tiers_config_version=deployment.tiers.version,
             build=build_identity(),
@@ -903,6 +905,11 @@ def _models_record(deployment: Deployment) -> dict[str, Any]:
             tier: selection.model_dump(mode="json") | _pin_record(tiers, selection)
             for tier, selection in tiers.tiers.items()
         },
+        # The overrides, in the same shape: a node that ran on its own pair.
+        "nodes": {
+            node: selection.model_dump(mode="json") | _pin_record(tiers, selection)
+            for node, selection in sorted(tiers.nodes.items())
+        },
     }
 
 
@@ -1010,9 +1017,10 @@ def _would_be_identity(
         for name in modes.select_frameworks(case, tuple(args.framework))
     }
     tiers = deployment.tiers
+    selections = {binding: tiers.selection_for(binding) for binding in tiers.bindings}
     pins = {
-        tier: sorted(tiers.upstreams_for(selection.vendor))
-        for tier, selection in tiers.tiers.items()
+        binding: sorted(tiers.upstreams_for(selection.vendor))
+        for binding, selection in selections.items()
         if not selection.vendor_entry.routes_to_one_provider
     }
     return {
@@ -1020,8 +1028,10 @@ def _would_be_identity(
         "corpus_digest": corpus,
         "models": _binding_routes(deployment),
         "sampling": {
-            tier: block.model_dump()
-            for tier, block in deployment.sampling.tiers.items()
+            binding: block.model_dump()
+            for binding, block in sampling_by_binding(
+                deployment.sampling, tiers.bindings
+            ).items()
         },
         "frameworks": sorted(frameworks),
         # The seventh identity part, where the deployment has one to state.
@@ -1151,7 +1161,9 @@ def command_run(args: argparse.Namespace) -> int:
         cases=len(cases),
     )
     estimate = consent.charged(
-        estimate, list(deployment.tiers.tiers.values()), deployment.tiers
+        estimate,
+        [deployment.tiers.selection_for(b) for b in deployment.tiers.bindings],
+        deployment.tiers,
     )
     estimate = replace(estimate, lines=(*estimate.lines, *_contribution_note(commit)))
     try:
@@ -1182,7 +1194,7 @@ def command_run(args: argparse.Namespace) -> int:
     certification = certify(
         mode_run.observations,
         deployment.manifest,
-        deployment.tier_of,
+        deployment.binding_of,
         mode_run.expected_nodes,
     )
     _print_certification(certification)
@@ -3094,7 +3106,7 @@ COMMANDS: dict[str, Command] = {
         arguments=recritic_replay.arguments,
     ),
     "judge-replay": Command(
-        help="ask a model judge on the review tier whether a sweep's STRIDE"
+        help="ask a model judge, named by --judge, whether a sweep's STRIDE"
         " findings are supported, with plants as known negatives (#764, one"
         " paid call per case and sample; --dry-run is free)",
         run=judge_replay.command_judge_replay,

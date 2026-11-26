@@ -6,22 +6,21 @@ so the production image could not import an eval-side gate. The write path stays
 in evals, and ``promote()`` and the certification-bar verification import this
 module.
 
-The manifest keys by tier rather than by node. A fingerprint's payload contains
-no node name, because it is the versioned execution identity in
-:mod:`katra.identity`. The tier map puts ``critic/<framework>`` and
-``recritic/<framework>`` both on ``strong``, and the tier loader requires that
-pairing. It puts ``extract`` and ``repair`` both on ``base``, and every one of a
-framework's lane agents on its single ``analyze/<framework>`` key. A framework's
-recritic therefore presents a byte-identical hash to its critic, and its lane
-agents present one hash between them, however many the framework declares.
-Keying per node would call the same hash blessed under one key and unblessed
-under another, and report the production revise path uncertified on a
-technicality.
+The manifest keys by **binding** rather than by node: a tier name, or the key of
+a node with a model override. A fingerprint's payload contains no node name,
+because it is the versioned execution identity in :mod:`katra.identity`. A
+framework's recritic runs on its critic's binding, ``extract`` and ``repair``
+share ``base``, and every lane agent without an override runs on the binding of
+its ``analyze/<framework>`` key. A framework's recritic therefore presents a
+byte-identical hash to its critic, and its lane agents present one hash between
+them, however many the framework declares. Keying per node would call the same
+hash blessed under one key and unblessed under another, and report the
+production revise path uncertified on a technicality.
 
-Keying by tier is also what makes the map survive N frameworks. Graph node names
-carry their framework, so they multiply with the selection while the tiers do
-not. A manifest keyed by node would need a new blessing for every framework
-added, over execution identities that had not changed.
+Keying by binding is also what makes the map survive N frameworks. Graph node
+names carry their framework, so they multiply with the selection while the
+bindings do not. A manifest keyed by node would need a new blessing for every
+framework added, over execution identities that had not changed.
 
 A provider's word cannot select a blessed entry on its own (#504). The identity
 binds the requested route beside the served one, so a blessing is over a pair. A
@@ -38,7 +37,7 @@ them. Which rows those are is the registry's answer and never this module's.
 
 There are three states, and the third is a separate field. ``certified`` keeps
 its narrow meaning, that every observed fingerprint is blessed, because callers
-consume it as "trust these aggregates" and a tier that contributed to no number
+consume it as "trust these aggregates" and a binding that contributed to no number
 has not made them untrustworthy. Folding "unexercised" into the boolean would
 mark an ordinary run untrusted, which is how a gate teaches people to bypass it.
 
@@ -57,15 +56,15 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from katra.config_files import read_toml
-from katra.model_tiers import TIER_NAMES, TierName
+from katra.model_tiers import Binding, is_binding_name
 from katra.parsing import Sha256Hex, is_version
 from katra.report import NodeRun
 
-# The manifest schema version. Keyed by tier, with no compatibility shim for a
-# file of another version.
+# The manifest schema version. Keyed by binding, with no compatibility shim for
+# a file of another version.
 #
 # A version 3 fingerprint binds the served route, the sampling, the requested
 # route, the instruction digest and the build versions (#504). A version-2
@@ -75,9 +74,9 @@ from katra.report import NodeRun
 # certified against a hash of a different thing.
 MANIFEST_VERSION = 3
 
-# Node key -> the tier it runs on. The caller supplies this because only it
+# Node key -> the binding it runs on. The caller supplies this because only it
 # knows which naming the observations use.
-TierResolver = Callable[[str], TierName]
+BindingResolver = Callable[[str], Binding]
 
 
 class CertificationError(ValueError):
@@ -85,10 +84,12 @@ class CertificationError(ValueError):
 
 
 class BlessedManifest(BaseModel):
-    """The per-tier blessed fingerprints a sanctioned sweep recorded.
+    """The per-binding blessed fingerprints a sanctioned sweep recorded.
 
-    A tier keeps a *set* because it accumulates several blessed served-builds
-    over time. Duplicates collapse — membership is all that matters.
+    A binding keeps a *set* because it accumulates several blessed served-builds
+    over time. Duplicates collapse — membership is all that matters. The table
+    is ``[tiers]`` in the file, and each key is a binding: a tier name or an
+    override's node key.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -97,11 +98,26 @@ class BlessedManifest(BaseModel):
     # A fingerprint is a lowercase sha256 hex digest. Validating the shape on
     # write is defence in depth against TOML injection through a crafted key
     # (OWASP A05).
-    tiers: dict[TierName, frozenset[Sha256Hex]] = Field(default_factory=dict)
+    tiers: dict[Binding, frozenset[Sha256Hex]] = Field(default_factory=dict)
 
-    def blessed_for(self, tier: TierName) -> frozenset[str]:
-        """The fingerprints blessed for one tier — empty if the manifest omits it."""
-        return self.tiers.get(tier, frozenset())
+    @field_validator("tiers")
+    @classmethod
+    def _known_bindings(
+        cls, tiers: dict[Binding, frozenset[str]]
+    ) -> dict[Binding, frozenset[str]]:
+        unknown = sorted(key for key in tiers if not is_binding_name(key))
+        if unknown:
+            raise ValueError(
+                f"{unknown}: not a binding. A key is a tier name (base or"
+                " strong) or the key of a node with a model override, such as"
+                ' "critic/<framework>". A review key has no binding: bless the'
+                " critic override's fingerprints under its node key"
+            )
+        return tiers
+
+    def blessed_for(self, binding: Binding) -> frozenset[str]:
+        """The fingerprints blessed for one binding — empty if the manifest omits it."""
+        return self.tiers.get(binding, frozenset())
 
 
 class UncertifiedNode(BaseModel):
@@ -125,8 +141,8 @@ class CertifyResult(BaseModel):
     They are indistinguishable to the check — both are simply absent from the
     set — and reported identically, which is the point.
 
-    ``unexercised`` names **tiers**, not nodes: "``recritic`` never ran" is a
-    routing fact, not a certification fact, and every tier has a node that
+    ``unexercised`` names **bindings**, not nodes: "``recritic`` never ran" is
+    a routing fact, not a certification fact, and every binding has a node that
     always runs.
     """
 
@@ -138,7 +154,7 @@ class CertifyResult(BaseModel):
 
     @property
     def complete(self) -> bool:
-        """Whether every tier the graph declares actually presented an identity."""
+        """Whether every binding the graph declares actually presented an identity."""
         return not self.unexercised
 
     def to_json(self) -> dict[str, object]:
@@ -152,7 +168,7 @@ class CertifyResult(BaseModel):
 def certify(
     observations: Mapping[str, frozenset[str]],
     manifest: BlessedManifest,
-    tier_of: TierResolver,
+    binding_of: BindingResolver,
     expected_nodes: Iterable[str],
 ) -> CertifyResult:
     """Certify one run's observed fingerprints against a deployment's manifest.
@@ -182,13 +198,11 @@ def certify(
         UncertifiedNode(node=node, fingerprint=fingerprint)
         for node, prints in sorted(observations.items())
         for fingerprint in sorted(prints)
-        if fingerprint not in manifest.blessed_for(tier_of(node))
+        if fingerprint not in manifest.blessed_for(binding_of(node))
     )
-    expected_tiers = {tier_of(node) for node in expected_nodes}
-    exercised_tiers = {tier_of(node) for node in observations}
-    unexercised = tuple(
-        tier for tier in TIER_NAMES if tier in expected_tiers - exercised_tiers
-    )
+    expected = {binding_of(node) for node in expected_nodes}
+    exercised = {binding_of(node) for node in observations}
+    unexercised = tuple(sorted(expected - exercised))
     return CertifyResult(
         certified=not uncertified,
         uncertified=uncertified,
@@ -216,7 +230,7 @@ def combined(
                 key=lambda node: (node.node, node.fingerprint),
             )
         ),
-        unexercised=tuple(tier for tier in TIER_NAMES if tier in unexercised),
+        unexercised=tuple(sorted(unexercised)),
     )
 
 
@@ -248,7 +262,7 @@ def load_manifest(path: Path | str) -> BlessedManifest:
     """Load and validate the blessed-fingerprint manifest, fail-closed.
 
     Every failure path raises :class:`CertificationError`: an unreadable file,
-    invalid TOML, an unsupported version, an unknown tier, or a non-hex
+    invalid TOML, an unsupported version, an unknown binding, or a non-hex
     fingerprint — never a silently-empty manifest that would certify every run.
     """
     raw = read_toml(path, CertificationError)
@@ -260,7 +274,7 @@ def load_manifest(path: Path | str) -> BlessedManifest:
         raise CertificationError(
             f"{path}: unsupported version {version!r};"
             f" expected {MANIFEST_VERSION}, which keys blessed fingerprints"
-            " by tier"
+            " by binding"
         )
 
     try:
@@ -283,7 +297,7 @@ class CertificationGate:
       would fail every run on day one and train people to switch it off.
     * **unexercised** withholds **unconditionally**. It is an *assertion*, not
       a measurement: it is unreachable on any run that produces a report,
-      because every tier has a node that always runs and a rejected model
+      because every binding has a node that always runs and a rejected model
       returns no report at all. It therefore has no drawback, and putting it
       behind the same knob would make this half inert for every default
       deployment.
@@ -294,7 +308,7 @@ class CertificationGate:
     """
 
     manifest: BlessedManifest
-    tier_of: TierResolver
+    binding_of: BindingResolver
     require_certified: bool = False
 
     def check(
@@ -308,7 +322,7 @@ class CertificationGate:
         return certify(
             fingerprints_of(nodes),
             self.manifest,
-            self.tier_of,
+            self.binding_of,
             expected_nodes,
         )
 

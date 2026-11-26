@@ -36,37 +36,33 @@ Gemini Developer API and OpenRouter.
 <!-- /every-vendor -->
 
 It reaches all of them through ADK's LiteLLM adapter. `model_tiers.toml` selects **nothing**:
-all three tier tables are absent, so startup fails until each tier the node map
-runs something on names a vendor and a model. The shipped node map runs nodes on
-`base` and `strong` only, so `review` needs no selection until you move a node
-onto it.
+both tier tables are absent, so startup fails until each tier names a vendor and
+a model.
 
 “Supported vendor” does not mean every model from that vendor is usable. The
 selected model must also pass the model-name, sampling, output-capacity, native
 structured-output, and credential checks described below.
 
-Three tiers, each selecting a `(vendor, model)` pair **independently**, so they
-may run different vendors at once:
+Two tiers, each selecting a `(vendor, model)` pair **independently**, so they
+may run different vendors at once. The code fixes which tier each node belongs
+to:
 
 | Tier | What runs on it |
 | --- | --- |
-| `base` | extraction, repair and the assertion pass |
-| `strong` | every framework's lane agents, and by default its critic and re-ask |
-| `review` | nothing, until you move criticism onto it |
+| `base` | extraction, repair, the assertion pass and the capability reader |
+| `strong` | every framework's lane agents, its critic and its re-ask |
 
-`base` and `strong` are named on a capability axis. **`review` names a place
-rather than a capability** — it is not stronger or cheaper. It exists so a
-critic can run on a model other than the one it is checking, which two tiers
-could not express: the only other place to put criticism was `base`, and a
-re-ask on a cheaper model than the pass it corrects is refused.
-
-Every tier the node map **binds** must select a pair. A tier nothing runs on
-needs no selection, and if you select one anyway it builds no adapter and needs
-no credential. See
+`base` and `strong` are named on a capability axis. A node can also run on a
+pair of its own: see [Node overrides](#node-overrides). An independent critic
+is an override on `critic/<framework>`. See
 [Review independence](#review-independence).
 
+A tier that a node runs on must select a pair. A tier where every node has an
+override runs nothing, so it needs no selection, builds no adapter and needs no
+credential.
+
 ```toml
-version = 9
+version = 10
 review_independence = "shared"
 
 [tiers.base]
@@ -219,12 +215,10 @@ and wins over the file — the same precedence a tier's own vendor and model
 override carries.
 
 A key for a single-mode vendor is an error, because it is not a choice. A
-missing key for a multi-mode vendor is an error too, but only where a **bound**
-tier selects that vendor — a tier your `[nodes]` map points something at. A
-vendor nobody calls needs no identity, and a tier nothing runs on builds no
-adapter, so an unused `review` tier may name a multi-mode vendor and declare
-nothing. Move a node onto that tier and the loader asks for the declaration at
-that edit, rather than at a first run. Both rules read the same registry table
+missing key for a multi-mode vendor is an error too, but only where a node runs
+on that vendor: through a tier, or through an override. A vendor nobody calls
+needs no identity, so a tier where every node has an override may name a
+multi-mode vendor and declare nothing. Both rules read the same registry table
 the check reads, so neither can drift from it.
 
 ### What a vendor charged
@@ -412,50 +406,51 @@ when the provider supplies it, and recorded for that node execution, described
 under
 [Architecture → Provenance and certification](Architecture.md#provenance-and-certification).
 
-### Node keys, and the frameworks this deployment carries
+### Node overrides
 
-`model_tiers.toml`'s `[nodes]` table carries **three keys per framework** beside
-the four neutral ones:
+Each LLM node belongs to one tier, and the code fixes which. A node runs on its
+tier's pair unless `model_tiers.toml` gives it an override: a
+`[nodes."<node>"]` table with its own `vendor` and `model`.
 
 ```toml
-[nodes]
-extract = "base"
-repair = "base"
-assert = "base"
-capabilities = "base"
-"analyze/asvs" = "strong"
-"critic/asvs" = "strong"
-"recritic/asvs" = "strong"
-"analyze/stride" = "strong"
-"critic/stride" = "strong"
-"recritic/stride" = "strong"
+[nodes."critic/stride"]
+vendor = "openai"
+model = "gpt-5.6-sol"
 ```
 
-**Every framework this build can spell needs its three keys, whatever this
-install carries.** The node list derives from the closed framework vocabulary
-rather than from `frameworks.toml`, so a deployment running STRIDE alone still
-names ASVS's three. A file that omits them fails the loader's completeness check,
-and the message names the three missing keys — that message is the fix. Adding a
-framework does not move `model_tiers.toml`'s version, because adding a node key
-is a data edit under the same schema.
+These keys can carry an override:
 
-One knob per framework, and an optional key per lane, which
-[A lane on its own tier](#a-lane-on-its-own-tier) describes. The loader
-**checks that a framework's `recritic` key resolves to the same tier as its `critic`** — a
-re-ask on a cheaper model than the pass it corrects is the failure this check
-refuses. A comment cannot hold 2N keys to that rule.
+| Key | Node |
+| --- | --- |
+| `extract`, `repair`, `assert`, `capabilities` | the four shared nodes |
+| `analyze/<framework>` | every lane of the framework |
+| `critic/<framework>` | the framework's critic, and its re-ask |
+| `analyze/<framework>/<lane>` | one lane that the package declares |
 
-**What the extra keys cost.** ASVS runs one lane per chapter of its standard, so
-an ASVS job makes 17 `strong`-tier lane calls against STRIDE's 6, and a job
-naming both makes 23. That is the knob these keys exist for: an operator who
-wants ASVS cheaper than STRIDE points `analyze/asvs` at `base`.
+**`recritic/<framework>` takes no override.** The re-ask runs the critic's
+judgement, so it always runs on its critic's model. An override on the critic
+moves the re-ask with it. The loader refuses a `[nodes."recritic/<framework>"]`
+table, and a key that names no LLM node.
+
+**An override changes that node only.** Every other node stays on its tier. A
+lane with no override of its own runs on the model of `analyze/<framework>`,
+override or tier.
+
+The loader applies each tier check to an override too: the model-name rule, the
+credential mode and the charge arrangement of its vendor, and the upstream pin.
+The build gates run once for each override, as they do for each tier. An
+override has no environment variable, because a node key holds a `/`.
+
+**What the keys cost.** ASVS runs one lane per chapter of its standard, so an
+ASVS job makes 17 lane calls against STRIDE's 6, and a job naming both makes
+23. An operator who wants ASVS cheaper than STRIDE gives `analyze/asvs` an
+override on a cheaper model.
 
 `config/frameworks.toml` names which packages this install runs. Three sets have
 to agree: what the code can spell, what this build carries, and what this
 install selects. The first two agree at import; the third is checked when a
 `Deployment` is constructed, and a name this build does not carry stops startup
-rather than failing on the first job. A deployment missing an
-`analyze/<name>` key for a framework it carries fails the same way.
+rather than failing on the first job.
 
 `KATRA_FRAMEWORKS_CARRIED` replaces the `carried` list of the file. Its value
 is framework names separated by commas, with no spaces, for example
@@ -463,39 +458,36 @@ is framework names separated by commas, with no spaces, for example
 space, an empty name, a name that occurs two times and a name that this build
 does not know. Each refusal names the variable.
 
-### A lane on its own tier
+### A lane on its own model
 
-A lane runs on its framework's `analyze/<framework>` tier unless the map sets
-its own key, `analyze/<framework>/<lane>`. Use a lane key when one model
-refuses one lane: for example, a strong model that stops the denial-of-service lane at its content
-filter and runs the other lanes well.
+A lane runs on the model of `analyze/<framework>` unless it has an override of
+its own, `analyze/<framework>/<lane>`. Use a lane override when one model
+refuses one lane: for example, a strong model that stops the
+denial-of-service lane at its content filter and runs the other lanes well.
 
 ```toml
 [tiers.strong]
 vendor = "anthropic"
 model = "claude-opus-5-5"
 
-[tiers.review]
+[nodes."analyze/stride/denial-of-service"]
 vendor = "anthropic"
 model = "claude-sonnet-5"
-
-[nodes]
-"analyze/stride" = "strong"
-"analyze/stride/denial-of-service" = "review"
-"critic/stride" = "strong"
 ```
 
-A lane key names one of the three tiers. The loader refuses a lane key under a
-framework this build does not carry, and the package check refuses a lane that
-the package does not declare. Under `distinct_model` or `distinct_source_vendor`,
-each lane key must sit apart from its framework's critic, as
-`analyze/<framework>` must.
+The loader refuses a lane key under a framework this build does not carry, and
+the package check refuses a lane that the package does not declare. Under
+`distinct_model` or `distinct_source_vendor`, each lane override must sit apart
+from its framework's critic, as `analyze/<framework>` must.
 
 ### Sampling
 
-`config/sampling.toml` (`version = 5`) pins decoding parameters **per tier**, in
-`[tiers.base]`, `[tiers.strong]` and `[tiers.review]` tables that reuse the
-node→tier map from `model_tiers.toml`. The eval harness and production read this same file, on
+`config/sampling.toml` (`version = 6`) pins decoding parameters **per tier**, in
+`[tiers.base]` and `[tiers.strong]` tables. A node with a model override may
+carry its own block, `[nodes."<node>"]`: another vendor can need other values.
+An override with no block uses its tier's block, and an empty block gives the
+default of each field. A block for a node with no model override stops startup.
+The re-ask uses its critic's block. The eval harness and production read this same file, on
 purpose: grading a configuration you don't actually ship is how a test suite
 stays green while production quietly drifts.
 
@@ -506,7 +498,7 @@ loader rejects, never a silent fallback.
 | Param | Shipped state | Notes |
 | --- | --- | --- |
 | `temperature` | **unset** | No value is legal on every model: Claude 4.7+ rejects the parameter, and OpenAI's reasoning families take only their own default of `1`. Set one per tier if you want a stated value — see below. |
-| `max_output_tokens` | pinned `16384` base / `64000` strong and review | Must be pinned: silence means a *vendor-derived* cap. Sized against measured output — see below. |
+| `max_output_tokens` | pinned `16384` base / `64000` strong | Must be pinned: silence means a *vendor-derived* cap. Sized against measured output — see below. |
 | `candidate_count` | pinned `1` | Reserved; the loader **rejects any value ≠ 1**. |
 | `constrain_output` | pinned `true` | Send this tier's node schema to the provider. Set `false` where the provider's schema compiler won't take it — see below. |
 | `structured_output` | pinned `auto` | How the schema travels: native output, or a forced tool call. See [How a tier sends its schema](#how-a-tier-sends-its-schema). |
@@ -772,30 +764,31 @@ know. It does not make a second opinion a better one, and no measurement in this
 repository says a second source vendor finds more. Choose it as a risk control, and
 weigh it against a second credential, a second quota and a dearer job.
 
-Asking for more than `shared` while the node map leaves `critic/*` on the tier
-`analyze/*` runs on is a **load-time error naming the framework**, not a warning
-on the report. A deployment that asked for an independent reviewer and did not
+Asking for more than `shared` while `critic/<framework>` runs on the same model
+as `analyze/<framework>` or one of its lane overrides is a **load-time error
+naming the framework**, not a warning on the report. Each side is the node's
+effective model: its override, or else its tier's pair. A deployment that asked for an independent reviewer and did not
 get one has a configuration to fix, not a run to annotate — annotating it would
 put the finding in an artifact somebody already paid for.
 
-To get an independent reviewer, point criticism at `review` and give that tier a
+To get an independent reviewer, give each framework's critic an override with a
 different selection:
 
 ```toml
 review_independence = "distinct_source_vendor"
 
-[tiers.review]
+[nodes."critic/asvs"]
 vendor = "anthropic"
 model = "claude-opus-5-5"
 
-[nodes]
-"critic/stride" = "review"
-"recritic/stride" = "review"
+[nodes."critic/stride"]
+vendor = "anthropic"
+model = "claude-opus-5-5"
 ```
 
-A `recritic` must resolve to its own `critic`'s tier, so the two move together.
-The same pair under two tier names is not independence and is refused: the check
-reads the selection, never the tier's label.
+The re-ask follows its critic, so the two move together. An override with the
+analysis's own pair is not independence and is refused: the check reads the
+selection, never the binding's name.
 
 Every report states the policy in `execution.review_independence`, so a reader
 of a `shared` run sees the review was same-domain rather than inferring it from
@@ -1232,7 +1225,6 @@ want. The same pattern covers `sampling.toml` and `resilience.toml`.
 | --- | --- |
 | `KATRA_MODEL_BASE_VENDOR` / `KATRA_MODEL_BASE_MODEL` | Overrides the `base` tier's pair. |
 | `KATRA_MODEL_STRONG_VENDOR` / `KATRA_MODEL_STRONG_MODEL` | Overrides the `strong` tier's pair. |
-| `KATRA_MODEL_REVIEW_VENDOR` / `KATRA_MODEL_REVIEW_MODEL` | Overrides the `review` tier's pair. |
 
 `_MODEL` **alone** is the ordinary case — retune a tier's model on a deployed
 revision. `_VENDOR` alone is a **startup error**: a mismatched pair such as
@@ -1240,14 +1232,16 @@ revision. `_VENDOR` alone is a **startup error**: a mismatched pair such as
 on the first node of a paid-for job.
 
 Any unrecognised `KATRA_MODEL_*` variable also raises. That is deliberate: a
-deployment still carrying version 2's `KATRA_MODEL_FLASH` must fail loudly
-rather than have it silently ignored while the tier quietly runs the file's
-model.
+deployment that sets `KATRA_MODEL_FLASH` must fail loudly rather than have it
+silently ignored while the tier quietly runs the file's model. A
+`KATRA_MODEL_REVIEW_*` variable gets a message that names the critic override.
+A node override has no variable: set it in the file.
 
 ### Sampling overrides
 
 `KATRA_SAMPLING_{TIER}_{PARAM}` retunes one tier's decoding at deploy time,
-validated **identically** to a file value. `{TIER}` is `BASE`, `STRONG` or `REVIEW`.
+validated **identically** to a file value. `{TIER}` is `BASE` or `STRONG`. An
+override's own sampling block has no variable.
 
 | Variable | Effect |
 | --- | --- |
@@ -1367,9 +1361,8 @@ it cannot find. See [Concepts](Concepts.md#assertion) for what the rows do.
 - **Cost and time.** The pass adds one call on the `base` tier to every job,
   and the lanes wait for it, so it adds to the job's wall-clock time as well as
   to its charge.
-- **Node map.** The node runs on the tier that `assert` names in the `[nodes]`
-  table of `model_tiers.toml`. The shipped file maps it to `base`. A tiers file
-  with no `assert` entry fails at startup, whether the pass is on or off.
+- **Model.** The node runs on the `base` tier, unless `model_tiers.toml` gives
+  `assert` an override. See [Node overrides](#node-overrides).
 - **Report.** A report from a job with the pass on carries an `assertions`
   block: the catalog of rows and the rows code refused. With the pass off, the
   block is `null`. See [Report Schema](Report-Schema.md).
@@ -1396,10 +1389,8 @@ decides before its lanes run, then read it.
 - **Cost and time.** The reader adds one call on the `base` tier to such a
   job, about 4,000 prompt and 3,000 completion tokens on the shipped
   descriptions, and the passes after it wait for it.
-- **Node map.** The node runs on the tier that `capabilities` names in the
-  `[nodes]` table of `model_tiers.toml`. The shipped file maps it to `base`. A
-  tiers file with no `capabilities` entry fails at startup, whether the reader
-  is on or off.
+- **Model.** The node runs on the `base` tier, unless `model_tiers.toml` gives
+  `capabilities` an override. See [Node overrides](#node-overrides).
 - **What it states.** Only `present`. A capability that an answer or another
   statement names is left as it is, and a later answer replaces the reader's
   statement.

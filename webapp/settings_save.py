@@ -302,13 +302,22 @@ def restart_keys(running: Mapping[str, str], saved: Mapping[str, str]) -> list[s
 
 
 def _unused_keys(tiers: ModelTierConfig | None) -> frozenset[str]:
-    """The key variables of each vendor that no tier of ``tiers`` uses.
+    """The key variables of each vendor that no tier and no override of
+    ``tiers`` selects.
 
-    The page's script reads the same rule in ``deletedKeys`` to warn before
-    a save, and a test in ``tests/test_browser.py`` checks the two against
-    each other.
+    An override's vendor is in use, so a save keeps its key file. The page's
+    script reads the same rule in ``deletedKeys``, with the override vendors
+    from ``override_vendors``, to warn before a save, and a test in
+    ``tests/test_browser.py`` checks the two against each other.
     """
-    used = set() if tiers is None else {tier.vendor for tier in tiers.tiers.values()}
+    used = (
+        set()
+        if tiers is None
+        else {
+            selection.vendor
+            for selection in (*tiers.tiers.values(), *tiers.nodes.values())
+        }
+    )
     return frozenset(
         var
         for name, vendor in VENDORS.items()
