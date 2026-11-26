@@ -226,12 +226,13 @@ def test_a_record_field_of_the_wrong_shape_is_one_problem(framework, field, valu
         verify_corpus._load_json_object(case_dir / "case.json")
     )[framework]
 
-    problems = list(verify_corpus._check_claims(framework, spoiled, set(), options))
-    before = list(verify_corpus._check_claims(framework, records, set(), options))
+    cited = {
+        element for record in records for element in record["affected_element_ids"]
+    }
 
-    assert [problem for problem in problems if problem not in before] == [
-        f"{framework}[0] fields of the wrong shape: ['{field}']"
-    ]
+    problems = list(verify_corpus._check_claims(framework, spoiled, cited, options))
+
+    assert problems == [f"{framework}[0] fields of the wrong shape: ['{field}']"]
 
 
 @pytest.mark.parametrize(
