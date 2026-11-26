@@ -364,7 +364,7 @@ function nodeRows(filter) {
   if (filter && !rows.length) return [];
   const where = nodes.file == null ? [] : [
     "Set an override in ", h("code", {}, nodes.file), ", under ", h("code", {}, '[nodes."<node>"]'),
-    ". No variable sets an override, and this page does not change one.",
+    ". No variable sets an override, and the Settings page does not change one.",
   ];
   const refusal = nodes.refusal != null && nodes.refusal !== SETTINGS.error ? h("code", {}, nodes.refusal) : null;
   const intro = nodes.refusal == null
