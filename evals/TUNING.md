@@ -101,7 +101,8 @@ compares the sum to your accepted amount. The dearest batch so far is the bound
 for the next one, because no batch's cost is known before it runs; the first
 batch has no bound. The spend is the priced token usage, and on a route with
 no price it is the charge that each call reported, once for each attempt. A
-call on such a route that reports no charge stops the sweep. When the sum
+call on such a route that reports no charge stops the sweep, and so does a
+call on a priced route that reports no token usage. When the sum
 passes the amount, a terminal shows the new number and asks you to accept it
 again; under `--accept-cost` nobody is there to ask, so the sweep stops. A stopped sweep keeps every report it
 already paid for, and its artifact records the cases it never ran, so it

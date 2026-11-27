@@ -1300,3 +1300,14 @@ class TestAReplayEstimate:
         )
 
         assert consent.spent([run]) == 0
+
+    def test_a_call_with_usage_and_no_served_build_is_priced(self, priced):
+        """A call went out, so its usage counts at the requested route."""
+        run = NodeRun(
+            node="critic",
+            requested_model="openai/gpt-5.6",
+            duration_ms=10,
+            usage=TokenUsage(prompt_tokens=0, completion_tokens=1000),
+        )
+
+        assert consent.spent([run]) > 0

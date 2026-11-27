@@ -136,18 +136,23 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
 
     The retried prompt is a second call at the same model's prompt rate, with no
     completion, which is what a failed attempt actually was.
+
+    A run that reports usage but names no served build made a call, so it is
+    priced at its requested route. A run with neither made no call, such as an
+    idle lane, and costs nothing.
     """
     calls = []
     for run in executions:
-        if run.usage is None or run.model is None:
+        served = run.model or run.requested_model
+        if run.usage is None or served is None:
             continue
-        requested = run.requested_model or run.model
-        calls.append((run.model, requested, run.usage))
+        requested = run.requested_model or served
+        calls.append((served, requested, run.usage))
         retried = retried_prompt_tokens(run)
         if retried:
             calls.append(
                 (
-                    run.model,
+                    served,
                     requested,
                     TokenUsage(prompt_tokens=retried, total_tokens=retried),
                 )
