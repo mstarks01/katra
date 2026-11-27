@@ -161,12 +161,14 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
 def _called_route(run: NodeRun) -> str | None:
     """The route a node run's call went out on, or ``None`` where it made none.
 
-    The served build, or the requested route where the run reports usage but
-    names no build. A run with neither, such as an idle lane, made no call.
+    The served build, or the requested route where the run reports usage or a
+    charge but names no build. A run with none of these, such as an idle lane,
+    made no call.
     """
     if run.model is not None:
         return run.model
-    return run.requested_model if run.usage is not None else None
+    called = run.usage is not None or run.reported_charge_usd is not None
+    return run.requested_model if called else None
 
 
 def spent(executions: Sequence[NodeRun]) -> float:

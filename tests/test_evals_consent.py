@@ -1325,6 +1325,7 @@ class TestAReplayEstimate:
 
         with pytest.raises(Refused, match="reported no charge"):
             consent.spent([run])
-        assert consent.spent(
-            [run.model_copy(update={"reported_charge_usd": 0.25})]
-        ) == (pytest.approx(0.25))
+        charged = run.model_copy(update={"reported_charge_usd": 0.25})
+        assert consent.spent([charged]) == pytest.approx(0.25)
+        unmetered = charged.model_copy(update={"usage": None})
+        assert consent.spent([unmetered]) == pytest.approx(0.25)
