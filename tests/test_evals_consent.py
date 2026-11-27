@@ -1327,5 +1327,14 @@ class TestAReplayEstimate:
             consent.spent([run])
         charged = run.model_copy(update={"reported_charge_usd": 0.25})
         assert consent.spent([charged]) == pytest.approx(0.25)
-        unmetered = charged.model_copy(update={"usage": None})
-        assert consent.spent([unmetered]) == pytest.approx(0.25)
+
+    def test_a_call_with_a_charge_and_no_served_build_counts_its_charge(self, priced):
+        """A charge with no usage and no build still marks a call that went out."""
+        run = NodeRun(
+            node="judge",
+            requested_model=GATEWAY.route,
+            duration_ms=10,
+            reported_charge_usd=0.25,
+        )
+
+        assert consent.spent([run]) == pytest.approx(0.25)
