@@ -1,0 +1,26 @@
+From 56c543bc4d67a9c385113c94960694a72378875d Mon Sep 17 00:00:00 2001
+From: Michael Starks <github@michaelstarks.com>
+Date: Tue, 27 Oct 2026 22:50:38 +0000
+Subject: [PATCH] Ask the STRIDE lane who can start at a place, trusted parties
+ first
+
+---
+ frameworks/stride/output.md | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/frameworks/stride/output.md b/frameworks/stride/output.md
+index 6c3e88f5..38cad778 100644
+--- a/frameworks/stride/output.md
++++ b/frameworks/stride/output.md
+@@ -16,6 +16,8 @@ These follow step 7 above and are this framework's alone.
+ 
+ Ten fields — the five shared ones plus `sequence`, `affected_element_ids`, `verb`, `severity` and `mitigations` — and nothing else. `confidence` does not exist for you either; it is the critic's, beside the verdict. In `description`, say who the attacker is and where they start, which flow or attribute lets them act, what they achieve, and what they reach second-order.
+ 
++Before you draft at a place, ask who can start there, in this order. **First, the parties the model already trusts at that place**: the client, device or vendor that sends the input, the component that writes the store, and the principal that holds a grant over it. Hostile or compromised, each one needs no foothold that the model must give you, so each one is the ordinary attacker. **Then, a party that makes a trusted one act for it**: a page that drives a user's browser, content that another reader's client renders, a file that a macro or a job takes in. **Last, a party between the ends**, which needs the position that the integrity rule below asks for. Where a trusted party sends or writes at a place and you wrote only the party between the ends, the most likely threat at that place is still missing.
++
+ - **`sequence`** — a whole number starting at `1`, counting your own drafts and nothing else. The service turns it into the threat's ID by prefixing your category's letter, so `1` becomes `S-01` in the spoofing lane. Two drafts sharing a number lose the second: the service keeps the first and records the rest on the report as dropped. Other lanes number independently, and their letters differ.
+ - **`affected_element_ids`** — at least one ID, each **copied from the element roster** rather than assembled from a name. List the elements the threat acts on and through, not everything nearby: the target, the flow or entity the action arrives by, and nothing the consequence merely touches later — that reach goes in `description`. Two to four IDs is the ordinary count, and the exemplars show it. The service checks the bound: an ID more than two hops from every place your grounds name is dropped from the claim and listed on the report. One hop is a cited flow's endpoints, or a cited element's flows and their far ends. A threat naming none is not a STRIDE threat: STRIDE-per-element means every finding is about something in the graph. A trust zone is context, not a target: a threat that names only zones is dropped.
+ - **`verb`** — the one action the attacker takes. Name the action, not its object or its outcome: the object is already in `affected_element_ids`, and two threats reaching one outcome by different actions are two threats. Where a threat reads as two, name the one a fix would stop. Reading at rest is not reading on the wire; forging a message is not replaying one; altering data is not destroying it. The families:
+-- 
+2.53.0
+
