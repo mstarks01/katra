@@ -1288,3 +1288,15 @@ class TestAReplayEstimate:
 
         with pytest.raises(Refused, match="reported no token usage"):
             consent.spent([run])
+
+    def test_an_idle_lane_that_sent_no_call_stops_nothing(self, priced):
+        """An idle lane's row names its requested route but no served build
+        and no usage: no call went out, so it costs nothing."""
+        run = NodeRun(
+            node="spoofing_lane",
+            requested_model="openai/gpt-5.6",
+            binding="strong",
+            duration_ms=0,
+        )
+
+        assert consent.spent([run]) == 0
