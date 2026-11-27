@@ -102,7 +102,7 @@ class Refused(RuntimeError):
 
 @dataclass(frozen=True)
 class Estimate:
-    """What this sweep is expected to cost, and how good that number is."""
+    """What this run is expected to cost, and how good that number is."""
 
     label: Label
     amount_usd: float | None
@@ -628,7 +628,7 @@ def _render(estimate: Estimate) -> str:
         else f"${estimate.amount_usd:.2f} [{estimate.label}]"
     )
     body = "\n".join(f"  {line}" for line in estimate.lines)
-    return f"\nthis sweep is expected to cost {headline}\n{body}"
+    return f"\nthis run is expected to cost {headline}\n{body}"
 
 
 def gate(
