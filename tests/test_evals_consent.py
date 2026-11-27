@@ -1252,3 +1252,89 @@ class TestASweepOnAChargedRoute:
         printed = capsys.readouterr().out
         assert "[charged]" in printed
         assert "accepted $1.00 as a cap" in printed
+
+
+class TestAReplayEstimate:
+    """#2400: a one-node replay states no amount, and a typed amount caps it."""
+
+    def test_a_priced_route_is_capped_and_takes_a_number(self, capsys):
+        estimate = consent.replay_estimate(
+            [TierSelection(vendor="anthropic", model="claude-sonnet-5")], None
+        )
+
+        assert estimate.label == "capped"
+        assert gate(estimate, "12.50", ask=None) == pytest.approx(12.50)
+        assert "as a cap" in capsys.readouterr().out
+
+    def test_a_route_that_reports_its_charge_is_charged(self, priced):
+        estimate = consent.replay_estimate([GATEWAY], tiers_charged_directly())
+
+        assert estimate.label == "charged"
+
+    def test_a_route_with_no_price_and_no_charge_takes_only_unknown(self, priced):
+        estimate = consent.replay_estimate([UNPRICED_DIRECT], tiers_charged_directly())
+
+        with pytest.raises(Refused, match="answers nothing"):
+            gate(estimate, "1.50", ask=None)
+        assert gate(estimate, UNKNOWN, ask=None) is None
+
+    def test_a_priced_call_with_no_usage_stops_the_run(self, priced):
+        run = NodeRun(
+            node="critic",
+            model="openai/gpt-5.6",
+            requested_model="openai/gpt-5.6",
+            duration_ms=10,
+        )
+
+        with pytest.raises(Refused, match="reported no token usage"):
+            consent.spent([run])
+
+    def test_an_idle_lane_that_sent_no_call_stops_nothing(self, priced):
+        """An idle lane's row names its requested route but no served build
+        and no usage: no call went out, so it costs nothing."""
+        run = NodeRun(
+            node="spoofing_lane",
+            requested_model="openai/gpt-5.6",
+            binding="strong",
+            duration_ms=0,
+        )
+
+        assert consent.spent([run]) == 0
+
+    def test_a_call_with_usage_and_no_served_build_is_priced(self, priced):
+        """A call went out, so its usage counts at the requested route."""
+        run = NodeRun(
+            node="critic",
+            requested_model="openai/gpt-5.6",
+            duration_ms=10,
+            usage=TokenUsage(prompt_tokens=0, completion_tokens=1000),
+        )
+
+        assert consent.spent([run]) > 0
+
+    def test_a_call_with_usage_and_no_served_build_on_a_charged_route_counts_its_charge(
+        self, priced
+    ):
+        """Both readers take the run as a call, so its missing charge stops the run."""
+        run = NodeRun(
+            node="judge",
+            requested_model=GATEWAY.route,
+            duration_ms=10,
+            usage=TokenUsage(prompt_tokens=0, completion_tokens=1000),
+        )
+
+        with pytest.raises(Refused, match="reported no charge"):
+            consent.spent([run])
+        charged = run.model_copy(update={"reported_charge_usd": 0.25})
+        assert consent.spent([charged]) == pytest.approx(0.25)
+
+    def test_a_call_with_a_charge_and_no_served_build_counts_its_charge(self, priced):
+        """A charge with no usage and no build still marks a call that went out."""
+        run = NodeRun(
+            node="judge",
+            requested_model=GATEWAY.route,
+            duration_ms=10,
+            reported_charge_usd=0.25,
+        )
+
+        assert consent.spent([run]) == pytest.approx(0.25)

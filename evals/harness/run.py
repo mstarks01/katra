@@ -3121,7 +3121,8 @@ COMMANDS: dict[str, Command] = {
     ),
     "lane-replay": Command(
         help="send one lane's captured request again and print what it proposes:"
-        " a place loss read at the price of one call (#1091, one paid call)",
+        " a place loss read at the price of one call (#1091, one paid call, or"
+        " one for each line of a --plan, under one cap)",
         run=lane_replay.command_lane_replay,
         arguments=lane_replay.arguments,
     ),

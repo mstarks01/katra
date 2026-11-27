@@ -54,10 +54,10 @@ provider rather than a second Baseline.
 before the first request. **There is no ceiling** — you may accept any amount.
 The gate exists so you know what you are accepting and how good the number is,
 not to cap it. [TUNING.md](TUNING.md#the-money-what-run-asks-before-it-spends)
-describes the four labels, the typed acceptance, `--accept-cost` for scripts,
+describes the five labels, the typed acceptance, `--accept-cost` for scripts,
 and what happens when a run outspends what you accepted.
 
-Which of the four labels you get depends on what `evals/baselines/` already
+Which of the four sweep labels you get depends on what `evals/baselines/` already
 holds. A merged Baseline of your exact configuration gives you a `recorded`
 figure: a real number, not a guess. Otherwise the gate borrows another
 Baseline's token counts, reprices them for your models, and labels the result

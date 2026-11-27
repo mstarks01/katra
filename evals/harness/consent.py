@@ -4,7 +4,7 @@ There is no spend ceiling (#334). A contributor may spend any amount. The gate's
 job is to make sure they know what they are accepting, know how good that number
 is, and accept it in a way a rote hand cannot.
 
-Every amount carries one of four labels, always.
+Every amount carries one of five labels, always.
 
 ``recorded``
     A merged Baseline with this exact configuration recorded this actual. It is
@@ -21,6 +21,11 @@ Every amount carries one of four labels, always.
     without a price reports the whole charge of each call after the call
     (:func:`katra.charges.records_reported_charge`). A typed amount then
     caps the run. :func:`charged` makes this label from an ``unpriced`` one.
+``capped``
+    No number exists before the calls of a one-node replay, because the
+    answer's length is not known. Its route has a price, so the hold prices
+    each call from the token usage it reports, and a typed amount caps the
+    run. :func:`replay_estimate` makes this label.
 
 The estimate says which Baseline it read, and what it does not know. A borrowed
 number rests on somebody else's token counts, so the lender is chosen for what
@@ -37,7 +42,7 @@ script states its own number with ``--accept-cost <usd>``, and the run refuses
 when the estimate exceeds it. ``--accept-cost unknown`` is how a script accepts
 a cost nobody can state. The kinds must match: a number does not answer an
 unpriced estimate, and ``unknown`` does not answer a stated one. A ``charged``
-estimate takes either: a number is a cap on the reported charges, and
+or ``capped`` estimate takes either: a number is a cap on the spend, and
 ``unknown`` runs with no cap.
 
 The run holds the contributor to what they accepted. Before each step (a case
@@ -74,8 +79,12 @@ from katra.report import (
     TokenUsage,
 )
 
+#: The labels that state no amount, and on which a typed amount caps the run.
+CapLabel = Literal["charged", "capped"]
+CAP_LABELS: tuple[CapLabel, ...] = get_args(CapLabel)
+
 #: The labels that state no amount.
-NoAmountLabel = Literal["unpriced", "charged"]
+NoAmountLabel = Literal["unpriced", CapLabel]
 
 Label = Literal["recorded", "estimated", NoAmountLabel]
 
@@ -92,7 +101,7 @@ class Refused(RuntimeError):
 
 @dataclass(frozen=True)
 class Estimate:
-    """What this sweep is expected to cost, and how good that number is."""
+    """What this run is expected to cost, and how good that number is."""
 
     label: Label
     amount_usd: float | None
@@ -127,23 +136,39 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
 
     The retried prompt is a second call at the same model's prompt rate, with no
     completion, which is what a failed attempt actually was.
+
+    A run is priced at the route of :func:`_called_route`.
     """
     calls = []
     for run in executions:
-        if run.usage is None or run.model is None:
+        served = _called_route(run)
+        if run.usage is None or served is None:
             continue
-        requested = run.requested_model or run.model
-        calls.append((run.model, requested, run.usage))
+        requested = run.requested_model or served
+        calls.append((served, requested, run.usage))
         retried = retried_prompt_tokens(run)
         if retried:
             calls.append(
                 (
-                    run.model,
+                    served,
                     requested,
                     TokenUsage(prompt_tokens=retried, total_tokens=retried),
                 )
             )
     return calls
+
+
+def _called_route(run: NodeRun) -> str | None:
+    """The route a node run's call went out on, or ``None`` where it made none.
+
+    The served build, or the requested route where the run reports usage or a
+    charge but names no build. A run with none of these, such as an idle lane,
+    made no call.
+    """
+    if run.model is not None:
+        return run.model
+    called = run.usage is not None or run.reported_charge_usd is not None
+    return run.requested_model if called else None
 
 
 def spent(executions: Sequence[NodeRun]) -> float:
@@ -155,14 +180,25 @@ def spent(executions: Sequence[NodeRun]) -> float:
     answering call's charge, which over-counts as
     :func:`~katra.budgets.retried_prompt_tokens` does. Such a run that
     reports no charge raises :class:`Refused`, because its spend is not known.
+    So does a node run on a priced route that reports no token usage, which
+    the price map would count at nothing.
     """
     total = price_calls(_calls_of(executions)).total_usd
     for run in executions:
-        if run.model is None or _priced(run.model, run.requested_model or run.model):
+        served = _called_route(run)
+        if served is None:
+            continue
+        requested = run.requested_model or served
+        if _priced(served, requested):
+            if run.usage is None:
+                raise Refused(
+                    f"stopping: a call on {requested} reported no token usage,"
+                    " so the spend so far is not known"
+                )
             continue
         if run.reported_charge_usd is None:
             raise Refused(
-                f"stopping: a call on {run.requested_model or run.model} reported"
+                f"stopping: a call on {requested} reported"
                 " no charge, and the price map holds no rate for it, so the"
                 " spend so far is not known"
             )
@@ -201,6 +237,35 @@ def charged(
         " the run"
     )
     return Estimate(label="charged", amount_usd=None, lines=(*estimate.lines, note))
+
+
+def replay_estimate(
+    selections: Sequence[TierSelection], tiers: ModelTierConfig
+) -> Estimate:
+    """What a one-node replay over ``selections`` can state before its calls.
+
+    No amount: the length of each answer is not known before the call. Where
+    every route has a price the estimate is ``capped``, because the hold
+    prices each call from its token usage. Otherwise it is the ``charged`` or
+    ``unpriced`` estimate of :func:`charged`.
+    """
+    lines = []
+    for route in sorted({selection.route for selection in selections}):
+        prices = unit_prices(route)
+        lines.append(
+            f"no price for {route}" if prices is None else f"{route}: {_rates(prices)}"
+        )
+    if any(unit_prices(selection.route) is None for selection in selections):
+        return charged(
+            Estimate(label="unpriced", amount_usd=None, lines=tuple(lines)),
+            selections,
+            tiers,
+        )
+    note = (
+        "no estimate exists before the calls; the hold prices each call from"
+        " the token usage it reports, so an amount you accept caps the run"
+    )
+    return Estimate(label="capped", amount_usd=None, lines=(*lines, note))
 
 
 def _merged_baselines(root: Path) -> list[tuple[Path, dict[str, Any]]]:
@@ -589,7 +654,7 @@ def _render(estimate: Estimate) -> str:
         else f"${estimate.amount_usd:.2f} [{estimate.label}]"
     )
     body = "\n".join(f"  {line}" for line in estimate.lines)
-    return f"\nthis sweep is expected to cost {headline}\n{body}"
+    return f"\nthis run is expected to cost {headline}\n{body}"
 
 
 def gate(
@@ -619,7 +684,7 @@ def _accept_from_flag(estimate: Estimate, accept_cost: str) -> float | None:
         print(f"accepted {UNKNOWN}: no amount could be stated, and you said so")
         return None
     accepted = _dollars(accept_cost, f"--accept-cost {accept_cost!r}")
-    if estimate.label == "charged":
+    if estimate.label in CAP_LABELS:
         return _cap(accepted)
     if estimate.amount_usd is None:
         raise Refused(
@@ -656,11 +721,11 @@ def _dollars(text: str, source: str) -> float:
 
 
 def _cap(accepted: float) -> float:
-    """Accept ``accepted`` as a cap on a ``charged`` run, and say what it means."""
+    """Accept ``accepted`` as a cap on a run with no estimate, and say what it means."""
     print(
         f"accepted ${accepted:.2f} as a cap. No estimate exists before the"
-        " calls. The run stops before a step when the reported charges so far"
-        " plus the dearest step so far pass the cap. The first step runs"
+        " calls. The run stops before a step when the spend so far plus the"
+        " dearest step so far pass the cap. The first step runs"
         " with no bound, because no charge is known before it"
     )
     return accepted
@@ -668,7 +733,7 @@ def _cap(accepted: float) -> float:
 
 def _accept_by_typing(estimate: Estimate, ask: Callable[[str], str]) -> float | None:
     """Type the amount back. An enter or a ``y`` never proceeds."""
-    if estimate.label == "charged":
+    if estimate.label in CAP_LABELS:
         typed = ask(
             f"\ntype a dollar amount to cap the run, or {UNKNOWN!r} to run with"
             " no cap, or anything else to stop: "
@@ -711,7 +776,8 @@ def hold(
     Returns the amount now in force — the same one, or a freshly accepted
     larger one. Raises :class:`Refused` to stop the run, which the caller
     turns into a written artifact rather than a lost one. :func:`spent` raises
-    it too, where a call on a route with no price reported no charge.
+    it too, where a call on a route with no price reported no charge, or a
+    call on a priced route reported no token usage.
 
     **The re-prompt offers the whole sweep, never the sunk spend.** Accepting
     what is already spent would put the run over its own figure again on the

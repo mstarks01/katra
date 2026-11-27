@@ -60,7 +60,7 @@ prints what the sweep is expected to cost and waits for you to accept it.
 There is **no ceiling**. You may accept any amount — it is your money, and
 the gate exists so you know what you are accepting, not to cap it.
 
-Every amount carries one of four labels, and the label says how good the
+Every amount carries one of five labels, and the label says how good the
 number is:
 
 | Label | What it means |
@@ -69,6 +69,7 @@ number is:
 | `estimated` | Another Baseline's token counts, repriced for your models. A best guess. |
 | `unpriced` | No number exists — a tier's model is absent from the price map, its vendor is a gateway with no one rate per model, or no merged Baseline exists to calibrate from. Never a zero. |
 | `charged` | No number exists before the calls, as for `unpriced`, but each route with no price reports the whole charge of each call after it. A number you accept caps the run. |
+| `capped` | A replay on a priced route. No number exists before the calls, because the length of each answer is not known, but the hold prices each call from the token usage it reports. A number you accept caps the run. |
 
 A sweep on a gateway route has no number before the run and is not silent
 after it. Such a provider states what it charged, the run records that figure
@@ -100,7 +101,8 @@ compares the sum to your accepted amount. The dearest batch so far is the bound
 for the next one, because no batch's cost is known before it runs; the first
 batch has no bound. The spend is the priced token usage, and on a route with
 no price it is the charge that each call reported, once for each attempt. A
-call on such a route that reports no charge stops the sweep. When the sum
+call on such a route that reports no charge stops the sweep, and so does a
+call on a priced route that reports no token usage. When the sum
 passes the amount, a terminal shows the new number and asks you to accept it
 again; under `--accept-cost` nobody is there to ask, so the sweep stops. A stopped sweep keeps every report it
 already paid for, and its artifact records the cases it never ran, so it

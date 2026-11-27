@@ -11,6 +11,7 @@ import argparse
 import asyncio
 import json
 from dataclasses import replace
+from types import SimpleNamespace
 from typing import get_args, get_type_hints
 
 import pytest
@@ -25,7 +26,7 @@ from katra.claims import ReturnedClaim
 from katra.graph import STATE_ASSERTION_CATALOG
 from katra.markdown_loader import MarkdownLoader
 from tests import test_evals_run_grounds as grounds
-from tests.eval_factories import write_emission_sweep
+from tests.eval_factories import PRICED_ROUTE, stub_route, write_emission_sweep
 from tests.test_evals_lane_replay import (  # noqa: F401  (fixture)
     finished,
     record_requests,
@@ -166,7 +167,7 @@ def test_the_replayed_rulings_are_written_completed(
         return call
 
     monkeypatch.setattr(critic_replay, "node_call", scripted)
-    monkeypatch.setattr(critic_replay.Deployment, "from_env", lambda: None)
+    stub_route(monkeypatch, critic_replay)
     written = tmp_path / "rulings.json"
     args = argparse.Namespace(
         artifact=artifact.path,
@@ -181,6 +182,8 @@ def test_the_replayed_rulings_are_written_completed(
 
     held = json.loads(written.read_text(encoding="utf-8"))
     assert held["record"]["command"] == "critic-replay"
+    assert held["call"]["route"] == PRICED_ROUTE.selection.route
+    assert held["call"]["sampling"] == PRICED_ROUTE.sampling.model_dump(mode="json")
     assert [one["path"] for one in held["record"]["inputs"]] == sorted(
         str(path)
         for path in (
@@ -323,7 +326,7 @@ def test_a_returned_claim_is_counted_apart_from_agreement(
 
     monkeypatch.setattr(critic_replay, "load", lambda *_: returned)
     monkeypatch.setattr(critic_replay, "node_call", scripted)
-    monkeypatch.setattr(critic_replay.Deployment, "from_env", lambda: None)
+    stub_route(monkeypatch, critic_replay)
     args = argparse.Namespace(
         artifact=artifact.path,
         case=case.id,
@@ -419,3 +422,41 @@ def test_a_case_with_no_block_reads_every_draft_as_unruled(recorded, case):  # n
     rows = critic_replay.compare(replace(archived, block=None), [])
 
     assert {row.archived for row in rows} == {"unruled"}
+
+
+def _no_call(*args, **kwargs):
+    raise AssertionError("the command reached the paid call")
+
+
+@pytest.mark.parametrize("module", ["critic_replay", "recritic_replay"])
+def test_a_one_call_replay_refuses_a_word_that_is_not_an_amount(
+    module, tmp_path, monkeypatch, capsys
+):
+    """#2400: the replay reads --accept-cost before its call."""
+    from evals.harness import recritic_replay
+
+    replay = {"critic_replay": critic_replay, "recritic_replay": recritic_replay}[
+        module
+    ]
+    stub_route(monkeypatch, replay)
+    monkeypatch.setattr(
+        replay, "load_artifact", lambda path: SimpleNamespace(path=path)
+    )
+    monkeypatch.setattr(replay, "load", lambda *_: SimpleNamespace(files=()))
+    monkeypatch.setattr(replay, "fault_view", lambda *_: None, raising=False)
+    monkeypatch.setattr(replay, "read_faults", lambda *_: None, raising=False)
+    monkeypatch.setattr(replay, "node_call", _no_call)
+    args = argparse.Namespace(
+        artifact=tmp_path / "a.json",
+        case="01-payments-checkout",
+        framework="stride",
+        faults=tmp_path / "f.json",
+        draft="T-01",
+        fault="row-not-shown",
+        accept_cost="banana",
+        out=None,
+        raw=None,
+    )
+
+    assert getattr(replay, f"command_{module}")(args) == 1
+    assert "neither a number of dollars" in capsys.readouterr().err

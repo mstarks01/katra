@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 from evals import verify_corpus
@@ -19,6 +20,7 @@ from evals.harness.artifact import ARTIFACT_VERSION, EvalArtifact, load_artifact
 from evals.harness.bundle import case_file, reports_dir, write_reports
 from evals.harness.identity import ClaimPair, ClaimRuling
 from evals.harness.ledger import Vote
+from evals.harness.node_call import NodeRoute
 from evals.harness.provenance import RunProvenance
 from evals.harness.reference import GoldenCase, ReferenceThreat, load_corpus
 from katra.actions import ActionVerb
@@ -40,6 +42,7 @@ from katra.frameworks.stride.record import (
     Threat,
 )
 from katra.identity import IDENTITY_VERSION, build_identity
+from katra.model_tiers import TierSelection
 from katra.sampling import TierSampling
 from katra.vendors import vendor_for_route
 from tests.factories import SAMPLE_INSTRUCTIONS, sample_fingerprint
@@ -48,6 +51,26 @@ from tests.factories import SAMPLE_INSTRUCTIONS, sample_fingerprint
 #: which is why no test here may reach the repository with them.
 SWEEP_COMMIT = "c" * 40
 SWEEP_CORPUS = "d" * 64
+
+
+#: A route with a price, for a replay that sends no call.
+PRICED_ROUTE = NodeRoute(
+    "strong", TierSelection(vendor="anthropic", model="claude-sonnet-5"), TierSampling()
+)
+
+
+def stub_route(
+    monkeypatch: Any,
+    module: ModuleType,
+    route: NodeRoute = PRICED_ROUTE,
+    tiers: Any = None,
+) -> None:
+    """Give a replay command in ``module`` ``route`` for every node, and no
+    provider. ``tiers`` is what the consent gate reads of the tier config."""
+    monkeypatch.setattr(
+        module.Deployment, "from_env", lambda: SimpleNamespace(tiers=tiers)
+    )
+    monkeypatch.setattr(module, "node_route", lambda deployment, node: route)
 
 
 def sweep_sampling(temperature: float = 0.2) -> dict[str, TierSampling]:

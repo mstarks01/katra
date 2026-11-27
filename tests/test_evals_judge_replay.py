@@ -18,8 +18,10 @@ from evals.harness import judge_replay, plants
 from evals.harness.artifact import CORPUS_DIR, load_artifact, rendered_sources
 from evals.harness.bundle import read_report, stride_threats
 from evals.harness.identity import SubsetVerbIdentity
+from evals.harness.judge_replay import JUDGE_NODE
 from evals.harness.ledger import Ledger
 from evals.harness.modes import EvalRunError
+from evals.harness.node_call import measured_run
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import flows_by_case, load_case
 from evals.harness.scorer import score_case
@@ -649,11 +651,12 @@ def test_a_call_that_reports_no_usage_counts_at_its_estimate():
     request = judge_replay.Request("c", 1, (("F-01", "k"),), "x" * 400)
     fallback = judge_replay.request_usage("instruction", request)
 
-    run = judge_replay.measured_run(None, fallback, "anthropic/claude-opus-5")
-    reported = judge_replay.measured_run(
+    run = measured_run(None, fallback, "anthropic/claude-opus-5", JUDGE_NODE)
+    reported = measured_run(
         {"usage": None, "attempts": 1, "reasks": 0, "reported_charge_usd": None},
         fallback,
         "anthropic/claude-opus-5",
+        JUDGE_NODE,
     )
 
     assert run.usage == reported.usage == fallback
@@ -850,7 +853,7 @@ def test_a_judge_call_prices_as_a_graph_run_prices_the_same_response(monkeypatch
         reasks=event_reasks(response),
     )
 
-    replayed = judge_replay.measured_run(seen[0], TokenUsage(), route)
+    replayed = measured_run(seen[0], TokenUsage(), route, JUDGE_NODE)
 
     assert (replayed.attempts, replayed.reasks) == (3, 1)
     assert consent.spent([replayed]) == consent.spent([swept]) > 0

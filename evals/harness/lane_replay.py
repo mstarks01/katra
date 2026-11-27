@@ -5,7 +5,8 @@ drafted nothing there. Whether the lane read its lead badly or the lead arrived
 badly is a question about one lane's request, and a sweep answers it at the
 price of every case and every node. This asks it at the price of one call: it
 rebuilds the request the lane made from ``<case>.lanes.json`` and sends that
-request again, or a changed one.
+request again, or a changed one. ``--plan`` sends many such calls under one
+cap, and :func:`~evals.harness.consent.hold` runs before each call.
 
 **The graph's readers, never a second copy.** The instruction is
 :func:`~katra.graph.analyze_instruction`, and
@@ -50,8 +51,9 @@ from types import SimpleNamespace
 from typing import Any, Literal, get_args
 
 from google.genai import types
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from evals.harness import consent
 from evals.harness.artifact import (
     EvalArtifact,
     ProvenanceError,
@@ -63,7 +65,13 @@ from evals.harness.bundle import check_out, finished_file
 from evals.harness.descendants import FRAMEWORK as SCORED
 from evals.harness.descendants import lane_must_finds
 from evals.harness.modes import EvalRunError, case_framework_options
-from evals.harness.node_call import NodeCall, node_call, spent_line
+from evals.harness.node_call import (
+    NodeCall,
+    measured_run,
+    node_call,
+    node_route,
+    spent_line,
+)
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import (
     DEFAULT_CORPUS,
@@ -96,7 +104,9 @@ from katra.graph import (
 )
 from katra.markdown_loader import MarkdownLoader
 from katra.node_requests import node_request
+from katra.offline import LiveInferenceRefused
 from katra.prompts import lane_closing
+from katra.report import NodeRun
 from katra.system_model import ELEMENT_GROUPS
 
 #: What ``--prepare-today`` hands ``prepare`` as the catalog: none, which is a
@@ -390,6 +400,59 @@ async def replay(
     return parse(await call(instruction, turn), framework)
 
 
+#: The shape of a case or lane name in a ``--plan`` line.
+PLAN_NAME = r"^[0-9a-z]+(-[0-9a-z]+)*$"
+
+
+class PlannedCall(BaseModel):
+    """One line of a ``--plan`` file: one lane call on today's ``prepare``."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: A case folder name and a lane name: lowercase words joined by hyphens,
+    #: so neither can name a path outside the corpus or the --out folder.
+    case: str = Field(pattern=PLAN_NAME)
+    lane: str = Field(pattern=PLAN_NAME)
+    prepare_today: CatalogArm
+
+
+def read_plan(path: Path) -> list[PlannedCall]:
+    """Each call a ``--plan`` file names, one JSON object a line, or a refusal."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise EvalRunError(f"{path}: {error.strerror}") from error
+    except UnicodeDecodeError as error:
+        raise EvalRunError(f"{path} is not UTF-8 text") from error
+    planned = []
+    for number, line in enumerate(lines, start=1):
+        if not line.strip():
+            continue
+        try:
+            planned.append(PlannedCall.model_validate_json(line))
+        except ValidationError as error:
+            raise EvalRunError(f"{path} line {number}: {error}") from error
+    if not planned:
+        raise EvalRunError(f"{path} names no call")
+    return planned
+
+
+@dataclass(frozen=True)
+class LaneRequest:
+    """One lane call, built offline before the gate: what it sends and where
+    its answer goes."""
+
+    name: str
+    case: GoldenCase
+    lane: Lane
+    material: dict[str, Any]
+    prepared: PreparedToday | None
+    #: The run record's table and inputs, recorded before the gate.
+    table: dict[str, Any]
+    inputs: dict[Path, Selections]
+    out: Path | None
+
+
 def arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "artifact",
@@ -397,16 +460,23 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         nargs="?",
         help="the sweep whose lane to replay; omit it with --prepare-today",
     )
-    parser.add_argument("--case", required=True, help="the case the lane ran on")
-    parser.add_argument("--lane", required=True, help="the lane, e.g. spoofing")
+    parser.add_argument("--case", help="the case the lane ran on")
+    parser.add_argument("--lane", help="the lane, e.g. spoofing")
     parser.add_argument(
         "--framework", required=True, choices=sorted(PACKAGES), help="the package"
     )
     parser.add_argument(
         "--accept-cost",
         required=True,
-        help="required: naming it is your consent to one paid lane call. The"
-        " amount, or 'unknown' on a route that prices nothing before the call",
+        help="required: the dollars you accept as a cap on the calls, or"
+        " 'unknown' to run with no cap",
+    )
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        help="a file of calls, one JSON object a line with case, lane and"
+        " prepare_today, sent in order under one cap. It takes the place of"
+        " --case, --lane and --prepare-today, and --out names a folder",
     )
     parser.add_argument(
         "--append",
@@ -433,108 +503,282 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         " model's element IDs",
     )
     parser.add_argument(
-        "--out", type=Path, help="write the run record and the lane's proposals here"
+        "--out",
+        type=Path,
+        help="write the run record, the call's route and usage, and the lane's"
+        " proposals here; with --plan, a folder that gets one file a call",
     )
 
 
-def command_lane_replay(args: argparse.Namespace) -> int:
-    """Send one lane request again, and print what the lane proposed."""
+def _refuse_flags(args: argparse.Namespace) -> None:
+    """Refuse a combination of flags that names no one request."""
+    if args.plan is not None:
+        given = [
+            flag
+            for flag, value in (
+                ("an artifact", args.artifact),
+                ("--case", args.case),
+                ("--lane", args.lane),
+                ("--prepare-today", args.prepare_today),
+                ("--system-model", args.system_model),
+                ("--append", args.append),
+                ("--fresh-leads", args.fresh_leads or None),
+            )
+            if value is not None
+        ]
+        if given:
+            raise EvalRunError(
+                f"--plan names each call's case, lane and catalog arm, so it"
+                f" takes no {', '.join(given)}"
+            )
+        if args.out is None or not args.out.is_dir():
+            raise EvalRunError("--plan writes one file a call into the --out folder")
+        return
+    if args.case is None or args.lane is None:
+        raise EvalRunError("name --case and --lane, or a --plan")
+    if (args.artifact is None) == (args.prepare_today is None):
+        raise EvalRunError("name a sweep artifact or --prepare-today, not both")
+    if args.prepare_today is not None and (args.fresh_leads or args.append):
+        raise EvalRunError(
+            "--prepare-today builds the whole request, so it takes neither"
+            " --fresh-leads nor --append"
+        )
+    if args.system_model is not None and args.prepare_today is None:
+        raise EvalRunError("--system-model replaces the model --prepare-today reads")
+
+
+def _one_request(
+    args: argparse.Namespace,
+    package_loader: MarkdownLoader,
+    inputs: dict[Path, Selections],
+) -> LaneRequest:
+    """The one request the single-call flags name."""
+    check_out(args.out)
+    refuse_holdout(args.case)
+    case = load_case(REPO_ROOT / DEFAULT_CORPUS / args.case)
+    if args.system_model is not None:
+        case = with_system_model(case, args.system_model)
+        inputs[args.system_model] = {}
     prepared = None
+    if args.prepare_today is not None:
+        prepared = prepare_today(case, args.framework, args.prepare_today)
+        material = prepared.material
+        inputs |= prepared.inputs
+        print(
+            f"material from today's prepare, catalog {args.prepare_today};"
+            f" prompt files from {repo_commit().commit}"
+        )
+    else:
+        artifact = load_artifact(args.artifact)
+        lanes = lanes_file(artifact, args.case)
+        material = material_at(lanes)
+        inputs |= {artifact.path: {}, lanes: {}}
+        if args.fresh_leads:
+            material = fresh_leads(
+                material, case, args.framework, args.lane, package_loader
+            )
+        print(
+            f"material from {artifact.commit.commit}; prompt files"
+            f" from {repo_commit().commit}"
+        )
+    if args.append is not None:
+        inputs[args.append] = {}
+    table = {
+        "case": args.case,
+        "lane": args.lane,
+        "framework": args.framework,
+        "fresh_leads": args.fresh_leads,
+        "prepare_today": args.prepare_today,
+        "system_model": (None if args.system_model is None else str(args.system_model)),
+        "corpus_digest": corpus_digest(),
+    }
+    return LaneRequest(
+        f"{args.case} {args.lane}",
+        case,
+        lane_of(args.framework, args.lane),
+        material,
+        prepared,
+        table,
+        inputs,
+        args.out,
+    )
+
+
+def _planned_requests(
+    args: argparse.Namespace, inputs: dict[Path, Selections]
+) -> list[LaneRequest]:
+    """Each request a ``--plan`` file names, built offline, in its order."""
+    planned = read_plan(args.plan)
+    digest = corpus_digest()
+    prepared: dict[tuple[str, str], PreparedToday] = {}
+    requests = []
+    for index, call in enumerate(planned, start=1):
+        refuse_holdout(call.case)
+        case = load_case(REPO_ROOT / DEFAULT_CORPUS / call.case)
+        key = (call.case, call.prepare_today)
+        if key not in prepared:
+            prepared[key] = prepare_today(case, args.framework, call.prepare_today)
+        today = prepared[key]
+        name = f"{index:03d}-{call.case}-{call.lane}-{call.prepare_today}"
+        out = args.out / f"{name}.json"
+        if out.exists():
+            raise EvalRunError(f"{out}: an earlier run wrote it")
+        check_out(out)
+        table = {
+            "case": call.case,
+            "lane": call.lane,
+            "framework": args.framework,
+            "fresh_leads": False,
+            "prepare_today": call.prepare_today,
+            "system_model": None,
+            "corpus_digest": digest,
+            "plan": str(args.plan),
+            "plan_line": index,
+        }
+        requests.append(
+            LaneRequest(
+                name,
+                case,
+                lane_of(args.framework, call.lane),
+                today.material,
+                today,
+                table,
+                inputs | today.inputs | {args.plan: {}},
+                out,
+            )
+        )
+    print(
+        f"{len(requests)} calls from {args.plan} on today's prepare; prompt files"
+        f" from {repo_commit().commit}"
+    )
+    return requests
+
+
+def command_lane_replay(args: argparse.Namespace) -> int:
+    """Send lane requests again under one cap, and print what each lane proposed."""
     package_loader = MarkdownLoader(REPO_ROOT / "frameworks" / args.framework)
     prompt_loader = MarkdownLoader(REPO_ROOT / "prompts")
     inputs = loaded((package_loader, prompt_loader))
     try:
-        refuse_holdout(args.case)
-        if (args.artifact is None) == (args.prepare_today is None):
-            raise EvalRunError("name a sweep artifact or --prepare-today, not both")
-        if args.prepare_today is not None and (args.fresh_leads or args.append):
-            raise EvalRunError(
-                "--prepare-today builds the whole request, so it takes neither"
-                " --fresh-leads nor --append"
-            )
-        if args.system_model is not None and args.prepare_today is None:
-            raise EvalRunError(
-                "--system-model replaces the model --prepare-today reads"
-            )
-        check_out(args.out)
-        case = load_case(REPO_ROOT / DEFAULT_CORPUS / args.case)
-        if args.system_model is not None:
-            case = with_system_model(case, args.system_model)
-            inputs[args.system_model] = {}
-        if args.prepare_today is not None:
-            prepared = prepare_today(case, args.framework, args.prepare_today)
-            material = prepared.material
-            inputs |= prepared.inputs
-            print(
-                f"material from today's prepare, catalog {args.prepare_today};"
-                f" prompt files from {repo_commit().commit}"
-            )
-        else:
-            artifact = load_artifact(args.artifact)
-            lanes = lanes_file(artifact, args.case)
-            material = material_at(lanes)
-            inputs |= {artifact.path: {}, lanes: {}}
-            if args.fresh_leads:
-                material = fresh_leads(
-                    material,
-                    case,
-                    args.framework,
-                    args.lane,
-                    package_loader,
-                )
-            print(
-                f"material from {artifact.commit.commit}; prompt files"
-                f" from {repo_commit().commit}"
-            )
-        if args.append is not None:
-            inputs[args.append] = {}
-        record = run_record_for(
-            [args.out],
-            "lane-replay",
-            {
-                "case": args.case,
-                "lane": args.lane,
-                "framework": args.framework,
-                "fresh_leads": args.fresh_leads,
-                "prepare_today": args.prepare_today,
-                "system_model": (
-                    None if args.system_model is None else str(args.system_model)
-                ),
-                "corpus_digest": corpus_digest(),
-            },
-            inputs,
+        _refuse_flags(args)
+        requests = (
+            [_one_request(args, package_loader, inputs)]
+            if args.plan is None
+            else _planned_requests(args, inputs)
         )
-    except (CorpusError, EvalRunError, ProvenanceError) as error:
+        records = [
+            run_record_for([request.out], "lane-replay", request.table, request.inputs)
+            for request in requests
+        ]
+        deployment = Deployment.from_env()
+        routes = {
+            request.lane.node_name: node_route(deployment, request.lane.node_name)
+            for request in requests
+        }
+        cost = consent.replay_estimate(
+            [route.selection for route in routes.values()], deployment.tiers
+        )
+        appended = args.append.read_text(encoding="utf-8") if args.append else None
+        accepted = consent.gate(cost, args.accept_cost, None)
+    except (CorpusError, EvalRunError, ProvenanceError, OSError) as error:
         print(error, file=sys.stderr)
         return 1
-    lane = lane_of(args.framework, args.lane)
+    except consent.Refused as refusal:
+        print(refusal, file=sys.stderr)
+        return 1
+    schema = schemas_for(args.framework).proposals
     spent: list[float | None] = []
-    call = node_call(
-        Deployment.from_env(),
-        lane.node_name,
-        schemas_for(args.framework).proposals,
-        spent,
-    )
-    batch = asyncio.run(
-        replay(
-            material,
-            args.framework,
-            args.lane,
-            call,
-            package_loader,
-            prompt_loader,
-            args.append.read_text(encoding="utf-8") if args.append else None,
-        )
-    )
-    dumped = batch.model_dump(mode="json")
-    for claim in dumped["claims"]:
-        print(f"- {claim.get('title')} | {claim.get('affected_element_ids')}")
+    steps: list[list[NodeRun]] = []
+    stopped: str | None = None
+    unread = 0
+    with asyncio.Runner() as runner:
+        for index, request in enumerate(requests):
+            remaining = [later.name for later in requests[index:]]
+            try:
+                accepted = consent.hold(
+                    accepted, steps, remaining, None, ran=index, unit="call"
+                )
+            except consent.Refused as refusal:
+                stopped = f"before {request.name}: {refusal}"
+                break
+            route = routes[request.lane.node_name]
+            seen: list[dict[str, Any]] = []
+            call = node_call(deployment, request.lane.node_name, schema, spent, seen)
+            batch, schema_error = None, None
+            try:
+                batch = runner.run(
+                    replay(
+                        request.material,
+                        args.framework,
+                        request.lane.lane,
+                        call,
+                        package_loader,
+                        prompt_loader,
+                        appended,
+                    )
+                )
+            except ValidationError as error:
+                schema_error = str(error)
+            except LiveInferenceRefused as refusal:
+                stopped = str(refusal)
+                break
+            except Exception as error:  # noqa: BLE001 - keep the paid answers so far
+                stopped = f"{request.name} failed: {type(error).__name__}: {error}"
+                break
+            entry = seen[0] if seen else None
+            steps.append(
+                [
+                    measured_run(
+                        entry, None, route.selection.route, request.lane.node_name
+                    )
+                ]
+            )
+            dumped = (
+                {"schema_error": schema_error}
+                if batch is None
+                else batch.model_dump(mode="json")
+            )
+            if request.out is not None:
+                written = {
+                    "record": records[index],
+                    "call": {**route.record(), "answer": entry},
+                    **dumped,
+                }
+                request.out.write_text(
+                    json.dumps(written, indent=2) + "\n", encoding="utf-8"
+                )
+            unread += batch is None
+            try:
+                _report(args.framework, request, batch, schema_error)
+            except Exception as error:  # noqa: BLE001 - the answer is on disk
+                stopped = (
+                    f"{request.name} scoring failed: {type(error).__name__}: {error}"
+                )
+                break
     print(spent_line(spent))
-    if args.out:
-        written = {"record": record, **dumped}
-        args.out.write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")
-    if prepared is not None and args.framework == SCORED:
+    if stopped is not None:
+        print(f"stopped {stopped}", file=sys.stderr)
+    if unread:
+        print(f"{unread} answer(s) were not read under the schema", file=sys.stderr)
+    return 1 if stopped is not None or unread else 0
+
+
+def _report(
+    framework: FrameworkName,
+    request: LaneRequest,
+    batch: BaseModel | None,
+    schema_error: str | None,
+) -> None:
+    """Print one call's drafts, and the must-finds they match."""
+    print(f"{request.name}:")
+    if batch is None:
+        print(f"the answer was not read: {schema_error}")
+        return
+    for claim in batch.model_dump(mode="json")["claims"]:
+        print(f"- {claim.get('title')} | {claim.get('affected_element_ids')}")
+    if request.prepared is not None and framework == SCORED:
         assert isinstance(batch, ProposalBatch)
-        matched = lane_must_finds(case, prepared.state, args.lane, batch)
+        matched = lane_must_finds(
+            request.case, request.prepared.state, request.lane.lane, batch
+        )
         print(f"must-finds matched: {list(matched)}")
-    return 0

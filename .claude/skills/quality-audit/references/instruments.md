@@ -54,20 +54,29 @@ needs provider credentials. It states its own cost estimate and holds the
 operator to what they accept; see `evals/harness/consent.py` and
 `evals/TUNING.md`.
 
-`python -m evals.harness.run lane-replay <artifact> --case <case> --framework <package> --lane <lane> --accept-cost unknown`
-costs one lane call. `python -m evals.harness.run critic-replay <artifact> --case <case> --framework <package> --accept-cost unknown`
+`python -m evals.harness.run lane-replay <artifact> --case <case> --framework <package> --lane <lane> --accept-cost <usd>`
+costs one lane call. `python -m evals.harness.run critic-replay <artifact> --case <case> --framework <package> --accept-cost <usd>`
 costs one critic call, compares each draft's verdict with the archived one, and counts a draft with no archived verdict on its own line. Pass `--out <file>` to keep the rulings, because a status says what moved and not why. It rebuilds the request one lane made from the sweep's
 `<case>.lanes.json` and sends it again, so a `place` loss can be read against
 what the lane was shown. The material is the run's and the prompt files are
 this checkout's, and the command prints both commits. To compare a lane with and without the assertion catalog, use
-`lane-replay --case <case> --framework stride --lane <lane> --prepare-today none|signed --accept-cost unknown`
+`lane-replay --case <case> --framework stride --lane <lane> --prepare-today none|signed --accept-cost <usd>`
 with no artifact: it runs today's `prepare` offline, so the two arms differ only in the
 catalog, and it prints the must-finds the lane's drafts match. Add
 `--system-model <file>` to put a System Model file in place of the case's
 blessed model: the file passes the live validity gate, and it holds the blessed model's
 element IDs.
 
-`python -m evals.harness.run recritic-replay <artifact> --case <case> --framework <package> --faults <file> --draft <id> --fault <shape> --accept-cost unknown`
+Each replay reads `--accept-cost` through the consent gate: pass the dollars
+you accept, or `unknown` to accept a cost nobody states. On a priced route,
+or on a route that reports its charge, the amount caps the run. A one-call
+replay runs its call with no bound. To send many lane calls under one cap, use
+`lane-replay --framework <package> --plan <file> --out <folder> --accept-cost <usd>`:
+each line of the file is a JSON object with `case`, `lane` and `prepare_today`.
+The hold runs before each call and stops before a call that can pass the cap.
+Each output file records the call's binding, route, sampling and token usage.
+
+`python -m evals.harness.run recritic-replay <artifact> --case <case> --framework <package> --faults <file> --draft <id> --fault <shape> --accept-cost <usd>`
 costs one re-ask call. It reads the case's critic first pass from its report,
 applies the one Control the fault set holds, answers each row it shows with the
 refusal the file states, and puts one fault of the shape on the draft.
@@ -92,8 +101,9 @@ or three of them at random. A judge through `openrouter` has no price: its
 estimate is `charged`, and `--accept-cost <amount>` caps the run on the charge
 that OpenRouter reports after each call. Before each call it runs the sweep's
 hold, `consent.hold`. The hold stops when the spend so far plus the dearest call
-so far passes the accepted amount. The first call runs with no bound, and a
-call on a route with no price that reports no charge stops the run. It keeps each answer as
+so far passes the accepted amount. The first call runs with no bound. A
+call on a route with no price that reports no charge stops the run, and a
+call that reports no usage counts at its estimate. It keeps each answer as
 it arrives. Its verdicts never enter the vote ledger. With
 `--dry-run` in place of `--accept-cost` it is free: it writes every request
 and prints the estimate and the batch sizes, and sends nothing.
