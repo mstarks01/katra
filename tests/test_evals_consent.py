@@ -1252,3 +1252,28 @@ class TestASweepOnAChargedRoute:
         printed = capsys.readouterr().out
         assert "[charged]" in printed
         assert "accepted $1.00 as a cap" in printed
+
+
+class TestAReplayEstimate:
+    """#2400: a one-node replay states no amount, and a typed amount caps it."""
+
+    def test_a_priced_route_is_capped_and_takes_a_number(self, capsys):
+        estimate = consent.replay_estimate(
+            [TierSelection(vendor="anthropic", model="claude-sonnet-5")], None
+        )
+
+        assert estimate.label == "capped"
+        assert gate(estimate, "12.50", ask=None) == pytest.approx(12.50)
+        assert "as a cap" in capsys.readouterr().out
+
+    def test_a_route_that_reports_its_charge_is_charged(self, priced):
+        estimate = consent.replay_estimate([GATEWAY], tiers_charged_directly())
+
+        assert estimate.label == "charged"
+
+    def test_a_route_with_no_price_and_no_charge_takes_only_unknown(self, priced):
+        estimate = consent.replay_estimate([UNPRICED_DIRECT], tiers_charged_directly())
+
+        with pytest.raises(Refused, match="answers nothing"):
+            gate(estimate, "1.50", ask=None)
+        assert gate(estimate, UNKNOWN, ask=None) is None

@@ -36,9 +36,10 @@ from katra.frameworks.stride.record import (
 from katra.graph import FrameworkNodes
 from katra.markdown_loader import MarkdownLoader
 from katra.prompts import lane_closing
+from katra.report import TokenUsage
 from katra.system_model import ModelIndex
 from tests import test_evals_run_grounds as grounds
-from tests.eval_factories import write_emission_sweep
+from tests.eval_factories import PRICED_ROUTE, stub_route, write_emission_sweep
 from tests.test_evals_run_grounds import case  # noqa: F401  (fixture)
 
 PACKAGE_LOADER = MarkdownLoader(REPO_ROOT / "frameworks" / "stride")
@@ -257,7 +258,7 @@ def test_the_out_file_starts_with_the_record_of_the_lane_material(
         return call
 
     monkeypatch.setattr(lane_replay, "node_call", scripted)
-    monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
+    stub_route(monkeypatch, lane_replay)
     written = tmp_path / "proposals.json"
     args = replay_args(artifact=out, case=case.id, out=written)
 
@@ -299,7 +300,7 @@ def test_a_replay_of_todays_prepare_names_each_file_it_loaded(
         return call
 
     monkeypatch.setattr(lane_replay, "node_call", scripted)
-    monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
+    stub_route(monkeypatch, lane_replay)
     written = tmp_path / "proposals.json"
     args = replay_args(case=case.id, prepare_today="none", out=written)
 
@@ -336,7 +337,7 @@ def test_a_system_model_file_replaces_the_blessed_model(
         return call
 
     monkeypatch.setattr(lane_replay, "node_call", scripted)
-    monkeypatch.setattr(lane_replay.Deployment, "from_env", lambda: None)
+    stub_route(monkeypatch, lane_replay)
     written = tmp_path / "proposals.json"
 
     assert (
@@ -693,3 +694,154 @@ def test_a_request_with_two_sources_or_none_is_refused_before_a_call(given, caps
 
     assert lane_replay.command_lane_replay(args) == 1
     assert "--prepare-today" in capsys.readouterr().err
+
+
+def _usage_calls(usage, sent):
+    """A ``node_call`` whose every call reports ``usage`` and drafts nothing."""
+
+    def make(deployment, graph_node, schema, spent, seen):
+        async def call(instruction, turn):
+            sent.append(graph_node)
+            spent.append(None)
+            seen.append(
+                {
+                    "text": json.dumps({"claims": []}),
+                    "responses": [],
+                    "usage": usage,
+                    "attempts": 1,
+                    "reasks": 0,
+                    "reported_charge_usd": None,
+                }
+            )
+            return json.dumps({"claims": []})
+
+        return call
+
+    return make
+
+
+def _plan(tmp_path, case_id, lanes):
+    path = tmp_path / "plan.jsonl"
+    path.write_text(
+        "".join(
+            json.dumps({"case": case_id, "lane": lane, "prepare_today": "none"}) + "\n"
+            for lane in lanes
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    out.mkdir()
+    return path, out
+
+
+#: Ten thousand tokens each way: $0.12 a call on the priced stub route.
+TEN_THOUSAND = TokenUsage(
+    prompt_tokens=10_000, completion_tokens=10_000, total_tokens=20_000
+).model_dump()
+
+
+def test_a_word_that_is_not_an_amount_is_refused_before_the_call(
+    case,  # noqa: F811
+    monkeypatch,
+    capsys,
+):
+    """#2400: the command reads --accept-cost and refuses a word that is not money."""
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+    stub_route(monkeypatch, lane_replay)
+    args = replay_args(case=case.id, prepare_today="none", accept_cost="banana")
+
+    assert lane_replay.command_lane_replay(args) == 1
+    assert "neither a number of dollars" in capsys.readouterr().err
+
+
+def test_a_plan_stops_before_the_call_the_cap_refuses_and_keeps_the_answers(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """#2400: the hold prices each call's token usage on a priced route, and
+    each call's file records its route, sampling and usage."""
+    plan, out = _plan(tmp_path, case.id, ["spoofing", "tampering", "repudiation"])
+    sent: list[str] = []
+    monkeypatch.setattr(lane_replay, "node_call", _usage_calls(TEN_THOUSAND, sent))
+    stub_route(monkeypatch, lane_replay)
+    args = replay_args(case=None, lane=None, plan=plan, out=out, accept_cost="0.30")
+
+    assert lane_replay.command_lane_replay(args) == 1
+
+    assert len(sent) == 2
+    assert "stopped before 003-" in capsys.readouterr().err
+    written = sorted(path.name for path in out.iterdir())
+    assert written == [
+        f"001-{case.id}-spoofing-none.json",
+        f"002-{case.id}-tampering-none.json",
+    ]
+    held = json.loads((out / written[0]).read_text(encoding="utf-8"))
+    assert held["call"]["route"] == PRICED_ROUTE.selection.route
+    assert held["call"]["sampling"] == PRICED_ROUTE.sampling.model_dump(mode="json")
+    assert held["call"]["answer"]["usage"] == TEN_THOUSAND
+    assert held["record"]["table"]["plan_line"] == 1
+
+
+def test_a_plan_inside_the_cap_runs_every_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+):
+    plan, out = _plan(tmp_path, case.id, ["spoofing", "tampering", "repudiation"])
+    sent: list[str] = []
+    monkeypatch.setattr(lane_replay, "node_call", _usage_calls(TEN_THOUSAND, sent))
+    stub_route(monkeypatch, lane_replay)
+    args = replay_args(case=None, lane=None, plan=plan, out=out, accept_cost="0.40")
+
+    assert lane_replay.command_lane_replay(args) == 0
+    assert len(sent) == 3
+
+
+def test_a_call_with_no_usage_on_a_priced_route_stops_the_next_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """The hold would count such a call at nothing, so the spend is not known."""
+    plan, out = _plan(tmp_path, case.id, ["spoofing", "tampering"])
+    sent: list[str] = []
+    monkeypatch.setattr(lane_replay, "node_call", _usage_calls(None, sent))
+    stub_route(monkeypatch, lane_replay)
+    args = replay_args(case=None, lane=None, plan=plan, out=out, accept_cost="5")
+
+    assert lane_replay.command_lane_replay(args) == 1
+    assert len(sent) == 1
+    assert "reported no token usage" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "given",
+    [{"case": "01-payments-checkout"}, {"prepare_today": "none"}, {"out": None}],
+    ids=["case", "arm", "no-folder"],
+)
+def test_a_plan_with_a_single_call_flag_or_no_folder_is_refused(
+    given, tmp_path, monkeypatch, capsys
+):
+    plan, out = _plan(tmp_path, "01-payments-checkout", ["spoofing"])
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+    args = replay_args(
+        **{"case": None, "lane": None, "plan": plan, "out": out, **given}
+    )
+
+    assert lane_replay.command_lane_replay(args) == 1
+    assert "--plan" in capsys.readouterr().err
+
+
+def test_a_plan_line_outside_the_schema_is_refused_by_its_number(tmp_path):
+    path = tmp_path / "plan.jsonl"
+    path.write_text(
+        '{"case": "c", "lane": "spoofing", "prepare_today": "none"}\n'
+        '{"case": "c", "lane": "spoofing", "prepare_today": "all"}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(EvalRunError, match="line 2"):
+        lane_replay.read_plan(path)

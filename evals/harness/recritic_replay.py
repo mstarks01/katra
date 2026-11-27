@@ -51,6 +51,7 @@ from google.adk.utils._schema_utils import validate_schema
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from evals.harness import consent
 from evals.harness.artifact import ProvenanceError, load_artifact, repo_commit
 from evals.harness.assembly import ArchivedRulingError, rulings_from_report
 from evals.harness.bundle import check_out
@@ -61,7 +62,7 @@ from evals.harness.critic_replay import (
     shared_keys,
 )
 from evals.harness.modes import EvalRunError
-from evals.harness.node_call import NodeCall, node_call, spent_line
+from evals.harness.node_call import NodeCall, node_call, node_route, spent_line
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import CorpusError, refuse_holdout
 from evals.harness.run_record import loaded, run_record_for
@@ -492,8 +493,8 @@ def arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--accept-cost",
         required=True,
-        help="required: naming it is your consent to one paid re-ask call. The"
-        " amount, or 'unknown' on a route that prices nothing before the call",
+        help="required: the dollars you accept as a cap on the call, or"
+        " 'unknown' to run with no cap on a route the hold cannot measure",
     )
     parser.add_argument(
         "--out",
@@ -526,24 +527,38 @@ def command_recritic_replay(args: argparse.Namespace) -> int:
                 **loaded((package_loader, prompt_loader)),
             },
         )
+        node = FrameworkNodes(args.framework).node(RECRITIC_ROLE)
+        deployment = Deployment.from_env()
+        route = node_route(deployment, node)
+        consent.gate(
+            consent.replay_estimate([route.selection], deployment.tiers),
+            args.accept_cost,
+            None,
+        )
     except (CorpusError, EvalRunError, ProvenanceError, FileNotFoundError) as error:
         print(error, file=sys.stderr)
+        return 1
+    except consent.Refused as refusal:
+        print(refusal, file=sys.stderr)
         return 1
     print(
         f"material from {artifact.commit.commit}; prompt files from"
         f" {repo_commit().commit}"
     )
     spent: list[float | None] = []
+    seen: list[dict[str, Any]] = []
     call = node_call(
-        Deployment.from_env(),
-        FrameworkNodes(args.framework).node(RECRITIC_ROLE),
+        deployment,
+        node,
         schemas_for(args.framework).rulings,
         spent,
+        seen,
     )
     result = asyncio.run(replay(archived, view, call, package_loader, prompt_loader))
     if args.out is not None:
         payload = {
             "record": record,
+            "call": {**route.record(), "answer": seen[0] if seen else None},
             "draft": args.draft,
             "fault": args.fault,
             **result,

@@ -35,6 +35,7 @@ from katra.frameworks import PACKAGES
 from katra.markdown_loader import MarkdownLoader
 from katra.system_model import attribute_names
 from tests import test_evals_run_grounds as grounds
+from tests.eval_factories import stub_route
 from tests.factories import asvs_draft, valid_model
 from tests.test_critic_review_replay import EVERY_LANE
 from tests.test_evals_critic_replay import failed
@@ -408,7 +409,7 @@ def test_the_command_writes_the_repair_after_its_record(
         archived, recritic_replay.read_faults(faults), draft, "row-not-shown"
     )
 
-    def scripted(deployment, graph_node, schema, spent):
+    def scripted(deployment, graph_node, schema, spent, seen):
         async def call(instruction, turn):
             spent.append(0.01)
             return answer(view, draft)
@@ -416,7 +417,7 @@ def test_the_command_writes_the_repair_after_its_record(
         return call
 
     monkeypatch.setattr(recritic_replay, "node_call", scripted)
-    monkeypatch.setattr(recritic_replay.Deployment, "from_env", lambda: None)
+    stub_route(monkeypatch, recritic_replay)
     written = tmp_path / "repair.json"
     args = argparse.Namespace(
         artifact=artifact.path,

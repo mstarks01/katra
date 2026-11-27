@@ -16,7 +16,8 @@ The user turn is the caller's, because it differs by node: a lane receives
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from google.adk.models.llm_request import LlmRequest
@@ -33,10 +34,38 @@ from katra.execution import (
 )
 from katra.model_tiers import Binding, TierSelection
 from katra.provider import ExecutedLlm
+from katra.report import NodeRun, TokenUsage
 from katra.sampling import TierSampling
 
 #: One call: the instruction and the user turn in, the model's raw text out.
 NodeCall = Callable[[str, types.Content], Awaitable[str]]
+
+
+@dataclass(frozen=True)
+class NodeRoute:
+    """What one graph node's call runs on: its binding, model and sampling."""
+
+    binding: Binding
+    selection: TierSelection
+    sampling: TierSampling
+
+    def record(self) -> dict[str, Any]:
+        """The route as a replay's output file records it beside each call."""
+        return {
+            "binding": self.binding,
+            "route": self.selection.route,
+            "sampling": self.sampling.model_dump(mode="json"),
+        }
+
+
+def node_route(deployment: Deployment, graph_node: str) -> NodeRoute:
+    """The binding, model and sampling ``graph_node`` runs on in ``deployment``."""
+    binding = deployment.binding_of(graph_node)
+    return NodeRoute(
+        binding,
+        deployment.tiers.selection_for(binding),
+        deployment.sampling.for_binding(binding),
+    )
 
 
 def node_call(
@@ -163,6 +192,38 @@ def adapter_call(
         return "".join(chunks)
 
     return call
+
+
+def measured_run(
+    entry: Mapping[str, Any] | None,
+    fallback: TokenUsage | None,
+    route: str,
+    node: str,
+) -> NodeRun:
+    """One replayed call as a node run that :func:`~evals.harness.consent.hold`
+    prices: the usage the provider reported, as ``seen`` records it, or
+    ``fallback`` where it reported none. The attempts and re-asks the retry
+    driver stamped go on the run too, so the hold prices each failed attempt
+    as a graph run's node run does. The charge the provider reported goes on
+    the run as ``reported_charge_usd``, which the hold counts where the price
+    map holds no rate for the route."""
+    if entry is None:
+        usage, attempts, reasks, charge = fallback, 1, 0, None
+    else:
+        reported = entry["usage"]
+        usage = fallback if reported is None else TokenUsage.model_validate(reported)
+        attempts, reasks = entry["attempts"], entry["reasks"]
+        charge = entry["reported_charge_usd"]
+    return NodeRun(
+        node=node,
+        model=route,
+        requested_model=route,
+        duration_ms=0,
+        usage=usage,
+        attempts=attempts,
+        reasks=reasks,
+        reported_charge_usd=charge,
+    )
 
 
 def spent_line(spent: list[float | None]) -> str:

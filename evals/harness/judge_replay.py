@@ -101,7 +101,7 @@ from evals.harness.flow_ids import (
 from evals.harness.identity import SubsetVerbIdentity
 from evals.harness.ledger import Ledger
 from evals.harness.modes import EvalRunError
-from evals.harness.node_call import NodeCall, selection_call, spent_line
+from evals.harness.node_call import NodeCall, measured_run, selection_call, spent_line
 from evals.harness.plants import Plant, write_plants
 from evals.harness.prices import price_calls, unit_prices
 from evals.harness.provenance import REPO_ROOT
@@ -697,35 +697,6 @@ def judge_selection(named: str) -> TierSelection:
     return TierSelection(vendor=vendor, model=model)
 
 
-def measured_run(
-    entry: Mapping[str, Any] | None, fallback: TokenUsage, route: str
-) -> NodeRun:
-    """One judge call as a node run that :func:`~evals.harness.consent.hold`
-    prices: the usage the provider reported, as ``seen`` records it, or
-    ``fallback``, the call's estimate, where it reported none. The attempts and
-    re-asks the retry driver stamped go on the run too, so the hold prices each
-    failed attempt as a graph run's node run does. The charge the provider
-    reported goes on the run as ``reported_charge_usd``, which the hold counts
-    where the price map holds no rate for the route."""
-    if entry is None:
-        usage, attempts, reasks, charge = fallback, 1, 0, None
-    else:
-        reported = entry["usage"]
-        usage = fallback if reported is None else TokenUsage.model_validate(reported)
-        attempts, reasks = entry["attempts"], entry["reasks"]
-        charge = entry["reported_charge_usd"]
-    return NodeRun(
-        node=JUDGE_NODE,
-        model=route,
-        requested_model=route,
-        duration_ms=0,
-        usage=usage,
-        attempts=attempts,
-        reasks=reasks,
-        reported_charge_usd=charge,
-    )
-
-
 async def _ask(call: NodeCall, instruction: str, request: Request) -> str:
     """One judge call, as a coroutine that an event loop runs."""
     return await call(instruction, request.turn())
@@ -986,7 +957,14 @@ def command_judge_replay(args: argparse.Namespace) -> int:
                 break
             entry = seen[answered] if len(seen) > answered else None
             steps.append(
-                [measured_run(entry, request_usage(instruction, request), judge.route)]
+                [
+                    measured_run(
+                        entry,
+                        request_usage(instruction, request),
+                        judge.route,
+                        JUDGE_NODE,
+                    )
+                ]
             )
             written = head | {"dry_run": False, "stopped": None, "answers": seen}
             written |= judged(inputs, requests, raws)

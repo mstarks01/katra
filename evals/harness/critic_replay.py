@@ -33,6 +33,7 @@ from typing import Any, Literal
 
 from google.genai import types
 
+from evals.harness import consent
 from evals.harness.artifact import (
     CORPUS_DIR,
     EvalArtifact,
@@ -51,7 +52,7 @@ from evals.harness.critic_yield import (
 )
 from evals.harness.lane_replay import material_at
 from evals.harness.modes import EvalRunError
-from evals.harness.node_call import NodeCall, node_call, spent_line
+from evals.harness.node_call import NodeCall, node_call, node_route, spent_line
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import CorpusError, load_case, refuse_holdout
 from evals.harness.run_record import loaded, run_record_for
@@ -341,8 +342,8 @@ def arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--accept-cost",
         required=True,
-        help="required: naming it is your consent to one paid critic call. The"
-        " amount, or 'unknown' on a route that prices nothing before the call",
+        help="required: the dollars you accept as a cap on the call, or"
+        " 'unknown' to run with no cap on a route the hold cannot measure",
     )
     parser.add_argument(
         "--out",
@@ -377,8 +378,19 @@ def command_critic_replay(args: argparse.Namespace) -> int:
                 **loaded((package_loader, prompt_loader)),
             },
         )
+        node = FrameworkNodes(args.framework).node(CRITIC_ROLE)
+        deployment = Deployment.from_env()
+        route = node_route(deployment, node)
+        consent.gate(
+            consent.replay_estimate([route.selection], deployment.tiers),
+            args.accept_cost,
+            None,
+        )
     except (CorpusError, EvalRunError, ProvenanceError, FileNotFoundError) as error:
         print(error, file=sys.stderr)
+        return 1
+    except consent.Refused as refusal:
+        print(refusal, file=sys.stderr)
         return 1
     print(
         f"material from {artifact.commit.commit}; prompt files from"
@@ -387,8 +399,8 @@ def command_critic_replay(args: argparse.Namespace) -> int:
     spent: list[float | None] = []
     seen: list[dict[str, Any]] = []
     call = node_call(
-        Deployment.from_env(),
-        FrameworkNodes(args.framework).node(CRITIC_ROLE),
+        deployment,
+        node,
         schemas_for(args.framework).rulings,
         spent,
         seen,
@@ -402,7 +414,7 @@ def command_critic_replay(args: argparse.Namespace) -> int:
         )
     )
     if args.raw is not None:
-        raw = {"record": record, "answers": seen}
+        raw = {"record": record, "route": route.record(), "answers": seen}
         args.raw.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
     if args.out is not None:
         # The status a comparison prints says what moved and not why. The
@@ -411,6 +423,7 @@ def command_critic_replay(args: argparse.Namespace) -> int:
         settled = complete_rulings(archived.drafts, rulings)
         payload = {
             "record": record,
+            "call": {**route.record(), "answer": seen[0] if seen else None},
             "claims": [ruling.model_dump(mode="json") for ruling in settled],
         }
         args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
