@@ -32,6 +32,7 @@ same reason, so a lint cannot rewrite an artifact an ADR points at.
 | `structured-output-shapes.md` + `probe_structured_output_shapes.py` | #942 | 2026-09-14 | `litellm==1.97.0`, repo `bf5fc4d`, Google AI Studio via OpenRouter |
 | `system-model-bottleneck.md` + `evals/harness/bottleneck.py` | #1033 | 2026-09-18 | repo `756b065`, the archived arm sweep of #1003 |
 | `undecidable-crossings.md` + `undecidable-crossings.csv` | #1052 | 2026-09-18 | repo `2e08836`, the thirteen signed corpus cases |
+| `oidc-mfa-claims.md` | #2416 | 2026-11-27 | provider documentation as published on that date, Keycloak 26.8.2, PingFederate 13.1 |
 
 ## The one staleness you must know about
 
