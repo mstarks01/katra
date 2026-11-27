@@ -55,8 +55,9 @@ gh api --method POST repos/mstarks01/katra/issues/<child>/dependencies/blocked_b
 
 ### The live map
 
-**None.** The last map, [#2111](https://github.com/mstarks01/katra/issues/2111), is under
-Completed maps. Chart a new one only against the bar at the end of this file.
+[#2404](https://github.com/mstarks01/katra/issues/2404) — **Multi-user accounts and roles**
+for the web app and `/v1`. Its branch `docs/wayfinder-live-map-2404` carries the glossary changes
+and the ADRs. Read the map's Decisions so far before you take a ticket.
 
 ### Completed maps
 
