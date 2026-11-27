@@ -80,10 +80,12 @@ from katra.report import (
 )
 
 #: The labels that state no amount.
-NoAmountLabel = Literal["unpriced", "charged", "capped"]
+#: The labels that state no amount, and on which a typed amount caps the run.
+CapLabel = Literal["charged", "capped"]
+CAP_LABELS: tuple[CapLabel, ...] = get_args(CapLabel)
 
-#: The labels on which a typed amount caps the run.
-CAP_LABELS: tuple[NoAmountLabel, ...] = ("charged", "capped")
+#: The labels that state no amount.
+NoAmountLabel = Literal["unpriced", CapLabel]
 
 Label = Literal["recorded", "estimated", NoAmountLabel]
 

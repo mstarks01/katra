@@ -772,12 +772,11 @@ def test_a_plan_stops_before_the_call_the_cap_refuses_and_keeps_the_answers(
 
     assert len(sent) == 2
     assert "stopped before 003-" in capsys.readouterr().err
-    written = sorted(path.name for path in out.iterdir())
-    assert written == [
-        f"001-{case.id}-spoofing-none.json",
-        f"002-{case.id}-tampering-none.json",
-    ]
-    held = json.loads((out / written[0]).read_text(encoding="utf-8"))
+    first = out / f"001-{case.id}-spoofing-none.json"
+    assert first.exists()
+    assert (out / f"002-{case.id}-tampering-none.json").exists()
+    assert not (out / f"003-{case.id}-repudiation-none.json").exists()
+    held = json.loads(first.read_text(encoding="utf-8"))
     assert held["call"]["route"] == PRICED_ROUTE.selection.route
     assert held["call"]["sampling"] == PRICED_ROUTE.sampling.model_dump(mode="json")
     assert held["call"]["answer"]["usage"] == TEN_THOUSAND

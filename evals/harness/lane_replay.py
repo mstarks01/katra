@@ -66,7 +66,6 @@ from evals.harness.descendants import lane_must_finds
 from evals.harness.modes import EvalRunError, case_framework_options
 from evals.harness.node_call import (
     NodeCall,
-    NodeRoute,
     measured_run,
     node_call,
     node_route,
@@ -440,7 +439,9 @@ class LaneRequest:
     lane: Lane
     material: dict[str, Any]
     prepared: PreparedToday | None
-    record: dict[str, Any] | None
+    #: The run record's table and inputs, recorded before the gate.
+    table: dict[str, Any]
+    inputs: dict[Path, Selections]
     out: Path | None
 
 
@@ -574,29 +575,23 @@ def _one_request(
         )
     if args.append is not None:
         inputs[args.append] = {}
-    record = run_record_for(
-        [args.out],
-        "lane-replay",
-        {
-            "case": args.case,
-            "lane": args.lane,
-            "framework": args.framework,
-            "fresh_leads": args.fresh_leads,
-            "prepare_today": args.prepare_today,
-            "system_model": (
-                None if args.system_model is None else str(args.system_model)
-            ),
-            "corpus_digest": corpus_digest(),
-        },
-        inputs,
-    )
+    table = {
+        "case": args.case,
+        "lane": args.lane,
+        "framework": args.framework,
+        "fresh_leads": args.fresh_leads,
+        "prepare_today": args.prepare_today,
+        "system_model": (None if args.system_model is None else str(args.system_model)),
+        "corpus_digest": corpus_digest(),
+    }
     return LaneRequest(
         f"{args.case} {args.lane}",
         case,
         lane_of(args.framework, args.lane),
         material,
         prepared,
-        record,
+        table,
+        inputs,
         args.out,
     )
 
@@ -620,22 +615,17 @@ def _planned_requests(
         out = args.out / f"{name}.json"
         if out.exists():
             raise EvalRunError(f"{out}: an earlier run wrote it")
-        record = run_record_for(
-            [out],
-            "lane-replay",
-            {
-                "case": call.case,
-                "lane": call.lane,
-                "framework": args.framework,
-                "fresh_leads": False,
-                "prepare_today": call.prepare_today,
-                "system_model": None,
-                "corpus_digest": digest,
-                "plan": str(args.plan),
-                "plan_line": index,
-            },
-            inputs | today.inputs | {args.plan: {}},
-        )
+        table = {
+            "case": call.case,
+            "lane": call.lane,
+            "framework": args.framework,
+            "fresh_leads": False,
+            "prepare_today": call.prepare_today,
+            "system_model": None,
+            "corpus_digest": digest,
+            "plan": str(args.plan),
+            "plan_line": index,
+        }
         requests.append(
             LaneRequest(
                 name,
@@ -643,7 +633,8 @@ def _planned_requests(
                 lane_of(args.framework, call.lane),
                 today.material,
                 today,
-                record,
+                table,
+                inputs | today.inputs | {args.plan: {}},
                 out,
             )
         )
@@ -680,6 +671,10 @@ def command_lane_replay(args: argparse.Namespace) -> int:
             if args.plan is None
             else _planned_requests(args, inputs)
         )
+        records = [
+            run_record_for([request.out], "lane-replay", request.table, request.inputs)
+            for request in requests
+        ]
         deployment = Deployment.from_env()
         routes = {
             request.lane.node_name: node_route(deployment, request.lane.node_name)
@@ -744,7 +739,16 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                     )
                 ]
             )
-            _report(args.framework, request, route, entry, batch, schema_error)
+            dumped = _report(args.framework, request, batch, schema_error)
+            if request.out is not None:
+                written = {
+                    "record": records[index],
+                    "call": {**route.record(), "answer": entry},
+                    **dumped,
+                }
+                request.out.write_text(
+                    json.dumps(written, indent=2) + "\n", encoding="utf-8"
+                )
     print(spent_line(spent))
     if stopped is not None:
         print(f"stopped: {stopped}", file=sys.stderr)
@@ -755,30 +759,21 @@ def command_lane_replay(args: argparse.Namespace) -> int:
 def _report(
     framework: FrameworkName,
     request: LaneRequest,
-    route: NodeRoute,
-    entry: Mapping[str, Any] | None,
     batch: BaseModel | None,
     schema_error: str | None,
-) -> None:
-    """Print one call's drafts and write its output file."""
+) -> dict[str, Any]:
+    """Print one call's drafts, and return what its output file holds of them."""
     print(f"{request.name}:")
     if batch is None:
         print(f"the answer was not read: {schema_error}")
-        dumped: dict[str, Any] = {"schema_error": schema_error}
-    else:
-        dumped = batch.model_dump(mode="json")
-        for claim in dumped["claims"]:
-            print(f"- {claim.get('title')} | {claim.get('affected_element_ids')}")
-    if request.out is not None:
-        written = {
-            "record": request.record,
-            "call": {**route.record(), "answer": entry},
-            **dumped,
-        }
-        request.out.write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")
-    if batch is not None and request.prepared is not None and framework == SCORED:
+        return {"schema_error": schema_error}
+    dumped = batch.model_dump(mode="json")
+    for claim in dumped["claims"]:
+        print(f"- {claim.get('title')} | {claim.get('affected_element_ids')}")
+    if request.prepared is not None and framework == SCORED:
         assert isinstance(batch, ProposalBatch)
         matched = lane_must_finds(
             request.case, request.prepared.state, request.lane.lane, batch
         )
         print(f"must-finds matched: {list(matched)}")
+    return dumped
