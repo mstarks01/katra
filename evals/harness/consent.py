@@ -137,13 +137,11 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
     The retried prompt is a second call at the same model's prompt rate, with no
     completion, which is what a failed attempt actually was.
 
-    A run that reports usage but names no served build made a call, so it is
-    priced at its requested route. A run with neither made no call, such as an
-    idle lane, and costs nothing.
+    A run is priced at the route of :func:`_called_route`.
     """
     calls = []
     for run in executions:
-        served = run.model or run.requested_model
+        served = _called_route(run)
         if run.usage is None or served is None:
             continue
         requested = run.requested_model or served
@@ -160,6 +158,17 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
     return calls
 
 
+def _called_route(run: NodeRun) -> str | None:
+    """The route a node run's call went out on, or ``None`` where it made none.
+
+    The served build, or the requested route where the run reports usage but
+    names no build. A run with neither, such as an idle lane, made no call.
+    """
+    if run.model is not None:
+        return run.model
+    return run.requested_model if run.usage is not None else None
+
+
 def spent(executions: Sequence[NodeRun]) -> float:
     """What the run has spent so far.
 
@@ -174,18 +183,20 @@ def spent(executions: Sequence[NodeRun]) -> float:
     """
     total = price_calls(_calls_of(executions)).total_usd
     for run in executions:
-        if run.model is None:
+        served = _called_route(run)
+        if served is None:
             continue
-        if _priced(run.model, run.requested_model or run.model):
+        requested = run.requested_model or served
+        if _priced(served, requested):
             if run.usage is None:
                 raise Refused(
-                    f"stopping: a call on {run.requested_model or run.model}"
-                    " reported no token usage, so the spend so far is not known"
+                    f"stopping: a call on {requested} reported no token usage,"
+                    " so the spend so far is not known"
                 )
             continue
         if run.reported_charge_usd is None:
             raise Refused(
-                f"stopping: a call on {run.requested_model or run.model} reported"
+                f"stopping: a call on {requested} reported"
                 " no charge, and the price map holds no rate for it, so the"
                 " spend so far is not known"
             )
@@ -763,7 +774,8 @@ def hold(
     Returns the amount now in force — the same one, or a freshly accepted
     larger one. Raises :class:`Refused` to stop the run, which the caller
     turns into a written artifact rather than a lost one. :func:`spent` raises
-    it too, where a call on a route with no price reported no charge.
+    it too, where a call on a route with no price reported no charge, or a
+    call on a priced route reported no token usage.
 
     **The re-prompt offers the whole sweep, never the sunk spend.** Accepting
     what is already spent would put the run over its own figure again on the

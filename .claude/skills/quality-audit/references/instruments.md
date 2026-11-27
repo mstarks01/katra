@@ -102,8 +102,8 @@ estimate is `charged`, and `--accept-cost <amount>` caps the run on the charge
 that OpenRouter reports after each call. Before each call it runs the sweep's
 hold, `consent.hold`. The hold stops when the spend so far plus the dearest call
 so far passes the accepted amount. The first call runs with no bound. A
-call on a route with no price that reports no charge stops the run, and so
-does a call on a priced route that reports no token usage. It keeps each answer as
+call on a route with no price that reports no charge stops the run, and a
+call that reports no usage counts at its estimate. It keeps each answer as
 it arrives. Its verdicts never enter the vote ledger. With
 `--dry-run` in place of `--accept-cost` it is free: it writes every request
 and prints the estimate and the batch sizes, and sends nothing.

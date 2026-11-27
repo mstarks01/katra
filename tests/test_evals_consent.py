@@ -1311,3 +1311,20 @@ class TestAReplayEstimate:
         )
 
         assert consent.spent([run]) > 0
+
+    def test_a_call_with_usage_and_no_served_build_on_a_charged_route_counts_its_charge(
+        self, priced
+    ):
+        """Both readers take the run as a call, so its missing charge stops the run."""
+        run = NodeRun(
+            node="judge",
+            requested_model=GATEWAY.route,
+            duration_ms=10,
+            usage=TokenUsage(prompt_tokens=0, completion_tokens=1000),
+        )
+
+        with pytest.raises(Refused, match="reported no charge"):
+            consent.spent([run])
+        assert consent.spent(
+            [run.model_copy(update={"reported_charge_usd": 0.25})]
+        ) == (pytest.approx(0.25))
