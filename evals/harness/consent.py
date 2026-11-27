@@ -139,15 +139,16 @@ def _calls_of(executions: Sequence[NodeRun]) -> list[tuple[str, str, TokenUsage]
     """
     calls = []
     for run in executions:
-        if run.usage is None or run.model is None:
+        served = run.model or run.requested_model
+        if run.usage is None or served is None:
             continue
-        requested = run.requested_model or run.model
-        calls.append((run.model, requested, run.usage))
+        requested = run.requested_model or served
+        calls.append((served, requested, run.usage))
         retried = retried_prompt_tokens(run)
         if retried:
             calls.append(
                 (
-                    run.model,
+                    served,
                     requested,
                     TokenUsage(prompt_tokens=retried, total_tokens=retried),
                 )
@@ -169,9 +170,10 @@ def spent(executions: Sequence[NodeRun]) -> float:
     """
     total = price_calls(_calls_of(executions)).total_usd
     for run in executions:
-        if run.model is None:
+        served = run.model or run.requested_model
+        if served is None:
             continue
-        if _priced(run.model, run.requested_model or run.model):
+        if _priced(served, run.requested_model or served):
             if run.usage is None:
                 raise Refused(
                     f"stopping: a call on {run.requested_model or run.model}"

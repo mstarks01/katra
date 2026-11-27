@@ -93,16 +93,14 @@ def node_call(
     ``reported_charge_usd`` is the charge in ``spent``, as
     :func:`~katra.execution.event_reported_charge` reads it for a graph run.
     """
-    binding = deployment.binding_of(graph_node)
+    route = node_route(deployment, graph_node)
     adapter = build_tier_adapters(
         deployment.tiers,
         deployment.sampling,
         deployment.resilience,
         env=deployment.env,
-    )[binding]
-    return adapter_call(
-        adapter, deployment.sampling.for_binding(binding), schema, spent, seen
-    )
+    )[route.binding]
+    return adapter_call(adapter, route.sampling, schema, spent, seen)
 
 
 def selection_call(

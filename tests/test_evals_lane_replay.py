@@ -596,7 +596,9 @@ def test_a_node_call_keeps_what_the_provider_returned(monkeypatch):
     )
     deployment = SimpleNamespace(
         binding_of=lambda node: "strong",
-        tiers=SimpleNamespace(bound_tiers=frozenset({"strong"})),
+        tiers=SimpleNamespace(
+            bound_tiers=frozenset({"strong"}), selection_for=lambda binding: None
+        ),
         resilience=None,
         env={},
         sampling=SimpleNamespace(
@@ -956,3 +958,24 @@ def test_a_plan_name_that_could_name_a_path_is_refused(name, tmp_path):
 
     with pytest.raises(EvalRunError, match="line 1"):
         lane_replay.read_plan(path)
+
+
+def test_a_plan_into_a_read_only_folder_is_refused_before_the_call(
+    case,  # noqa: F811
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    """A paid answer that cannot be written is lost (#886), so the plan checks
+    each output file before the gate."""
+    plan, out = _plan(tmp_path, case.id, ["spoofing"])
+    out.chmod(0o500)
+    monkeypatch.setattr(lane_replay, "node_call", _no_call)
+    stub_route(monkeypatch, lane_replay)
+    args = replay_args(case=None, lane=None, plan=plan, out=out, accept_cost="5")
+
+    try:
+        assert lane_replay.command_lane_replay(args) == 1
+    finally:
+        out.chmod(0o700)
+    assert "read-only" in capsys.readouterr().err

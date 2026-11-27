@@ -35,7 +35,8 @@ call, and `run.py recritic-replay` sends one critic re-ask over one injected
 fault of a named shape. `run.py lane-replay --fresh-leads` rebuilds a lane's
 leads with the current rules through the function the prepare node calls. A replay costs one
 model call, about $0.03 to $0.06 on the strong tier, and `KATRA_OFFLINE`
-refuses it.
+refuses it. `run.py lane-replay --plan` sends one call for each line of a plan
+file, under one cap that the hold enforces before each call.
 
 **The ledger.** `evals/experiments/` holds one JSONL file per audit. Read it
 before a new experiment: `python -m evals.harness.run experiments --signature

@@ -5,7 +5,8 @@ drafted nothing there. Whether the lane read its lead badly or the lead arrived
 badly is a question about one lane's request, and a sweep answers it at the
 price of every case and every node. This asks it at the price of one call: it
 rebuilds the request the lane made from ``<case>.lanes.json`` and sends that
-request again, or a changed one.
+request again, or a changed one. ``--plan`` sends many such calls under one
+cap, and :func:`~evals.harness.consent.hold` runs before each call.
 
 **The graph's readers, never a second copy.** The instruction is
 :func:`~katra.graph.analyze_instruction`, and
@@ -468,7 +469,7 @@ def arguments(parser: argparse.ArgumentParser) -> None:
         "--accept-cost",
         required=True,
         help="required: the dollars you accept as a cap on the calls, or"
-        " 'unknown' to run with no cap on a route the hold cannot measure",
+        " 'unknown' to run with no cap",
     )
     parser.add_argument(
         "--plan",
@@ -622,6 +623,7 @@ def _planned_requests(
         out = args.out / f"{name}.json"
         if out.exists():
             raise EvalRunError(f"{out}: an earlier run wrote it")
+        check_out(out)
         table = {
             "case": call.case,
             "lane": call.lane,
@@ -676,14 +678,14 @@ def command_lane_replay(args: argparse.Namespace) -> int:
         cost = consent.replay_estimate(
             [route.selection for route in routes.values()], deployment.tiers
         )
+        appended = args.append.read_text(encoding="utf-8") if args.append else None
         accepted = consent.gate(cost, args.accept_cost, None)
-    except (CorpusError, EvalRunError, ProvenanceError) as error:
+    except (CorpusError, EvalRunError, ProvenanceError, OSError) as error:
         print(error, file=sys.stderr)
         return 1
     except consent.Refused as refusal:
         print(refusal, file=sys.stderr)
         return 1
-    appended = args.append.read_text(encoding="utf-8") if args.append else None
     schema = schemas_for(args.framework).proposals
     spent: list[float | None] = []
     steps: list[list[NodeRun]] = []

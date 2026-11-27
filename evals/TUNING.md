@@ -60,7 +60,7 @@ prints what the sweep is expected to cost and waits for you to accept it.
 There is **no ceiling**. You may accept any amount — it is your money, and
 the gate exists so you know what you are accepting, not to cap it.
 
-Every amount carries one of four labels, and the label says how good the
+Every amount carries one of five labels, and the label says how good the
 number is:
 
 | Label | What it means |
@@ -69,6 +69,7 @@ number is:
 | `estimated` | Another Baseline's token counts, repriced for your models. A best guess. |
 | `unpriced` | No number exists — a tier's model is absent from the price map, its vendor is a gateway with no one rate per model, or no merged Baseline exists to calibrate from. Never a zero. |
 | `charged` | No number exists before the calls, as for `unpriced`, but each route with no price reports the whole charge of each call after it. A number you accept caps the run. |
+| `capped` | A replay on a priced route. No number exists before the calls, because the length of each answer is not known, but the hold prices each call from the token usage it reports. A number you accept caps the run. |
 
 A sweep on a gateway route has no number before the run and is not silent
 after it. Such a provider states what it charged, the run records that figure
