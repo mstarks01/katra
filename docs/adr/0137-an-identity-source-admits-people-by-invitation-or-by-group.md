@@ -24,9 +24,10 @@ Deployment Setting.
 **By default the role lives in the account record. A source can map groups to
 roles instead.** The mapping names a claim and maps each group value to a role.
 A source with a mapping is always open, sets the role at each login, and
-refuses a token that holds no group claim or no mapped group. An account whose
-role a mapping sets logs in only through that source, so a person whom the
-directory removes has no other way in.
+refuses a token that holds no group claim or no mapped group. The mapping
+applies only to a person's login, and a **Machine Account** keeps the `member`
+role (ADR 0146). An account whose role a mapping sets logs in only through that
+source, so a person whom the directory removes has no other way in.
 
 **An invitation is a single-use code with a role.** The service shows the link
 once and stores a digest of the code. The administrator sends the link. The
