@@ -71,9 +71,10 @@ back. The record stores the name as a plain string, so a name that the code no
 longer spells still loads. A container reads the records and writes none at
 startup.
 
-**Two permissions guard the records.** `frameworks.restrict` changes a
-restriction and its audience, and `teams.change` changes a Team and its
-members. Both have the `install` scope. Each change writes an **Audit Record**
+**Four permissions guard the records.** `framework_restrictions.read` and
+`framework_restrictions.change` read and change a restriction and its
+audience. `teams.read` and `teams.change` read and change a Team and its
+members. All four have the `install` scope (ADR 0149). Each change writes an **Audit Record**
 (ADR 0145).
 
 ## Considered options
