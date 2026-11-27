@@ -342,8 +342,9 @@ def arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--accept-cost",
         required=True,
-        help="required: the dollars you accept as a cap on the call, or"
-        " 'unknown' to run with no cap on a route the hold cannot measure",
+        help="required: the dollars you accept for the call, or 'unknown' on a"
+        " route the hold cannot measure. The one call runs with no bound, as"
+        " the first call of every held run does",
     )
     parser.add_argument(
         "--out",

@@ -26,7 +26,7 @@ from katra.claims import ReturnedClaim
 from katra.graph import STATE_ASSERTION_CATALOG
 from katra.markdown_loader import MarkdownLoader
 from tests import test_evals_run_grounds as grounds
-from tests.eval_factories import stub_route, write_emission_sweep
+from tests.eval_factories import PRICED_ROUTE, stub_route, write_emission_sweep
 from tests.test_evals_lane_replay import (  # noqa: F401  (fixture)
     finished,
     record_requests,
@@ -182,6 +182,8 @@ def test_the_replayed_rulings_are_written_completed(
 
     held = json.loads(written.read_text(encoding="utf-8"))
     assert held["record"]["command"] == "critic-replay"
+    assert held["call"]["route"] == PRICED_ROUTE.selection.route
+    assert held["call"]["sampling"] == PRICED_ROUTE.sampling.model_dump(mode="json")
     assert [one["path"] for one in held["record"]["inputs"]] == sorted(
         str(path)
         for path in (

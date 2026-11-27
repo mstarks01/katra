@@ -50,7 +50,7 @@ from types import SimpleNamespace
 from typing import Any, Literal, get_args
 
 from google.genai import types
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from evals.harness import consent
 from evals.harness.artifact import (
@@ -71,7 +71,6 @@ from evals.harness.node_call import (
     node_route,
     spent_line,
 )
-from evals.harness.prices import unit_prices
 from evals.harness.provenance import REPO_ROOT
 from evals.harness.reference import (
     DEFAULT_CORPUS,
@@ -400,13 +399,19 @@ async def replay(
     return parse(await call(instruction, turn), framework)
 
 
+#: The shape of a case or lane name in a ``--plan`` line.
+PLAN_NAME = r"^[0-9a-z]+(-[0-9a-z]+)*$"
+
+
 class PlannedCall(BaseModel):
     """One line of a ``--plan`` file: one lane call on today's ``prepare``."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    case: str
-    lane: str
+    #: A case folder name and a lane name: lowercase words joined by hyphens,
+    #: so neither can name a path outside the corpus or the --out folder.
+    case: str = Field(pattern=PLAN_NAME)
+    lane: str = Field(pattern=PLAN_NAME)
     prepare_today: CatalogArm
 
 
@@ -416,6 +421,8 @@ def read_plan(path: Path) -> list[PlannedCall]:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
         raise EvalRunError(f"{path}: {error.strerror}") from error
+    except UnicodeDecodeError as error:
+        raise EvalRunError(f"{path} is not UTF-8 text") from error
     planned = []
     for number, line in enumerate(lines, start=1):
         if not line.strip():
@@ -645,20 +652,6 @@ def _planned_requests(
     return requests
 
 
-def _unmeasured(steps: list[list[NodeRun]]) -> str | None:
-    """Why the spend so far is not known, or ``None``: a call on a priced
-    route that reported no token usage, which the hold would count at nothing."""
-    for step in steps:
-        for run in step:
-            priced = run.model is not None and unit_prices(run.model) is not None
-            if priced and run.usage is None:
-                return (
-                    f"a call on {run.model} reported no token usage, so the"
-                    " spend so far is not known"
-                )
-    return None
-
-
 def command_lane_replay(args: argparse.Namespace) -> int:
     """Send lane requests again under one cap, and print what each lane proposed."""
     package_loader = MarkdownLoader(REPO_ROOT / "frameworks" / args.framework)
@@ -695,17 +688,16 @@ def command_lane_replay(args: argparse.Namespace) -> int:
     spent: list[float | None] = []
     steps: list[list[NodeRun]] = []
     stopped: str | None = None
+    unread = 0
     with asyncio.Runner() as runner:
         for index, request in enumerate(requests):
             remaining = [later.name for later in requests[index:]]
             try:
-                if (unknown := _unmeasured(steps)) is not None:
-                    raise consent.Refused(f"stopping: {unknown}")
                 accepted = consent.hold(
                     accepted, steps, remaining, None, ran=index, unit="call"
                 )
             except consent.Refused as refusal:
-                stopped = f"stopped before {request.name}: {refusal}"
+                stopped = f"before {request.name}: {refusal}"
                 break
             route = routes[request.lane.node_name]
             seen: list[dict[str, Any]] = []
@@ -739,7 +731,11 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                     )
                 ]
             )
-            dumped = _report(args.framework, request, batch, schema_error)
+            dumped = (
+                {"schema_error": schema_error}
+                if batch is None
+                else batch.model_dump(mode="json")
+            )
             if request.out is not None:
                 written = {
                     "record": records[index],
@@ -749,11 +745,20 @@ def command_lane_replay(args: argparse.Namespace) -> int:
                 request.out.write_text(
                     json.dumps(written, indent=2) + "\n", encoding="utf-8"
                 )
+            unread += batch is None
+            try:
+                _report(args.framework, request, batch, schema_error)
+            except Exception as error:  # noqa: BLE001 - the answer is on disk
+                stopped = (
+                    f"{request.name} scoring failed: {type(error).__name__}: {error}"
+                )
+                break
     print(spent_line(spent))
     if stopped is not None:
-        print(f"stopped: {stopped}", file=sys.stderr)
-        return 1
-    return 0
+        print(f"stopped {stopped}", file=sys.stderr)
+    if unread:
+        print(f"{unread} answer(s) were not read under the schema", file=sys.stderr)
+    return 1 if stopped is not None or unread else 0
 
 
 def _report(
@@ -761,14 +766,13 @@ def _report(
     request: LaneRequest,
     batch: BaseModel | None,
     schema_error: str | None,
-) -> dict[str, Any]:
-    """Print one call's drafts, and return what its output file holds of them."""
+) -> None:
+    """Print one call's drafts, and the must-finds they match."""
     print(f"{request.name}:")
     if batch is None:
         print(f"the answer was not read: {schema_error}")
-        return {"schema_error": schema_error}
-    dumped = batch.model_dump(mode="json")
-    for claim in dumped["claims"]:
+        return
+    for claim in batch.model_dump(mode="json")["claims"]:
         print(f"- {claim.get('title')} | {claim.get('affected_element_ids')}")
     if request.prepared is not None and framework == SCORED:
         assert isinstance(batch, ProposalBatch)
@@ -776,4 +780,3 @@ def _report(
             request.case, request.prepared.state, request.lane.lane, batch
         )
         print(f"must-finds matched: {list(matched)}")
-    return dumped

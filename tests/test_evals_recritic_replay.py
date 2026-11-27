@@ -35,7 +35,7 @@ from katra.frameworks import PACKAGES
 from katra.markdown_loader import MarkdownLoader
 from katra.system_model import attribute_names
 from tests import test_evals_run_grounds as grounds
-from tests.eval_factories import stub_route
+from tests.eval_factories import PRICED_ROUTE, stub_route
 from tests.factories import asvs_draft, valid_model
 from tests.test_critic_review_replay import EVERY_LANE
 from tests.test_evals_critic_replay import failed
@@ -434,6 +434,8 @@ def test_the_command_writes_the_repair_after_its_record(
 
     held = json.loads(written.read_text(encoding="utf-8"))
     assert held["record"]["command"] == "recritic-replay"
+    assert held["call"]["route"] == PRICED_ROUTE.selection.route
+    assert held["call"]["sampling"] == PRICED_ROUTE.sampling.model_dump(mode="json")
     assert [one["path"] for one in held["record"]["inputs"]] == sorted(
         str(path)
         for path in (

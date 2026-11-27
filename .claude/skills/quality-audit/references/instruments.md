@@ -67,6 +67,15 @@ catalog, and it prints the must-finds the lane's drafts match. Add
 blessed model: the file passes the live validity gate, and it holds the blessed model's
 element IDs.
 
+Each replay reads `--accept-cost` through the consent gate: pass the dollars
+you accept, or `unknown` on a route the hold cannot measure. On a priced route,
+or on a route that reports its charge, the amount caps the run. A one-call
+replay runs its call with no bound. To send many lane calls under one cap, use
+`lane-replay --framework <package> --plan <file> --out <folder> --accept-cost <usd>`:
+each line of the file is a JSON object with `case`, `lane` and `prepare_today`.
+The hold runs before each call and stops before a call that can pass the cap.
+Each output file records the call's binding, route, sampling and token usage.
+
 `python -m evals.harness.run recritic-replay <artifact> --case <case> --framework <package> --faults <file> --draft <id> --fault <shape> --accept-cost unknown`
 costs one re-ask call. It reads the case's critic first pass from its report,
 applies the one Control the fault set holds, answers each row it shows with the

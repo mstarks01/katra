@@ -79,7 +79,6 @@ from katra.report import (
     TokenUsage,
 )
 
-#: The labels that state no amount.
 #: The labels that state no amount, and on which a typed amount caps the run.
 CapLabel = Literal["charged", "capped"]
 CAP_LABELS: tuple[CapLabel, ...] = get_args(CapLabel)
@@ -165,10 +164,19 @@ def spent(executions: Sequence[NodeRun]) -> float:
     answering call's charge, which over-counts as
     :func:`~katra.budgets.retried_prompt_tokens` does. Such a run that
     reports no charge raises :class:`Refused`, because its spend is not known.
+    So does a node run on a priced route that reports no token usage, which
+    the price map would count at nothing.
     """
     total = price_calls(_calls_of(executions)).total_usd
     for run in executions:
-        if run.model is None or _priced(run.model, run.requested_model or run.model):
+        if run.model is None:
+            continue
+        if _priced(run.model, run.requested_model or run.model):
+            if run.usage is None:
+                raise Refused(
+                    f"stopping: a call on {run.requested_model or run.model}"
+                    " reported no token usage, so the spend so far is not known"
+                )
             continue
         if run.reported_charge_usd is None:
             raise Refused(

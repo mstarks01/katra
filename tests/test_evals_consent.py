@@ -1277,3 +1277,14 @@ class TestAReplayEstimate:
         with pytest.raises(Refused, match="answers nothing"):
             gate(estimate, "1.50", ask=None)
         assert gate(estimate, UNKNOWN, ask=None) is None
+
+    def test_a_priced_call_with_no_usage_stops_the_run(self, priced):
+        run = NodeRun(
+            node="critic",
+            model="openai/gpt-5.6",
+            requested_model="openai/gpt-5.6",
+            duration_ms=10,
+        )
+
+        with pytest.raises(Refused, match="reported no token usage"):
+            consent.spent([run])

@@ -60,11 +60,15 @@ PRICED_ROUTE = NodeRoute(
 
 
 def stub_route(
-    monkeypatch: Any, module: ModuleType, route: NodeRoute = PRICED_ROUTE
+    monkeypatch: Any,
+    module: ModuleType,
+    route: NodeRoute = PRICED_ROUTE,
+    tiers: Any = None,
 ) -> None:
-    """Give a replay command in ``module`` ``route`` for every node, and no provider."""
+    """Give a replay command in ``module`` ``route`` for every node, and no
+    provider. ``tiers`` is what the consent gate reads of the tier config."""
     monkeypatch.setattr(
-        module.Deployment, "from_env", lambda: SimpleNamespace(tiers=None)
+        module.Deployment, "from_env", lambda: SimpleNamespace(tiers=tiers)
     )
     monkeypatch.setattr(module, "node_route", lambda deployment, node: route)
 
