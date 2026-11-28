@@ -1,4 +1,4 @@
-# 151. An Access Key and an API Key are random values that the service stores as digests
+# 151. A Login Key and an API Key are random values that the service stores as digests
 
 - **Status**: accepted
 - **Date**: 2026-11-28
@@ -16,7 +16,7 @@
 
 ## Context
 
-Katra makes two secrets of its own. An **Access Key** logs a person in to the
+Katra makes two secrets of its own. A **Login Key** logs a person in to the
 web app with no external identity provider, and an **API Key** lets a
 **Machine Account** call `/v1` (ADR 0146). In both cases the service is the
 provider: no other system checks the person, sets a policy or gives a second
@@ -26,19 +26,19 @@ is not a provider identity, so that rule needs a reading for keys.
 ## Decision
 
 **One format and one digest serve both kinds of key.** A prefix names the
-kind: `katra_ak_` for an Access Key and `katra_api_` for an API Key. The body
+kind: `katra_lk_` for a Login Key and `katra_api_` for an API Key. The body
 is 256 bits from the operating system's secure random source, as 52 lowercase
 base32 characters. The service stores the SHA-256 of the full key under a
 unique index, and the last 4 characters as a hint, such as `katra_api_…x7qd`.
 One table holds both kinds with a `kind` column, one function issues a key and
 one function resolves a presented key. `/v1` reads an API Key from
 `Authorization: Bearer` and tells it from a JWT by the prefix. The login form
-refuses a `katra_api_` key and `/v1` refuses a `katra_ak_` key, each with a
+refuses a `katra_api_` key and `/v1` refuses a `katra_lk_` key, each with a
 message that names the correct place. An unknown key and a revoked key get the
 same refusal. A key goes only in a `POST` body or that header, never in a URL,
 a cookie or a log line.
 
-**The Access Key source gives an account one Principal, which holds one key at
+**The Login Key source gives an account one Principal, which holds one key at
 a time.** A replacement makes a new key and revokes the old key in one
 transaction. It is a change of credential, so it keeps no **Removal Mark**. It
 ends each session that the old key started, except the session that makes the
@@ -55,7 +55,7 @@ Code** (ADR 0144), and the service shows the new key to the person only.
 the setup of ADR 0138. The old account keeps its work and comes back through a
 Link Code. The Account page marks an account that a recovery made.
 
-**A self-service link to the Access Key source needs a recent login through
+**A self-service link to the Login Key source needs a recent login through
 the session's own Principal.** The service makes the key and shows it once, so
 no second identity exists to prove. A change window to this source asks for a
 key at each login through the old source, and the Link Code file of ADR 0144
@@ -65,10 +65,10 @@ covers a person who cannot log in.
 Two keys let a rotation run with no downtime. The administrator chooses 30,
 90 or 365 days at the create, and 90 is the default. The administration page
 shows each key that expires in the next 14 days, and `/v1` refuses an expired
-key with the reason `key-expired`. An Access Key has no expiry, because ASVS
+key with the reason `key-expired`. A Login Key has no expiry, because ASVS
 6.2.10 rejects a forced periodic change of a person's secret.
 
-**The Access Key source does not meet ASVS 6.3.3, and the build spec documents
+**The Login Key source does not meet ASVS 6.3.3, and the build spec documents
 the deviation.** A key is one factor, and Katra is the provider, so no other
 system adds a second factor. The source is off until an administrator turns it
 on, and the Settings page states the limit on the source. Its MFA rule, when it
@@ -97,12 +97,15 @@ digest alone and ignores the name.
 
 ## Considered options
 
+- **The name "Access Key".** Rejected: AWS, S3 and Cloudflare R2 use
+  "access key" for a credential pair that a program sends to an API, and the
+  Settings page already holds `KATRA_OBJECT_ACCESS_KEY_ID_FILE`.
 - **A slow hash, such as Argon2.** Rejected: it protects a secret with little
   entropy. Nobody can guess a 256-bit random key offline, and a slow hash
   costs CPU on each `/v1` request.
 - **A checksum in the key.** Rejected: a mistyped key already fails the
   lookup, and a checksum is one more format rule for two readers.
-- **Many Access Keys for each Principal, such as one for each device.**
+- **Many Login Keys for each Principal, such as one for each device.**
   Rejected: more secrets can leak, and the Sessions page already ends the
   session of a lost device.
 - **Each key as its own Principal.** Rejected: a replacement then keeps a
@@ -116,7 +119,7 @@ digest alone and ignores the name.
 - **A passkey after the key, or a passkey in place of the key.** Rejected:
   each adds an authentication protocol to Katra's own code, and no
   conformance suite tests it.
-- **An open Access Key source.** Rejected: it gives an account to each person
+- **An open Login Key source.** Rejected: it gives an account to each person
   or program that reaches the login page.
 - **An API Key with no expiry.** Rejected: many people and tools read a CI
   secret, and an expiry limits how long a leaked key works.
@@ -129,7 +132,7 @@ digest alone and ignores the name.
 
 ## Consequences
 
-An install that turns the Access Key source on does not meet ASVS level 2 for
+An install that turns the Login Key source on does not meet ASVS level 2 for
 the accounts that use it, and a stolen key works until somebody revokes it. An
 install that needs level 2 uses an OIDC source with MFA. An expired API Key
 stops a CI pipeline, and Katra sends no email (ADR 0137), so only an

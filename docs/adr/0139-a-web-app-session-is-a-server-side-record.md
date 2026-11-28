@@ -62,7 +62,7 @@ administrator can end the sessions of one account, or of the whole install.
 
 **Some actions need a login in the last 15 minutes.** These are a change to an
 identity source (with its group mapping and MFA rule), a Principal link or
-unlink, an Access Key replacement or revocation, and the "End" buttons of the
+unlink, a Login Key replacement or revocation, and the "End" buttons of the
 Sessions page. A refused write gets `401` with the reason `reauth-required`.
 Katra then sends the person through the provider with `prompt=login`. A page
 with such a write asks for the login when it opens if less than 5 minutes

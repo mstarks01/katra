@@ -18,7 +18,7 @@ now admits people through the **Identity Source** records, with Invitations, gro
 mappings and a guard that keeps an administrator who can log in. A web session
 has an idle end, a recent-login check and an optional MFA rule. A bearer token
 has none of these, and it often sits in a script or a CI secret. An install
-with only the **Access Key** source has no OIDC provider that can issue a token.
+with only the **Login Key** source has no OIDC provider that can issue a token.
 The maintainer wants only an administrator to set up the work that a program
 starts.
 
@@ -73,7 +73,7 @@ Principal stores the time of its last use.
 - **An administrator types a client's `sub`.** Rejected for the reason in ADR
   0144: a `sub` is often an opaque value, and one wrong value binds the wrong
   client.
-- **The Access Key also works on `/v1`.** Rejected: a leak from a CI secret then
+- **The Login Key also works on `/v1`.** Rejected: a leak from a CI secret then
   gives a web login with the Account's full role.
 - **An audit row for each accepted request.** Rejected: a program can poll a
   job every few seconds, and the log line already records each authentication.

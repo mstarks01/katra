@@ -60,7 +60,7 @@ ID, a copy of the account's name and email, the client address and the request
 ID. A refused login with no account holds the issuer and `sub`. A settings
 change holds the old and new value of each key that holds no secret, and only
 `set`, `replaced` or `removed` for a secret key. No row holds a token, a cookie
-value, a code, an Access Key or a secret value.
+value, a code, a Login Key or a secret value.
 
 **The table holds the events that an administrator acts on.** A refusal writes
 a row once the service knows the caller or the identity. A login path writes one
