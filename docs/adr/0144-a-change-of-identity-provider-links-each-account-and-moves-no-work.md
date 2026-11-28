@@ -7,7 +7,8 @@
 - **Relates to**: [ADR 0137](0137-an-identity-source-admits-people-by-invitation-or-by-group.md),
   [ADR 0140](0140-authlib-runs-the-protocol-steps-and-katra-checks-the-tokens.md),
   [ADR 0141](0141-the-public-origin-decides-the-network-posture.md),
-  [ADR 0143](0143-an-accounts-work-outlives-each-administrative-change.md)
+  [ADR 0143](0143-an-accounts-work-outlives-each-administrative-change.md),
+  [ADR 0151](0151-a-login-key-and-an-api-key-are-random-values-that-the-service-stores-as-digests.md)
 
 ## Context
 
@@ -36,9 +37,10 @@ audit record and gives a notice to the person.
 administrator allows the new source beside the old one and marks it as the
 replacement of the old source. At each login through the old source, the
 service asks the person to link an identity from the replacement, and the
-person can skip that step until the old source goes. An administrator page
-lists each account with no Principal on the replacement, and one action makes
-a Link Code for each of them. The service gives these codes to the
+person can skip that step until the old source goes. A window between the
+**Login Key** source and an OIDC source has an end date (ADR 0151). An
+administrator page lists each account with no Principal on the replacement,
+and one action makes a Link Code for each of them. The service gives these codes to the
 administrator once, as a file of account names and links.
 
 **The old source stays the only authority for a mapped role until its

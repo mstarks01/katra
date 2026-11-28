@@ -54,8 +54,7 @@ login through it before any redirect. The source page says that the secret
 cannot be read and asks for it again, and a new save encrypts under the current
 key. Each such source gets one error line and one audit record at the start,
 and a failed GCM check gets its own event, because it shows a changed row. When
-no administrator can log in, the **Login Key** source or `KATRA_RECOVERY=1`
-(ADR 0138) is the way back.
+no administrator can log in, `KATRA_RECOVERY=1` (ADR 0138) is the way back.
 
 **The secret is write only.** The source page shows "set" and the date of the
 last change, and never the value. An empty field on an edit keeps the stored

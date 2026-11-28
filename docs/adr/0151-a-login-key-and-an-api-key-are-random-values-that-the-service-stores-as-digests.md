@@ -55,11 +55,23 @@ Code** (ADR 0144), and the service shows the new key to the person only.
 the setup of ADR 0138. The old account keeps its work and comes back through a
 Link Code. The Account page marks an account that a recovery made.
 
-**A self-service link to the Login Key source needs a recent login through
-the session's own Principal.** The service makes the key and shows it once, so
-no second identity exists to prove. A change window to this source asks for a
-key at each login through the old source, and the Link Code file of ADR 0144
-covers a person who cannot log in.
+**The Login Key source and an OIDC source are on at the same time only
+during a change window from one to the other.** Otherwise the service refuses
+to turn on the Login Key source beside an OIDC source, and refuses to add an
+OIDC source while the Login Key source is on. A key login does not go through
+the provider, so a person whom the provider disables could still log in with a
+key. The administrator sets an end date when such a window opens, at most 30
+days later. At the end date the old source turns off by itself, after the guard
+of ADR 0143 checks it. During the window, the Settings page states that a key
+login does not go through the provider. The rule covers the sources that log a
+person in; an install with the Login Key source serves a program through an
+API Key (ADR 0146).
+
+**During a change window to the Login Key source, a link needs a recent login
+through the session's own Principal.** The service makes the key and shows it
+once, so no second identity exists to prove. The service asks for a key at each
+login through the old source, and the Link Code file of ADR 0144 covers a
+person who cannot log in.
 
 **Each Machine Account holds at most 2 API Keys, and each API Key expires.**
 Two keys let a rotation run with no downtime. The administrator chooses 30,
@@ -129,6 +141,11 @@ digest alone and ignores the name.
   database write.
 - **A check that the person saved the new key.** Rejected: a lost key costs
   one Link Code and loses no work.
+- **The Login Key source beside an OIDC source at any time.** Rejected: a
+  person whom the provider disables keeps a working key.
+- **Never both, and a move only through Link Codes.** Rejected: it needs a
+  Link Code for each person and a new trial flow for the administrator's own
+  account, which the change window of ADR 0144 avoids.
 
 ## Consequences
 
@@ -138,4 +155,5 @@ install that needs level 2 uses an OIDC source with MFA. An expired API Key
 stops a CI pipeline, and Katra sends no email (ADR 0137), so only an
 administrator who opens the page sees the warning before the expiry. A restart
 clears the rate limit table. When more than one container serves one origin,
-each container keeps its own table.
+each container keeps its own table. On an install with an OIDC source,
+`KATRA_RECOVERY=1` is the only way back when no administrator can log in.
